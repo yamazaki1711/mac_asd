@@ -25,6 +25,11 @@ from mcp_servers.asd_core.tools.legal_tools import (
     fz_lookup,
     rag_query,
 )
+from mcp_servers.asd_core.tools.artifact_tools import (
+    artifact_list,
+    artifact_write,
+    artifact_version,
+)
 
 # ---------------------------------------------------------------------------
 # Server
@@ -36,21 +41,27 @@ mcp = FastMCP(
 )
 
 # ---------------------------------------------------------------------------
-# Register tools
+# Register tools — grouped by agent role (access controlled via agent prompts)
 # ---------------------------------------------------------------------------
-# Vision
-mcp.add_tool(vision_analyze)
-mcp.add_tool(vision_tile)
 
-# Smeta
-mcp.add_tool(smeta_query)
-mcp.add_tool(smeta_rate_lookup)
-mcp.add_tool(index_lookup)
+# Группа «Vision/ПТО»
+mcp.add_tool(vision_analyze, tags={"vision", "pto"})
+mcp.add_tool(vision_tile,     tags={"vision", "pto"})
 
-# Legal
-mcp.add_tool(legal_search)
-mcp.add_tool(fz_lookup)
-mcp.add_tool(rag_query)
+# Группа «Сметчик»
+mcp.add_tool(smeta_query,        tags={"smeta"})
+mcp.add_tool(smeta_rate_lookup,  tags={"smeta"})
+mcp.add_tool(index_lookup,       tags={"smeta"})
+
+# Группа «Юрист»
+mcp.add_tool(legal_search, tags={"legal"})
+mcp.add_tool(fz_lookup,    tags={"legal"})
+mcp.add_tool(rag_query,    tags={"legal", "rag"})
+
+# Группа «Делопроизводитель / Архивариус»
+mcp.add_tool(artifact_list,    tags={"artifact", "archive"})
+mcp.add_tool(artifact_write,   tags={"artifact", "archive"})
+mcp.add_tool(artifact_version, tags={"artifact", "archive"})
 
 # ---------------------------------------------------------------------------
 # Entry point

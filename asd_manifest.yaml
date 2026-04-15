@@ -17,7 +17,7 @@ models:
     engine: mlx
     model_id: mlx-community/Meta-Llama-3.3-70B-Instruct-4bit
     precision: 4bit
-    max_memory_gb: 48
+    max_memory_gb: 38
     context_tokens: 131072
 
   # ПТО — Vision + текст, MLX-native
@@ -25,7 +25,7 @@ models:
     engine: mlx
     model_id: mlx-community/gemma-4-31b-it-4bit
     precision: 4bit
-    max_memory_gb: 24
+    max_memory_gb: 18
     context_tokens: 32768
     vision: true
 
@@ -49,6 +49,13 @@ models:
     model_id: qwen3:32b
     max_memory_gb: 20
     context_tokens: 16384
+
+  # Делопроизводитель — лёгкая модель, задачи регистрации/архивации
+  archive:
+    engine: ollama
+    model_id: llama3.1:8b
+    max_memory_gb: 5
+    context_tokens: 8192
 
 # ---------------------------------------------------------------------------
 # 2. Инфраструктура
@@ -81,41 +88,112 @@ infrastructure:
 # 3. Память — оценка использования (Mac Studio M4 Max 128GB)
 # ---------------------------------------------------------------------------
 memory_budget:
-  # При одновременной работе Hermes + ПТО:
-  #   Llama 3.3 70B 4bit ≈ 38 GB
-  #   Gemma 4 31B 4bit   ≈ 18 GB
-  #   Neo4j              ≈  8 GB (pagecache + heap)
-  #   Redis              ≈  2 GB
-  #   Система + OS       ≈  8 GB
-  #   ─────────────────────────────
-  #   Итого ≈ 74 GB / 128 GB  (остаток ≈ 54 GB — запас)
-  total_model_gb: 56
+  # Полный стек (все 6 агентов одновременно):
+  #   Llama 3.3 70B 4bit  ≈ 38 GB  (MLX)
+  #   Gemma 4 31B 4bit    ≈ 18 GB  (MLX)
+  #   Qwen 3.5 32B        ≈ 20 GB  (Ollama, x2 = smeta + procurement)
+  #   DeepSeek v3         ≈ 20 GB  (Ollama)
+  #   Llama 3.1 8B        ≈  5 GB  (Ollama)
+  #   Neo4j               ≈  8 GB  (pagecache + heap)
+  #   Redis               ≈  2 GB
+  #   Система + OS        ≈  8 GB
+  #   ──────────────────────────────────
+  #   Итого ≈ 119 GB / 128 GB  (остаток ≈ 9 GB)
+  #
+  # Оптимизация: Закупщик и Сметчик используют одну модель Qwen 3.5,
+  # поэтому Ollama держит её в памяти один раз.
+  # Реальный расход: ~99 GB (запас ~29 GB)
+  total_model_gb: 81
   total_infra_gb: 10
   os_reserve_gb: 8
   available_gb: 128
-  headroom_gb: 54
+  headroom_gb: 29  # после дедупликации Qwen 3.5
 
 # ---------------------------------------------------------------------------
 # 4. Pipeline по умолчанию
 # ---------------------------------------------------------------------------
 default_pipeline:
   - step: 1
+    agent: archive
+    action: register_document
+    input: incoming_file
+    output: doc_id
+  - step: 2
     agent: pto
     action: vision_cascade
     input: drawing_image
     output: vor_json
-  - step: 2
+  - step: 3
+    agent: archive
+    action: register_artifact
+    input: vor_json
+    output: vor_registered
+  - step: 4
     agent: smeta
     action: build_estimate
     input: vor_json
     output: estimate_json
-  - step: 3
+  - step: 5
+    agent: archive
+    action: register_artifact
+    input: estimate_json
+    output: estimate_registered
+  - step: 6
     agent: legal
     action: review_contract
     input: estimate_json
     output: legal_opinion
-  - step: 4
+  - step: 7
+    agent: archive
+    action: register_artifact
+    input: legal_opinion
+    output: legal_registered
+  - step: 8
     agent: procurement
     action: form_lots
     input: legal_opinion
     output: procurement_lots
+  - step: 9
+    agent: archive
+    action: archive_package
+    input: procurement_lots
+    output: package_archived
+
+# ---------------------------------------------------------------------------
+# 5. Группы инструментов MCP (тегирование)
+# ---------------------------------------------------------------------------
+tool_groups:
+  vision:
+    description: "Анализ чертежей, Vision Cascade"
+    tools: ["vision_analyze", "vision_tile"]
+    agents: ["pto"]
+
+  smeta:
+    description: "Расценки, индексы, сметы"
+    tools: ["smeta_query", "smeta_rate_lookup", "index_lookup"]
+    agents: ["smeta", "procurement"]
+
+  legal:
+    description: "Поиск по ФЗ, юридическая база"
+    tools: ["legal_search", "fz_lookup"]
+    agents: ["legal"]
+
+  rag:
+    description: "Векторный поиск по базам знаний"
+    tools: ["rag_query"]
+    agents: ["legal"]
+
+  graph:
+    description: "Запись/чтение Neo4j"
+    tools: ["graph_query", "graph_write"]
+    agents: ["pm", "pto", "smeta", "legal", "procurement", "archive"]
+
+  artifact:
+    description: "Управление файлами и версиями"
+    tools: ["artifact_list", "artifact_write", "artifact_version"]
+    agents: ["pm", "archive"]
+
+  task:
+    description: "Диспетчеризация задач"
+    tools: ["task_dispatch", "notify"]
+    agents: ["pm"]

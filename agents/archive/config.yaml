@@ -1,0 +1,32 @@
+agent:
+  name: "archive"
+  role: "records_manager"
+  display_name: "Делопроизводитель"
+
+model:
+  engine: "ollama"
+  model_id: "llama3.1:8b"
+  max_tokens: 2048
+  temperature: 0.1
+  top_p: 0.8
+  context_window: 8192
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "artifact_list"
+    - "artifact_write"
+    - "artifact_version"
+    - "graph_query"
+    - "graph_write"
+    - "notify"
+
+archive:
+  base_path: "./data/artifacts"
+  max_versions: 10
+  temp_ttl_days: 7
+  registry_sync: true
+
+output:
+  format: "json"
+  registry_file: "registry.json"
