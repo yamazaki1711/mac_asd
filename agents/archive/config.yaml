@@ -4,8 +4,9 @@ agent:
   display_name: "Делопроизводитель"
 
 model:
-  engine: "ollama"
-  model_id: "llama3.1:8b"
+  engine: "mlx"
+  model_id: "mlx-community/gemma-4-9b-it-4bit"
+  precision: 4bit
   max_tokens: 2048
   temperature: 0.1
   top_p: 0.8

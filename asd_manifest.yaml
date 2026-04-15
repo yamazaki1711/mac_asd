@@ -50,11 +50,12 @@ models:
     max_memory_gb: 20
     context_tokens: 16384
 
-  # Делопроизводитель — лёгкая модель, задачи регистрации/архивации
+  # Делопроизводитель — лёгкий агент, MLX-native (быстрая сортировка, классификация, логи)
   archive:
-    engine: ollama
-    model_id: llama3.1:8b
-    max_memory_gb: 5
+    engine: mlx
+    model_id: mlx-community/gemma-4-9b-it-4bit
+    precision: 4bit
+    max_memory_gb: 6
     context_tokens: 8192
 
 # ---------------------------------------------------------------------------
@@ -89,25 +90,27 @@ infrastructure:
 # ---------------------------------------------------------------------------
 memory_budget:
   # Полный стек (все 6 агентов одновременно):
-  #   Llama 3.3 70B 4bit  ≈ 38 GB  (MLX)
-  #   Gemma 4 31B 4bit    ≈ 18 GB  (MLX)
-  #   Qwen 3.5 32B        ≈ 20 GB  (Ollama, x2 = smeta + procurement)
-  #   DeepSeek v3         ≈ 20 GB  (Ollama)
-  #   Llama 3.1 8B        ≈  5 GB  (Ollama)
+  #   Llama 3.3 70B 4bit  ≈ 38 GB  (MLX — Hermes)
+  #   Gemma 4 31B 4bit    ≈ 18 GB  (MLX — ПТО)
+  #   Gemma 4 9B 4bit     ≈  6 GB  (MLX — Делопроизводитель)
+  #   Qwen 3.5 32B        ≈ 20 GB  (Ollama — Сметчик)
+  #   DeepSeek v3         ≈ 20 GB  (Ollama — Юрист)
+  #   Qwen 3.5 32B        ≈  0 GB  (Ollama — Закупщик, shared model)
   #   Neo4j               ≈  8 GB  (pagecache + heap)
   #   Redis               ≈  2 GB
   #   Система + OS        ≈  8 GB
   #   ──────────────────────────────────
-  #   Итого ≈ 119 GB / 128 GB  (остаток ≈ 9 GB)
+  #   Итого ≈ 120 GB / 128 GB  (остаток ≈ 8 GB)
   #
   # Оптимизация: Закупщик и Сметчик используют одну модель Qwen 3.5,
-  # поэтому Ollama держит её в памяти один раз.
-  # Реальный расход: ~99 GB (запас ~29 GB)
-  total_model_gb: 81
+  # Ollama держит её в памяти один раз. Юрист — DeepSeek v3.
+  # MLX: Hermes + ПТО + Делопроизводитель ≈ 62 GB
+  # Ollama: Сметчик + Юрист ≈ 40 GB (shared Qwen)
+  total_model_gb: 102
   total_infra_gb: 10
   os_reserve_gb: 8
   available_gb: 128
-  headroom_gb: 29  # после дедупликации Qwen 3.5
+  headroom_gb: 8  # после дедупликации Qwen 3.5
 
 # ---------------------------------------------------------------------------
 # 4. Pipeline по умолчанию
