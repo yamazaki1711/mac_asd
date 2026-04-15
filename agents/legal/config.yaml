@@ -1,0 +1,35 @@
+agent:
+  name: "legal"
+  role: "legal_counsel"
+  display_name: "Юрист"
+
+model:
+  engine: "ollama"
+  model_id: "deepseek-v3:latest"
+  max_tokens: 8192
+  temperature: 0.15
+  top_p: 0.85
+  context_window: 32768
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "legal_search"
+    - "fz_lookup"
+    - "graph_query"
+    - "graph_write"
+    - "rag_query"
+    - "artifact_write"
+
+legal_kb:
+  sources:
+    - "fz44"
+    - "fz223"
+    - "gk_rf"
+    - "gradostroit_kodeks"
+    - "snip_reference"
+  rag_index: "legal_rag"
+
+output:
+  format: "json"
+  verdict_required: true

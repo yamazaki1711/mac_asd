@@ -1,0 +1,121 @@
+# =============================================================================
+# ASD Manifest v10 — Главные связки проекта
+# =============================================================================
+# Этот файл определяет приоритетные движки для каждой модели и конфигурацию
+# всего стека. Обновляется при смене моделей или инфраструктуры.
+# =============================================================================
+
+version: "1.0"
+project: "mac_asd"
+
+# ---------------------------------------------------------------------------
+# 1. Модели — приоритет MLX для тяжёлых моделей, Ollama для вспомогательных
+# ---------------------------------------------------------------------------
+models:
+  # Orchestrator — тяжёлая модель, MLX-native (использует Neural Engine M4)
+  pm:
+    engine: mlx
+    model_id: mlx-community/Meta-Llama-3.3-70B-Instruct-4bit
+    precision: 4bit
+    max_memory_gb: 48
+    context_tokens: 131072
+
+  # ПТО — Vision + текст, MLX-native
+  pto:
+    engine: mlx
+    model_id: mlx-community/gemma-4-31b-it-4bit
+    precision: 4bit
+    max_memory_gb: 24
+    context_tokens: 32768
+    vision: true
+
+  # Сметчик — текстовая, Ollama (быстрая смена, не требует MLX)
+  smeta:
+    engine: ollama
+    model_id: qwen3:32b
+    max_memory_gb: 20
+    context_tokens: 32768
+
+  # Юрист — текстовая, Ollama
+  legal:
+    engine: ollama
+    model_id: deepseek-v3:latest
+    max_memory_gb: 20
+    context_tokens: 32768
+
+  # Закупщик — текстовая, Ollama
+  procurement:
+    engine: ollama
+    model_id: qwen3:32b
+    max_memory_gb: 20
+    context_tokens: 16384
+
+# ---------------------------------------------------------------------------
+# 2. Инфраструктура
+# ---------------------------------------------------------------------------
+infrastructure:
+  mcp_server:
+    name: asd_core
+    transport: stdio
+    host: localhost
+    port: 8765
+
+  neo4j:
+    uri: bolt://localhost:7687
+    user: neo4j
+    password: asd_secret
+    browser: http://localhost:7474
+
+  redis:
+    uri: redis://localhost:6379
+    maxmemory: 2gb
+    policy: allkeys-lru
+
+  lightrag:
+    vector_store: chroma
+    legal_index: legal_rag
+    rates_index: rates_rag
+    embed_model: sentence-transformers/all-MiniLM-L6-v2
+
+# ---------------------------------------------------------------------------
+# 3. Память — оценка использования (Mac Studio M4 Max 128GB)
+# ---------------------------------------------------------------------------
+memory_budget:
+  # При одновременной работе Hermes + ПТО:
+  #   Llama 3.3 70B 4bit ≈ 38 GB
+  #   Gemma 4 31B 4bit   ≈ 18 GB
+  #   Neo4j              ≈  8 GB (pagecache + heap)
+  #   Redis              ≈  2 GB
+  #   Система + OS       ≈  8 GB
+  #   ─────────────────────────────
+  #   Итого ≈ 74 GB / 128 GB  (остаток ≈ 54 GB — запас)
+  total_model_gb: 56
+  total_infra_gb: 10
+  os_reserve_gb: 8
+  available_gb: 128
+  headroom_gb: 54
+
+# ---------------------------------------------------------------------------
+# 4. Pipeline по умолчанию
+# ---------------------------------------------------------------------------
+default_pipeline:
+  - step: 1
+    agent: pto
+    action: vision_cascade
+    input: drawing_image
+    output: vor_json
+  - step: 2
+    agent: smeta
+    action: build_estimate
+    input: vor_json
+    output: estimate_json
+  - step: 3
+    agent: legal
+    action: review_contract
+    input: estimate_json
+    output: legal_opinion
+  - step: 4
+    agent: procurement
+    action: form_lots
+    input: legal_opinion
+    output: procurement_lots

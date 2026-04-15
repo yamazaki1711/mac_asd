@@ -1,0 +1,32 @@
+agent:
+  name: "hermes"
+  role: "project_manager"
+  display_name: "Руководитель проекта"
+
+model:
+  engine: "mlx"
+  model_id: "mlx-community/Meta-Llama-3.3-70B-Instruct-4bit"
+  max_tokens: 8192
+  temperature: 0.3
+  top_p: 0.9
+  context_window: 131072  # 128K — полный контекст проекта
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "graph_query"
+    - "graph_write"
+    - "task_dispatch"
+    - "artifact_store"
+    - "notify"
+
+memory:
+  persistent: true
+  graph_db: "neo4j://localhost:7687"
+  vector_index: "lightrag"
+
+orchestration:
+  max_concurrent_agents: 3
+  retry_on_fail: true
+  max_retries: 2
+  escalation: "human"

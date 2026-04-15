@@ -1,0 +1,33 @@
+agent:
+  name: "smeta"
+  role: "cost_estimator"
+  display_name: "Сметчик"
+
+model:
+  engine: "ollama"
+  model_id: "qwen3:32b"
+  max_tokens: 8192
+  temperature: 0.1
+  top_p: 0.8
+  context_window: 32768
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "smeta_query"
+    - "smeta_rate_lookup"
+    - "index_lookup"
+    - "graph_query"
+    - "graph_write"
+    - "artifact_write"
+
+smeta_db:
+  rates_path: "./data/rates/fer_2024.json"
+  indices_path: "./data/indices/minstroy_latest.json"
+  overhead_percent: 15.0
+  profit_percent: 8.0
+  vat_percent: 20.0
+
+output:
+  format: "json"
+  export_formats: ["json", "xlsx", "smeta_xml"]

@@ -1,0 +1,33 @@
+agent:
+  name: "pto"
+  role: "pto_engineer"
+  display_name: "Инженер ПТО"
+
+model:
+  engine: "mlx"
+  model_id: "mlx-community/gemma-4-31b-it-4bit"
+  vision: true
+  max_tokens: 4096
+  temperature: 0.2
+  top_p: 0.85
+  context_window: 32768
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "vision_analyze"
+    - "vision_tile"
+    - "graph_query"
+    - "artifact_store"
+    - "artifact_write"
+
+vision:
+  tile_size: [1024, 1024]
+  overlap: 128
+  tile_batch: 4
+  confidence_threshold: 0.6
+
+output:
+  format: "json"
+  schema: "vor_v1"
+  store_in_graph: true
