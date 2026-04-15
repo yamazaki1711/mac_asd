@@ -4,12 +4,13 @@ agent:
   display_name: "Закупщик"
 
 model:
-  engine: "ollama"
-  model_id: "qwen3:32b"
+  engine: "mlx"
+  model_id: "mlx-community/Qwen3-32B-Instruct-4bit"
+  precision: 4bit
   max_tokens: 4096
   temperature: 0.2
   top_p: 0.85
-  context_window: 16384
+  context_tokens: 16384
 
 mcp:
   server: "asd_core"

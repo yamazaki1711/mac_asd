@@ -12,7 +12,7 @@ project: "mac_asd"
 # 1. Модели — приоритет MLX для тяжёлых моделей, Ollama для вспомогательных
 # ---------------------------------------------------------------------------
 models:
-  # Orchestrator — тяжёлая модель, MLX-native (использует Neural Engine M4)
+  # Orchestrator — тяжёлая модель, MLX (Neural Engine M4)
   pm:
     engine: mlx
     model_id: mlx-community/Meta-Llama-3.3-70B-Instruct-4bit
@@ -20,7 +20,7 @@ models:
     max_memory_gb: 38
     context_tokens: 131072
 
-  # ПТО — Vision + текст, MLX-native
+  # ПТО — Vision + текст, MLX
   pto:
     engine: mlx
     model_id: mlx-community/gemma-4-31b-it-4bit
@@ -29,28 +29,31 @@ models:
     context_tokens: 32768
     vision: true
 
-  # Сметчик — текстовая, Ollama (быстрая смена, не требует MLX)
+  # Сметчик — табличные данные, MLX (shared с Юристом и Закупщиком)
   smeta:
-    engine: ollama
-    model_id: qwen3:32b
-    max_memory_gb: 20
+    engine: mlx
+    model_id: mlx-community/Qwen3-32B-Instruct-4bit
+    precision: 4bit
+    max_memory_gb: 18
     context_tokens: 32768
 
-  # Юрист — текстовая, Ollama
+  # Юрист — юридические тексты, MLX (shared модель Qwen 3.5)
   legal:
-    engine: ollama
-    model_id: deepseek-v3:latest
-    max_memory_gb: 20
+    engine: mlx
+    model_id: mlx-community/Qwen3-32B-Instruct-4bit
+    precision: 4bit
+    max_memory_gb: 18
     context_tokens: 32768
 
-  # Закупщик — текстовая, Ollama
+  # Закупщик — тендеры, MLX (shared модель Qwen 3.5 — уже в памяти)
   procurement:
-    engine: ollama
-    model_id: qwen3:32b
-    max_memory_gb: 20
+    engine: mlx
+    model_id: mlx-community/Qwen3-32B-Instruct-4bit
+    precision: 4bit
+    max_memory_gb: 0
     context_tokens: 16384
 
-  # Делопроизводитель — лёгкий агент, MLX-native (быстрая сортировка, классификация, логи)
+  # Делопроизводитель — лёгкий агент, MLX
   archive:
     engine: mlx
     model_id: mlx-community/gemma-4-9b-it-4bit
@@ -89,28 +92,26 @@ infrastructure:
 # 3. Память — оценка использования (Mac Studio M4 Max 128GB)
 # ---------------------------------------------------------------------------
 memory_budget:
-  # Полный стек (все 6 агентов одновременно):
-  #   Llama 3.3 70B 4bit  ≈ 38 GB  (MLX — Hermes)
-  #   Gemma 4 31B 4bit    ≈ 18 GB  (MLX — ПТО)
-  #   Gemma 4 9B 4bit     ≈  6 GB  (MLX — Делопроизводитель)
-  #   Qwen 3.5 32B        ≈ 20 GB  (Ollama — Сметчик)
-  #   DeepSeek v3         ≈ 20 GB  (Ollama — Юрист)
-  #   Qwen 3.5 32B        ≈  0 GB  (Ollama — Закупщик, shared model)
-  #   Neo4j               ≈  8 GB  (pagecache + heap)
+  # Все 6 агентов — MLX, один движок, бесшовная работа
+  #
+  #   Llama 3.3 70B 4bit  ≈ 38 GB  (Hermes)
+  #   Gemma 4 31B 4bit    ≈ 18 GB  (ПТО)
+  #   Qwen 3.5 32B 4bit   ≈ 18 GB  (Сметчик — загружена одна копия)
+  #   Qwen 3.5 32B 4bit   ≈  0 GB  (Юрист, shared)
+  #   Qwen 3.5 32B 4bit   ≈  0 GB  (Закупщик, shared)
+  #   Gemma 4 9B 4bit     ≈  6 GB  (Делопроизводитель)
+  #   Neo4j               ≈  8 GB
   #   Redis               ≈  2 GB
   #   Система + OS        ≈  8 GB
   #   ──────────────────────────────────
-  #   Итого ≈ 120 GB / 128 GB  (остаток ≈ 8 GB)
+  #   Итого ≈  98 GB / 128 GB  (запас ≈ 30 GB)
   #
-  # Оптимизация: Закупщик и Сметчик используют одну модель Qwen 3.5,
-  # Ollama держит её в памяти один раз. Юрист — DeepSeek v3.
-  # MLX: Hermes + ПТО + Делопроизводитель ≈ 62 GB
-  # Ollama: Сметчик + Юрист ≈ 40 GB (shared Qwen)
-  total_model_gb: 102
+  # 3 уникальные модели в памяти. Все агенты через MLX.
+  total_model_gb: 80
   total_infra_gb: 10
   os_reserve_gb: 8
   available_gb: 128
-  headroom_gb: 8  # после дедупликации Qwen 3.5
+  headroom_gb: 30  # 3 shared модели → экономия
 
 # ---------------------------------------------------------------------------
 # 4. Pipeline по умолчанию

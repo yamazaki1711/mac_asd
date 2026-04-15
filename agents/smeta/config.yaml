@@ -4,12 +4,13 @@ agent:
   display_name: "Сметчик"
 
 model:
-  engine: "ollama"
-  model_id: "qwen3:32b"
+  engine: "mlx"
+  model_id: "mlx-community/Qwen3-32B-Instruct-4bit"
+  precision: 4bit
   max_tokens: 8192
   temperature: 0.1
   top_p: 0.8
-  context_window: 32768
+  context_tokens: 32768
 
 mcp:
   server: "asd_core"

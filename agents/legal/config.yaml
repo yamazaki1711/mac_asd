@@ -4,12 +4,13 @@ agent:
   display_name: "Юрист"
 
 model:
-  engine: "ollama"
-  model_id: "deepseek-v3:latest"
+  engine: "mlx"
+  model_id: "mlx-community/Qwen3-32B-Instruct-4bit"
+  precision: 4bit
   max_tokens: 8192
   temperature: 0.15
   top_p: 0.85
-  context_window: 32768
+  context_tokens: 32768
 
 mcp:
   server: "asd_core"

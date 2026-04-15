@@ -51,28 +51,29 @@ check_miniforge() {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Ollama
+# 3. Ollama (fallback для тестирования и лёгких моделей)
 # ---------------------------------------------------------------------------
 check_ollama() {
   if command -v ollama &>/dev/null; then
     log "Ollama доступен: $(ollama --version)"
   else
-    log "Устанавливаю Ollama..."
+    log "Устанавливаю Ollama (опционально, для тестирования)..."
     brew install --cask ollama
     log "Ollama установлен. Запуск сервиса..."
     brew services start ollama
   fi
 
-  # Pull required models (если ещё не скачаны)
-  local models=("qwen3:32b" "deepseek-v3:latest")
-  for model in "${models[@]}"; do
-    if ollama list 2>/dev/null | grep -q "$model"; then
-      log "Модель $model уже загружена"
-    else
-      log "Загружаю модель $model (это может занять время)..."
-      ollama pull "$model" || warn "Не удалось загрузить $model — загрузите вручную: ollama pull $model"
-    fi
-  done
+  # Ollama опционален — все основные модели работают через MLX
+  # Раскомментируйте, если нужны fallback-модели:
+  # local models=("llama3.1:8b" "qwen3:32b")
+  # for model in "${models[@]}"; do
+  #   if ollama list 2>/dev/null | grep -q "$model"; then
+  #     log "Модель $model уже загружена"
+  #   else
+  #     log "Загружаю модель $model..."
+  #     ollama pull "$model" || warn "Не удалось загрузить $model"
+  #   fi
+  # done
 }
 
 # ---------------------------------------------------------------------------
