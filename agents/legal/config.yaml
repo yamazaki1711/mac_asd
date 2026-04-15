@@ -11,6 +11,10 @@ model:
   temperature: 0.15
   top_p: 0.85
   context_tokens: 32768
+  fallback:
+    engine: "ollama"
+    model_id: "deepseek-v3:latest"
+    reason: "Сложные юркейсы с большими массивами текста"
 
 mcp:
   server: "asd_core"

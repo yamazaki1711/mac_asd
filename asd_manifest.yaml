@@ -117,51 +117,38 @@ memory_budget:
 # 4. Pipeline по умолчанию
 # ---------------------------------------------------------------------------
 default_pipeline:
+  # Протокол "Тендерный Конвейер"
   - step: 1
-    agent: archive
-    action: register_document
-    input: incoming_file
-    output: doc_id
+    agent: procurement
+    action: download_tender_docs
+    input: tender_lot_id
+    output: tender_docs
   - step: 2
+    agent: archive
+    action: register_documents
+    input: tender_docs
+    output: registered_docs
+  - step: 3
     agent: pto
     action: vision_cascade
-    input: drawing_image
+    input: drawings
     output: vor_json
-  - step: 3
-    agent: archive
-    action: register_artifact
-    input: vor_json
-    output: vor_registered
   - step: 4
     agent: smeta
-    action: build_estimate
+    action: calculate_profitability
     input: vor_json
-    output: estimate_json
+    output: estimate_analysis  # рентабельность + налоги
   - step: 5
-    agent: archive
-    action: register_artifact
-    input: estimate_json
-    output: estimate_registered
-  - step: 6
     agent: legal
-    action: review_contract
-    input: estimate_json
-    output: legal_opinion
-  - step: 7
-    agent: archive
-    action: register_artifact
-    input: legal_opinion
-    output: legal_registered
-  - step: 8
-    agent: procurement
-    action: form_lots
-    input: legal_opinion
-    output: procurement_lots
-  - step: 9
-    agent: archive
-    action: archive_package
-    input: procurement_lots
-    output: package_archived
+    action: review_penalties
+    input: contract
+    output: legal_risk         # штрафные санкции + сроки
+    parallel_with: 4           # выполняется параллельно со Сметчиком
+  - step: 6
+    agent: pm
+    action: collect_verdict
+    input: [estimate_analysis, legal_risk]
+    output: verdict            # "Участвуем" или "Риск > 20%"
 
 # ---------------------------------------------------------------------------
 # 5. Группы инструментов MCP (тегирование)
