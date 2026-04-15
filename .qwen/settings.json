@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "WebFetch(deepmind.google)",
+      "Bash(rm *)",
+      "Bash(mv *)"
+    ]
+  },
+  "$version": 3
+}
