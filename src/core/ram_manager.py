@@ -1,11 +1,18 @@
+"""
+ASD v11.0 — RAM Manager.
+
+Manages Unified Memory on Mac Studio and system RAM on Linux.
+Uses llm_engine for model load/unload operations.
+"""
+
 import psutil
 import logging
-import time
-from typing import List, Dict
+from typing import List
 from src.config import settings
-from src.core.ollama_client import ollama_client
+from src.core.llm_engine import llm_engine
 
 logger = logging.getLogger(__name__)
+
 
 class RamManager:
     """
@@ -30,7 +37,9 @@ class RamManager:
         """Возвращает True если память в норме, False если критически мала."""
         used_gb = self.get_memory_usage_gb()
         if used_gb > self.total_budget_gb:
-            logger.warning(f"CRITICAL MEMORY: Used {used_gb:.1f}GB / Budget {self.total_budget_gb}GB")
+            logger.warning(
+                f"CRITICAL MEMORY: Used {used_gb:.1f}GB / Budget {self.total_budget_gb}GB"
+            )
             return False
         return True
 
@@ -38,13 +47,16 @@ class RamManager:
         """
         Принудительно выгружает модель из памяти Ollama.
         Реализуется путем отправки пустого запроса с keep_alive=0.
+
+        Note: На Mac Studio с MLX модели управляются через MLXBackend.load_model/unload_model.
+        Этот метод работает только с Ollama backend.
         """
         logger.info(f"[RAM_MANAGER] Forcing unload of model: {model_name}")
         try:
-            await ollama_client.generate_base(
+            await llm_engine.generate(
                 model=model_name,
                 prompt="",
-                keep_alive=0
+                keep_alive=0,
             )
             if model_name in self.active_models:
                 self.active_models.remove(model_name)
@@ -59,14 +71,19 @@ class RamManager:
         """
         used_gb = self.get_memory_usage_gb()
         available = self.total_budget_gb - used_gb
-        
+
         if available < expected_cost_gb:
-            logger.warning(f"[RAM_MANAGER] Memory tight! Free: {available:.1f}GB, Need: {expected_cost_gb}GB.")
+            logger.warning(
+                f"[RAM_MANAGER] Memory tight! "
+                f"Free: {available:.1f}GB, Need: {expected_cost_gb}GB."
+            )
             # Unload any active secondary model
+            primary_model = settings.get_model_config("legal")["model"]
             for model in list(self.active_models):
-                if model != settings.PRIMARY_MODEL and model != incoming_model:
+                if model != primary_model and model != incoming_model:
                     await self.unload_model(model)
-                    
+
         self.active_models.append(incoming_model)
+
 
 global_ram_manager = RamManager()

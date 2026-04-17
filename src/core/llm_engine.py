@@ -1,0 +1,296 @@
+"""
+ASD v11.0 — Unified LLM Engine.
+
+Single entry point for all LLM operations across all agents.
+Automatically selects backend (Ollama / MLX) based on profile configuration.
+
+Usage:
+    from src.core.llm_engine import llm_engine
+
+    # Simple chat — agent name determines the model
+    response = await llm_engine.chat("legal", messages)
+
+    # Vision analysis (PTO agent)
+    description = await llm_engine.vision("pto", image_base64, prompt)
+
+    # Embeddings
+    vector = await llm_engine.embed("некоторый текст")
+
+Architecture:
+    Agent Name → config.get_model_config() → {"engine": "ollama"|"mlx", "model": "..."}
+                                                    ↓                    ↓
+                                            OllamaBackend          MLXBackend
+"""
+
+import logging
+from typing import List, Dict, Any, Optional
+
+from src.config import settings
+from src.core.backends.ollama_backend import OllamaBackend
+from src.core.backends.mlx_backend import MLXBackend
+
+logger = logging.getLogger(__name__)
+
+
+class LLMEngine:
+    """
+    Unified LLM interface for ASD v11.0.
+
+    Routes requests to the appropriate backend based on profile configuration.
+    In dev_linux profile — all requests go to Ollama.
+    In mac_studio profile — MLX for heavy models, Ollama for embeddings.
+    """
+
+    def __init__(self):
+        self._profile = settings.ASD_PROFILE
+        self._ollama = OllamaBackend()
+        self._mlx = MLXBackend()
+        self._fallback_to_ollama = True  # Always allow Ollama fallback
+
+        logger.info(
+            f"LLMEngine initialized with profile: {self._profile}. "
+            f"MLX available: {self._mlx.is_available()}"
+        )
+
+    def _get_backend(self, engine: str):
+        """Select backend by engine name."""
+        if engine == "mlx":
+            if self._mlx.is_available():
+                return self._mlx
+            elif self._fallback_to_ollama:
+                logger.warning(
+                    "MLX requested but not available. Falling back to Ollama. "
+                    "Install mlx-lm on Mac Studio for native inference."
+                )
+                return self._ollama
+            else:
+                raise RuntimeError("MLX backend required but not available on this machine.")
+        return self._ollama
+
+    # -------------------------------------------------------------------------
+    # Core methods
+    # -------------------------------------------------------------------------
+
+    async def chat(
+        self,
+        agent: str,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        num_ctx: Optional[int] = None,
+        stream: bool = False,
+        keep_alive: str = "5m",
+    ) -> str:
+        """
+        Chat completion. Agent name determines which model to use.
+
+        Args:
+            agent: Agent name (pm, pto, smeta, legal, procurement, logistics, archive)
+            messages: Chat messages [{"role": "...", "content": "..."}]
+            temperature: Override default temperature (optional)
+            num_ctx: Override context window size (optional)
+            stream: Enable streaming
+            keep_alive: How long to keep model in memory
+
+        Returns:
+            Assistant response as plain text string
+
+        Example:
+            >>> response = await llm_engine.chat("legal", [
+            ...     {"role": "system", "content": "Ты строительный юрист..."},
+            ...     {"role": "user", "content": "Проверь договор..."}
+            ... ])
+        """
+        config = settings.get_model_config(agent)
+        backend = self._get_backend(config["engine"])
+        model = config["model"]
+
+        # Default temperature per agent type
+        if temperature is None:
+            temperature = self._default_temperature(agent)
+
+        # Default context per agent type
+        if num_ctx is None:
+            num_ctx = self._default_context(agent)
+
+        logger.debug(f"[LLMEngine] chat: agent={agent}, model={model}, engine={config['engine']}")
+
+        return await backend.chat(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            num_ctx=num_ctx,
+            stream=stream,
+            keep_alive=keep_alive,
+        )
+
+    async def chat_raw(
+        self,
+        agent: str,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        num_ctx: Optional[int] = None,
+        keep_alive: str = "5m",
+    ) -> Dict[str, Any]:
+        """
+        Chat completion returning raw API response dict.
+        Used for backward compatibility with code that expects Ollama JSON format.
+        """
+        config = settings.get_model_config(agent)
+        backend = self._get_backend(config["engine"])
+        model = config["model"]
+
+        if temperature is None:
+            temperature = self._default_temperature(agent)
+        if num_ctx is None:
+            num_ctx = self._default_context(agent)
+
+        logger.debug(f"[LLMEngine] chat_raw: agent={agent}, model={model}")
+
+        return await backend.chat_raw(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            num_ctx=num_ctx,
+            keep_alive=keep_alive,
+        )
+
+    async def vision(
+        self,
+        agent: str,
+        image_base64: str,
+        prompt: str,
+        temperature: float = 0.2,
+        keep_alive: str = "5m",
+    ) -> str:
+        """
+        Vision analysis — describe/analyze an image.
+
+        Args:
+            agent: Agent name (typically "pto" for drawing analysis)
+            image_base64: Base64-encoded image
+            prompt: Text prompt for the model
+            temperature: Sampling temperature
+            keep_alive: How long to keep vision model in memory
+
+        Returns:
+            Model description/analysis of the image
+        """
+        config = settings.get_model_config("vision")
+        backend = self._get_backend(config["engine"])
+        model = config["model"]
+
+        logger.debug(f"[LLMEngine] vision: agent={agent}, model={model}")
+
+        return await backend.vision(
+            image_base64=image_base64,
+            prompt=prompt,
+            model=model,
+            temperature=temperature,
+            keep_alive=keep_alive,
+        )
+
+    async def embed(self, text: str, model: Optional[str] = None) -> List[float]:
+        """
+        Get text embedding vector.
+
+        Always uses Ollama (bge-m3) — MLX doesn't provide embeddings efficiently.
+
+        Args:
+            text: Text to embed
+            model: Override embedding model (default: from profile config)
+
+        Returns:
+            Embedding vector as list of floats
+        """
+        if model is None:
+            config = settings.get_model_config("embed")
+            model = config["model"]
+
+        return await self._ollama.embed(text=text, model=model)
+
+    async def generate(
+        self,
+        model: str,
+        prompt: str,
+        keep_alive: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Low-level generate endpoint.
+        Used by RAMManager to load/unload models.
+
+        Note: Only works with Ollama backend. MLX manages memory differently.
+        """
+        return await self._ollama.generate(
+            model=model,
+            prompt=prompt,
+            keep_alive=keep_alive,
+        )
+
+    # -------------------------------------------------------------------------
+    # Safe wrapper (with fallback for dev environments)
+    # -------------------------------------------------------------------------
+
+    async def safe_chat(
+        self,
+        agent: str,
+        messages: List[Dict[str, str]],
+        fallback_response: str = '{"status": "error", "message": "LLM unavailable"}',
+        **kwargs,
+    ) -> str:
+        """
+        Chat with automatic fallback if LLM is unavailable.
+        Replaces the old _safe_ollama_chat() function.
+
+        Args:
+            agent: Agent name
+            messages: Chat messages
+            fallback_response: Text to return if LLM fails
+            **kwargs: Additional args passed to chat()
+
+        Returns:
+            LLM response text, or fallback_response if error
+        """
+        try:
+            return await self.chat(agent, messages, **kwargs)
+        except Exception as e:
+            logger.warning(
+                f"[{agent}] LLM unavailable: {e}. "
+                f"Using fallback response."
+            )
+            return fallback_response
+
+    # -------------------------------------------------------------------------
+    # Defaults per agent
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _default_temperature(agent: str) -> float:
+        """Default temperature per agent role."""
+        temps = {
+            "pm": 0.3,
+            "pto": 0.2,
+            "smeta": 0.1,
+            "legal": 0.1,
+            "procurement": 0.2,
+            "logistics": 0.2,
+            "archive": 0.1,
+        }
+        return temps.get(agent, 0.2)
+
+    @staticmethod
+    def _default_context(agent: str) -> int:
+        """Default context window size per agent role."""
+        contexts = {
+            "pm": 32768,
+            "pto": 32768,
+            "smeta": 32768,
+            "legal": 32768,
+            "procurement": 16384,
+            "logistics": 16384,
+            "archive": 8192,
+        }
+        return contexts.get(agent, 16384)
+
+
+# Global singleton
+llm_engine = LLMEngine()

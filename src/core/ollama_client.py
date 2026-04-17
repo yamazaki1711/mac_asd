@@ -1,85 +1,80 @@
-import httpx
-import json
+"""
+ASD v11.0 — Ollama Client (DEPRECATED — use llm_engine instead).
+
+This module is kept for backward compatibility with existing code
+that directly imports `ollama_client`. New code should use:
+
+    from src.core.llm_engine import llm_engine
+
+Migration guide:
+    # OLD:
+    from src.core.ollama_client import ollama_client
+    response = await ollama_client.chat(messages=messages)
+    text = response['message']['content']
+
+    # NEW:
+    from src.core.llm_engine import llm_engine
+    text = await llm_engine.chat("legal", messages)
+"""
+
 import logging
 from typing import AsyncGenerator, List, Dict, Any
+
+from src.core.llm_engine import llm_engine
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class OllamaClient:
+    """
+    Backward-compatible Ollama client wrapper.
+
+    Delegates all calls to LLMEngine, which routes to the appropriate backend.
+    """
+
     def __init__(self):
         self.base_url = f"{settings.OLLAMA_BASE_URL}/api"
-        self.model = settings.PRIMARY_MODEL
+        self.model = settings.get_model_config("legal")["model"]  # default model
+        logger.warning(
+            "OllamaClient is deprecated. Use llm_engine instead. "
+            "from src.core.llm_engine import llm_engine"
+        )
 
-    async def chat(self, messages: List[Dict[str, str]], stream: bool = False, temperature: float = 0.1, keep_alive: str = "5m") -> Any:
+    async def chat(
+        self,
+        messages: List[Dict[str, str]],
+        stream: bool = False,
+        temperature: float = 0.1,
+        keep_alive: str = "5m",
+    ) -> Any:
         """
-        Основной метод для общения с Gemma 4.
+        Chat completion (backward compatible).
+        Returns raw Ollama API response dict with response['message']['content'].
         """
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": stream,
-            "keep_alive": keep_alive,
-            "options": {
-                "temperature": temperature,  # Для точности в сметах и законах
-                "num_ctx": 32768,    # Хороший контекст для длинных PDF
-            }
-        }
-
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            if not stream:
-                response = await client.post(f"{self.base_url}/chat", json=payload)
-                response.raise_for_status()
-                # Returns nested dict depending on caller structure, let's return raw json or message content
-                # To be compatible with nodes.py passing json.loads(), we will return response.json()["message"]["content"] directly or raw if needed.
-                # Nodes expects raw API response because it does `response["message"]["content"]` actually ? Wait, in nodes we did `response = await ollama_client...` 
-                # Let's keep it returning the `.json()` dict to not break backwards compatibility if possible.
-                return response.json()
-            else:
-                return self._stream_response(client, payload)
-
-    async def _stream_response(self, client, payload) -> AsyncGenerator[str, None]:
-        async with client.stream("POST", f"{self.base_url}/chat", json=payload) as response:
-            async for line in response.aiter_lines():
-                if line:
-                    chunk = json.loads(line)
-                    if "message" in chunk and "content" in chunk["message"]:
-                        yield chunk["message"]["content"]
-                    if chunk.get("done"):
-                        break
+        return await llm_engine.chat_raw(
+            agent="legal",  # default agent
+            messages=messages,
+            temperature=temperature,
+            keep_alive=keep_alive,
+        )
 
     async def embeddings(self, text: str, keep_alive: str = "5m") -> List[float]:
-        """
-        Получение эмбеддинга для RAG (bge-m3).
-        Aliased from get_embedding.
-        """
-        payload = {
-            "model": "bge-m3", 
-            "prompt": text,
-            "keep_alive": keep_alive
-        }
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{self.base_url}/embeddings", json=payload)
-            response.raise_for_status()
-            return response.json()["embedding"]
+        """Get embeddings via LLMEngine."""
+        return await llm_engine.embed(text=text)
 
-    # Backward compatibility for RAG service
     async def get_embedding(self, text: str) -> List[float]:
+        """Backward compatibility alias for embeddings()."""
         return await self.embeddings(text)
 
     async def generate_base(self, model: str, prompt: str, keep_alive: int = 0):
-        """
-        Базовый генератор, в основном используется RAM_MANAGER для отправки keep_alive=0 
-        чтобы принудительно выгрузить модель из Unified Memory.
-        """
-        payload = {
-            "model": model,
-            "prompt": prompt,
-            "keep_alive": keep_alive
-        }
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(f"{self.base_url}/generate", json=payload)
-            response.raise_for_status()
-            return response.json()
+        """Low-level generate endpoint (for RAMManager)."""
+        return await llm_engine.generate(
+            model=model,
+            prompt=prompt,
+            keep_alive=keep_alive,
+        )
 
+
+# Singleton (backward compatible)
 ollama_client = OllamaClient()
