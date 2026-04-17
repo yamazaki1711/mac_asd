@@ -1,6 +1,6 @@
 import logging
+import os
 from sqlalchemy import create_engine
-from neo4j import GraphDatabase
 from sqlalchemy.orm import sessionmaker
 from src.config import settings
 from src.db.models import Base
@@ -17,10 +17,11 @@ def init_postgres():
     logger.info("Connecting to PostgreSQL to initialize tables...")
     try:
         engine = create_engine(settings.database_url)
-        # Создаем расширение pgvector, если его нет
+        # Создаем расширения vector и pg_trgm, если их нет
         with engine.connect() as conn:
             from sqlalchemy import text
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm;"))
             conn.commit()
             
         Base.metadata.create_all(engine)
@@ -28,24 +29,16 @@ def init_postgres():
     except Exception as e:
         logger.error(f"Failed to initialize PostgreSQL: {e}")
 
-def init_neo4j():
-    """Инициализация индексов и ограничений в Neo4j."""
-    logger.info("Connecting to Neo4j to initialize indices...")
+def init_graph():
+    """Инициализация хранилища локальных графов (NetworkX)."""
+    graph_dir = os.path.join(settings.BASE_DIR, "data", "graphs")
+    logger.info(f"Initializing local NetworkX graph storage at {graph_dir}")
     try:
-        driver = GraphDatabase.driver(
-            settings.NEO4J_URI, 
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
-        )
-        with driver.session() as session:
-            # Создаем уникальность для узлов-документов и проектов
-            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:Project) REQUIRE p.id IS UNIQUE")
-            session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE")
-            session.run("CREATE INDEX IF NOT EXISTS FOR (c:Chunk) ON (c.document_id)")
-        driver.close()
-        logger.info("Neo4j database initialized successfully.")
+        os.makedirs(graph_dir, exist_ok=True)
+        logger.info("Graph storage initialized successfully.")
     except Exception as e:
-        logger.error(f"Failed to initialize Neo4j: {e}")
+        logger.error(f"Failed to initialize graph storage: {e}")
 
 if __name__ == "__main__":
     init_postgres()
-    init_neo4j()
+    init_graph()

@@ -1,6 +1,6 @@
 # АСД v11.0 — СХЕМА ДАННЫХ
 
-**Дата:** 13 апреля 2026
+**Дата:** 17 апреля 2026
 **Статус:** Проектирование (до покупки Mac Studio)
 **СУБД:** PostgreSQL 16 + pgvector + pg_trgm
 
@@ -512,7 +512,94 @@ CREATE INDEX idx_wiki_title ON wiki_articles USING gin(title gin_trgm_ops);
 CREATE INDEX idx_wiki_content ON wiki_articles USING gin(content gin_trgm_ops);
 ```
 
-### 3.19. audit_log
+### 3.19. vendors
+
+Поставщики материалов и услуг (контрагенты).
+
+```sql
+CREATE TABLE vendors (
+    id              SERIAL PRIMARY KEY,
+    inn             VARCHAR(12)  UNIQUE NOT NULL,
+    name            VARCHAR(200) NOT NULL,
+    contact_person  VARCHAR(200),
+    email           VARCHAR(100),
+    phone           VARCHAR(50),
+    rating          NUMERIC(3,2),                           -- внутренний рейтинг 0..5
+    status          VARCHAR(20)  NOT NULL DEFAULT 'active', -- \"active\" | \"blacklisted\"
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_vendors_inn ON vendors(inn);
+CREATE INDEX idx_vendors_name ON vendors USING gin(name gin_trgm_ops);
+```
+
+### 3.20. materials_catalog
+
+Единый справочник номенклатуры материалов (ТМЦ).
+
+```sql
+CREATE TABLE materials_catalog (
+    id              SERIAL PRIMARY KEY,
+    sku             VARCHAR(100) UNIQUE,                    -- артикул (если есть)
+    name            VARCHAR(500) NOT NULL,
+    category        VARCHAR(100),                           -- \"Металлопрокат\", \"Нерудные\"
+    unit            VARCHAR(20)  NOT NULL,                  -- \"тн\", \"м3\", \"шт\"
+    description     TEXT,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_materials_name ON materials_catalog USING gin(name gin_trgm_ops);
+CREATE INDEX idx_materials_category ON materials_catalog(category);
+```
+
+### 3.21. price_lists
+
+Прайс-листы и коммерческие предложения от поставщиков.
+
+```sql
+CREATE TABLE price_lists (
+    id              SERIAL PRIMARY KEY,
+    vendor_id       INTEGER      NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+    document_id     INTEGER      REFERENCES documents(id) ON DELETE SET NULL,
+    valid_from      DATE,
+    valid_until     DATE,
+    file_path       VARCHAR(1000),
+    rfq_batch_id    INTEGER,                                -- если получено по запросу (RFQ)
+    status          VARCHAR(20)  NOT NULL DEFAULT 'parsed', -- \"parsed\" | \"active\" | \"expired\"
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_price_lists_vendor_id ON price_lists(vendor_id);
+CREATE INDEX idx_price_lists_status ON price_lists(status);
+```
+
+### 3.22. price_list_items
+
+Конкретные позиции из КП/прайс-листов (цены).
+
+```sql
+CREATE TABLE price_list_items (
+    id              SERIAL PRIMARY KEY,
+    price_list_id   INTEGER       NOT NULL REFERENCES price_lists(id) ON DELETE CASCADE,
+    material_id     INTEGER       REFERENCES materials_catalog(id) ON DELETE SET NULL,
+    raw_name        VARCHAR(500)  NOT NULL,                 -- как названо в КП
+    unit            VARCHAR(20)   NOT NULL,
+    price           NUMERIC(15,2) NOT NULL,                 -- цена за единицу
+    currency        VARCHAR(10)   DEFAULT 'RUB',
+    delivery_terms  VARCHAR(100),                           -- \"EXW\", \"DDP\"
+    is_best_offer   BOOLEAN       DEFAULT false,
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_price_list_items_list_id ON price_list_items(price_list_id);
+CREATE INDEX idx_price_list_items_material_id ON price_list_items(material_id);
+CREATE INDEX idx_price_list_items_raw_name ON price_list_items USING gin(raw_name gin_trgm_ops);
+```
+
+### 3.23. audit_log
 
 Журнал аудита (все действия в системе).
 
@@ -574,6 +661,10 @@ estimates (1) ──── (N) supplements (через supplement_of)
 traps (1) ──── (N) trap_matches
 
 letters (1) ──── (1) registrations
+
+vendors (1) ──── (N) price_lists
+materials_catalog (1) ──── (N) price_list_items
+price_lists (1) ──── (N) price_list_items
 ```
 
 ---
@@ -591,6 +682,7 @@ letters (1) ──── (1) registrations
 - `traps.pattern` — поиск паттернов
 - `vor_items.name`, `estimate_items.name` — fuzzy поиск наименований
 - `letters.recipient`, `wiki_articles.title`, `wiki_articles.content`
+- `vendors.name`, `materials_catalog.name`, `price_list_items.raw_name` — fuzzy-мэтчинг ТМЦ и КА
 
 ### HNSW (векторный, pgvector)
 - `chunks.embedding` — основной векторный поиск
@@ -679,8 +771,12 @@ $$ LANGUAGE plpgsql;
 | registrations | ~100 | 5 MB |
 | shipments | ~20 | 5 MB |
 | wiki_articles | ~500 | 10 MB |
+| vendors | ~100 | 2 MB |
+| materials_catalog | ~5000 | 10 MB |
+| price_lists | ~50 | 5 MB |
+| price_list_items | ~2000 | 5 MB |
 | audit_log | ~2000 | 10 MB |
-| **Итого** | **~29,000** | **~630 MB** |
+| **Итого** | **~36,000** | **~650 MB** |
 
 Embeddings — основной потребитель места:
 - 8000 chunks × 1024 dim × 4 byte (float32) ≈ 32 MB

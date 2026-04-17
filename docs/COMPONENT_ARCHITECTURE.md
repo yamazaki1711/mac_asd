@@ -1,6 +1,6 @@
 # АСД v11.0 — ДЕТАЛЬНАЯ АРХИТЕКТУРА КОМПОНЕНТОВ
 
-**Дата:** 13 апреля 2026
+**Дата:** 17 апреля 2026
 **Статус:** Проектирование (до покупки Mac Studio)
 
 ---
@@ -18,25 +18,29 @@
 
 ### 2.1. Роль
 
-Единая точка входа для Hermes Agent. Регистрирует 18 инструментов,
-маршрутизирует вызовы к соответствующим модулям.
+Единая точка входа для Hermes Agent. Регистрирует 23 инструмента,
+маршрутизирует вызовы к соответствующим модулям. Управляет жизненным циклом через EventManager и LangGraph.
 
 ### 2.2. Структура
 
 ```
-mcp_server.py
+mcp_servers/asd_core/server.py
 │
 ├── Инициализация FastMCP
-│   ├── Имя: "АСД v11.0"
-│   ├── Версия: "11.0.0"
-│   └── Описание: "Архитектурно-строительная система"
+│   ├── Имя: "АСД v11.0 Core"
+│   └── Описание: "Единый сервер инструментов АСД"
 │
-├── Регистрация инструментов (18 штук)
-│   ├── Юрист: tools/lawyer_*.py
-│   ├── ПТО: tools/pto_*.py
-│   ├── Сметчик: tools/estimator_*.py
-│   ├── Делопроизводитель: tools/clerk_*.py
-│   └── Общий: tools/system.py
+├── Регистрация инструментов (23 штуки)
+│   ├── Юрист: tools/jurist_tools.py (6)
+│   ├── ПТО: tools/pto_tools.py (4)
+│   ├── Сметчик: tools/smeta_tools.py (3)
+│   ├── Делопроизводитель: tools/delo_tools.py (4)
+│   ├── Закупщик: tools/procurement_tools.py (2)
+│   ├── Логист: tools/logistics_tools.py (3)
+│   └── Общий: tools/general_tools.py (1)
+│
+├── Интеграция с LangGraph
+│   └── src/agents/workflow.py (Оркестрация 7 агентов)
 │
 ├── Инициализация сервисов
 │   ├── OllamaClient()
@@ -44,7 +48,9 @@ mcp_server.py
 │   ├── ParserEngine()
 │   ├── LightRAG()
 │   ├── RAMManager()
-│   └── ModelRouter()
+│   ├── ModelRouter()
+│   ├── EventManager()
+│   └── GoogleWorkspaceService()
 │
 └── Entry point
     └── mcp.run(transport="stdio")  # или "http" для тестов
@@ -58,7 +64,7 @@ mcp_server.py
   2. Подключение к PostgreSQL
   3. Инициализация OllamaClient (проверка доступности :11434)
   4. Инициализация ParserEngine, LightRAG, RAMManager
-  5. Регистрация 18 инструментов в FastMCP
+  5. Регистрация 23 инструментов в FastMCP
   6. Запуск stdio транспорта
 
 Остановка:
@@ -628,7 +634,37 @@ WikiArticle
 
 ---
 
-## 11. ЗАВИСИМОСТИ МЕЖДУ КОМПОНЕНТАМИ
+## 11. EVENT MANAGER (STATE MACHINE)
+
+### 11.1. Роль
+
+Управляет Event-Driven Workflow и графом событий проекта. Гарантирует, что агенты выполняют задачи в правильном порядке. Когда один этап завершается (например, \"Тендер выигран\"), EventManager генерирует события для следующих этапов (\"Начать подготовку ИД\").
+
+### 11.2. Структура
+```
+EventManager
+│
+├── register_event(project_id, event_type, payload)
+│   → EventResult
+│   │
+│   ├── Сохранение события в графовую БД (NetworkX/Neo4j)
+│   ├── Определение следующего узла (state transition)
+│   └── Trigger(оповещение) нужного агента
+│
+├── get_project_state(project_id)
+│   → ProjectState
+│   │
+│   └── Текущий этап: \"Tender\", \"Execution\", \"Completion\", \"Claim\"
+│
+└── pending_tasks(agent_role)
+    → list[Task]
+    │
+    └── Задачи для конкретного агента (например, Логиста или ПТО)
+```
+
+---
+
+## 12. ЗАВИСИМОСТИ МЕЖДУ КОМПОНЕНТАМИ
 
 ```
                     mcp_server.py
@@ -637,17 +673,17 @@ WikiArticle
         │                │                │
    tools/           core/            db/
         │                │                │
-        │         ┌──────┴──────┐        │
-        │         │             │        │
-        │    OllamaClient   LightRAG    │
-        │         │             │       │
-        │    ModelRouter   ParserEngine │
-        │         │             │       │
-        │    RAMManager     BLSChecker  │
-        │         │             │       │
-        │    DocXGenerator  WikiEngine  │
-        │                               │
-        └───────────────┬───────────────┘
+        │         ┌──────┴──────┬────────────┐
+        │         │             │            │
+        │    OllamaClient   LightRAG   EventManager
+        │         │             │            │
+        │    ModelRouter   ParserEngine      │
+        │         │             │            │
+        │    RAMManager     BLSChecker       │
+        │         │             │            │
+        │    DocXGenerator  WikiEngine       │
+        │                                    │
+        └───────────────┬────────────────────┘
                         │
                   PostgreSQL 16
                   + pgvector
@@ -675,43 +711,40 @@ WikiArticle
 | `asd_generate_letter` | DocXGenerator, PostgreSQL, OllamaClient |
 | `asd_prepare_shipment` | DocXGenerator, PostgreSQL |
 | `asd_track_deadlines` | PostgreSQL |
+| `asd_tender_search` | External API / Telegram |
+| `asd_analyze_lot_profitability` | OllamaClient, PostgreSQL |
+| `asd_source_vendors` | PostgreSQL (Vendors table) |
+| `asd_add_price_list` | ParserEngine, PostgreSQL |
+| `asd_compare_quotes` | OllamaClient, PostgreSQL |
 | `asd_get_system_status` | OllamaClient, PostgreSQL, RAMManager |
 
 ---
 
-## 12. СТРУКТУРА ПРОЕКТА
+## 13. СТРУКТУРА ПРОЕКТА
 
 ```
 /home/oleg/MAC_ASD/
 │
-├── config/
-│   ├── settings.py              # Ollama URL, DB connection
-│   └── prompts.py               # Все промпты системы
+├── mcp_servers/
+│   └── asd_core/
+│       ├── server.py            # Entry point, FastMCP, 23 инструмента
+│       └── tools/               # Реализация инструментов по модулям
 │
 ├── src/
-│   ├── mcp_server.py            # Entry point, FastMCP, 18 инструментов
+│   ├── agents/
+│   │   ├── workflow.py          # LangGraph (7 агентов)
+│   │   ├── nodes.py             # Логика узлов
+│   │   └── state.py             # Состояние графа
 │   │
 │   ├── core/
 │   │   ├── ollama_client.py     # HTTP клиент к Ollama API
-│   │   ├── model_router.py      # Выбор модели (FP16 31B / Q8_0 / E4B)
 │   │   ├── ram_manager.py       # Управление 128GB памяти
-│   │   ├── parser_engine.py     # Универсальный парсер
-│   │   ├── lightrag.py          # Graph+Vector поиск + RRF
-│   │   ├── bls.py               # База ловушек субподрядчика
-│   │   ├── docx_generator.py    # Генерация DOCX по шаблонам
-│   │   └── wiki_engine.py       # База знаний проекта
-│   │
-│   ├── tools/
-│   │   ├── lawyer.py            # 6 инструментов Юриста
-│   │   ├── pto.py               # 4 инструмента ПТО
-│   │   ├── estimator.py         # 3 инструмента Сметчика
-│   │   ├── clerk.py             # 4 инструмента Делопроизводителя
-│   │   └── system.py            # 1 инструмент (статус)
+│   │   ├── event_manager.py     # Управление событиями и Workflow
+│   │   └── ...
 │   │
 │   └── db/
-│       ├── models.py            # SQLAlchemy модели (все сущности)
-│       ├── repository.py        # CRUD операции
-│       └── migrations/          # Alembic миграции
+│       ├── models.py            # SQLAlchemy модели
+│       └── seed_logistics.py    # Сидинг данных (Логистика)
 │
 ├── data/
 │   ├── templates/               # Шаблоны DOCX
@@ -754,3 +787,16 @@ WikiArticle
 
 Этот документ описывает внутреннюю архитектуру всех компонентов АСД.
 Является основой для написания кода когда появится Mac Studio.
+
+---
+
+## 14. ВНЕШНИЕ ИНТЕГРАЦИИ (GOOGLE WORKSPACE)
+
+### 14.1. Роль
+Позволяет всем агентам взаимодействовать с экосистемой Google (Gmail, Drive, Sheets).
+
+### 14.2. Функции
+- **Gmail:** Отправка RFQ Логистом, получение уведомлений.
+- **Drive:** Хранение сканов ТТН и сертификатов Делопроизводителем.
+- **Sheets:** Ведение сравнительных таблиц цен и реестров.
+- **Docs:** Автоматическая генерация писем и претензий Юристом.

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, JSON, Boolean, Index
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
@@ -58,3 +58,88 @@ class AuditLog(Base):
     timestamp = Column(DateTime, server_default=func.now())
     # Поле для отметки, было ли это действие проанализировано для обучения
     is_learned = Column(Boolean, default=False)
+
+class LegalTrap(Base):
+    """
+    БЛС (База Ловушек Субподрядчика) - структурированные риски из Telegram или опыта.
+    """
+    __tablename__ = "legal_traps"
+    
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    source = Column(String(255)) # e.g., "Telegram @lawyer_channel", "Internal"
+    court_cases = Column(JSON) # e.g. ["А40-123/2023", "Постановление КС РФ №..."]
+    mitigation = Column(Text) # Рекомендация к протоколу
+    created_at = Column(DateTime, server_default=func.now())
+    
+    # Вектор для RAG (bge-m3 = 1024 dim)
+    embedding = Column(Vector(1024))
+
+# --- LOGISTICS & PROCUREMENT TABLES ---
+
+class Vendor(Base):
+    """
+    База поставщиков и транспортных компаний.
+    """
+    __tablename__ = "vendors"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    contact_info = Column(JSON) # {email, phone, representative}
+    rating = Column(Integer, default=5) # 1-5
+    category = Column(String(100)) # "Materials", "Transport", "Services"
+    inn = Column(String(12), unique=True) # ИНН для идентификации
+    created_at = Column(DateTime, server_default=func.now())
+    
+    price_lists = relationship("PriceList", back_populates="vendor")
+
+class MaterialCatalog(Base):
+    """
+    Мастер-данные ТМЦ (Номенклатура).
+    """
+    __tablename__ = "materials_catalog"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(512), nullable=False) # Наименование (ГОСТ, ТУ)
+    category = Column(String(100)) # "Металл", "Бетон", "Инертные"
+    unit = Column(String(20)) # "т", "м3", "шт"
+    avg_price = Column(Integer) # Средневзвешенная цена (копейки)
+    
+    # Вектор для нечеткого поиска (bge-m3 = 1024 dim)
+    embedding = Column(Vector(1024))
+    
+    # Индекс для быстрого поиска по наименованию
+    __table_args__ = (
+        Index('ix_material_name_trgm', name, postgresql_using='gin', postgresql_ops={'name': 'gin_trgm_ops'}),
+    )
+
+class PriceList(Base):
+    """
+    Заголовки коммерческих предложений или прайс-листов.
+    """
+    __tablename__ = "price_lists"
+    
+    id = Column(Integer, primary_key=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"))
+    document_id = Column(Integer, ForeignKey("documents.id")) # Ссылка на PDF в базе документов
+    valid_until = Column(DateTime)
+    currency = Column(String(3), default="RUB")
+    created_at = Column(DateTime, server_default=func.now())
+    
+    vendor = relationship("Vendor", back_populates="price_lists")
+    items = relationship("PriceListItem", back_populates="price_list")
+
+class PriceListItem(Base):
+    """
+    Позиции в прайс-листах (конкретные цены на материалы).
+    """
+    __tablename__ = "price_list_items"
+    
+    id = Column(Integer, primary_key=True)
+    price_list_id = Column(Integer, ForeignKey("price_lists.id"))
+    material_id = Column(Integer, ForeignKey("materials_catalog.id"))
+    price_value = Column(Integer, nullable=False) # В копейках
+    quantity_available = Column(Integer) # Остаток у поставщика
+    
+    price_list = relationship("PriceList", back_populates="items")

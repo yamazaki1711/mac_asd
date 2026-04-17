@@ -21,4 +21,5 @@ class AgentState(TypedDict):
     
     # Метаданные оркестрации
     next_step: str # Имя следующего узла
+    event_type: Optional[str] # Тип события для EventManager
     is_complete: bool
