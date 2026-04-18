@@ -2,7 +2,7 @@
 
 ## 1. Event Manager (State Machine)
 
-EventManager управляет графом состояний проекта. Мы используем **NetworkX** для хранения графа событий в оперативной памяти с периодической синхронизацией в **PostgreSQL/Neo4j**.
+EventManager управляет графом состояний проекта. Мы используем **NetworkX** для хранения графа событий в оперативной памяти с периодической синхронизацией в **PostgreSQL + NetworkX**.
 
 ### 1.1. Узлы (Nodes) — События
 
@@ -65,5 +65,9 @@ EventManager управляет графом состояний проекта. 
 Как заметил USER, OCR будет уточняться.
 
 - **Tier 1 (Base):** `pytesseract` для простых документов.
-- **Tier 2 (Vision):** `MiniCPM-V` или `Gemma 4 Vision` через Ollama для сложных таблиц и печатей.
+- **Tier 2 (Vision):** `Gemma 4 31B (Vision mode через LLMEngine)` через Ollama для сложных таблиц и печатей.
 - **Tier 3 (Complex):** Специализированные Fine-tuned модели (если появятся через 2 месяца).
+
+---
+
+Документ актуализирован. Логика переходов реализована в EventManager и LangGraph StateGraph.

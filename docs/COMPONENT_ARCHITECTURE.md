@@ -1,7 +1,7 @@
 # АСД v11.0 — ДЕТАЛЬНАЯ АРХИТЕКТУРА КОМПОНЕНТОВ
 
 **Дата:** 17 апреля 2026
-**Статус:** Проектирование (до покупки Mac Studio)
+**Статус:** Активная разработка (Package 1 завершен)
 
 ---
 
@@ -43,7 +43,7 @@ mcp_servers/asd_core/server.py
 │   └── src/agents/workflow.py (Оркестрация 7 агентов)
 │
 ├── Инициализация сервисов
-│   ├── OllamaClient()
+│   ├── LLMEngine()
 │   ├── PostgreSQL подключ
 │   ├── ParserEngine()
 │   ├── LightRAG()
@@ -62,7 +62,7 @@ mcp_servers/asd_core/server.py
 Запуск:
   1. Загрузка конфигурации (config/settings.py)
   2. Подключение к PostgreSQL
-  3. Инициализация OllamaClient (проверка доступности :11434)
+  3. Инициализация LLMEngine (определение профиля, подключение Ollama/MLX backend)
   4. Инициализация ParserEngine, LightRAG, RAMManager
   5. Регистрация 23 инструментов в FastMCP
   6. Запуск stdio транспорта
@@ -88,60 +88,52 @@ mcp_servers/asd_core/server.py
 
 ---
 
-## 3. OLLAMA CLIENT
+## 3. LLM ENGINE
 
 ### 3.1. Роль
 
-Единый HTTP-клиент к Ollama API (localhost:11434).
-Заменяет все внешние LLM-провайдеры v10.0.
+Заменяет OllamaClient из ранних версий. Единый интерфейс с поддержкой Ollama и MLX бэкендов.
+Агент указывается по имени, модель определяется автоматически через профиль.
 
 ### 3.2. Методы
 
 ```
-OllamaClient(base_url="http://localhost:11434")
+LLMEngine(profile="auto")
 │
-├── chat(model, messages, thinking=False, temperature=0.7, max_tokens=4096)
+├── chat(agent, messages, temperature=0.7, max_tokens=4096)
 │   → str (ответ модели)
 │   │
-│   ├── model: "gemma-4-31b" | "gemma-4-e4b"
+│   ├── agent: "pm" | "pto" | "smeta" | "legal" | "procurement" | "logistics" | "archive"
 │   ├── messages: [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}]
-│   ├── thinking: bool — включает thinking mode для Gemma 4
-│   └── POST /api/chat
+│   ├── Модель определяется автоматически через профиль: settings.get_model_config(agent)
+│   └── Делегирует вызов соответствующему бэкенду (Ollama / MLX)
 │
-├── chat_stream(model, messages, callback, thinking=False)
-│   → None (вызывает callback на каждый chunk)
+├── safe_chat(agent, messages, fallback="archive")
+│   → str (ответ модели с автоматическим fallback)
 │   │
-│   └── POST /api/chat (stream=True)
+│   ├── Основной вызов: chat(agent, messages)
+│   ├── При ошибке: повторная попытка через fallback-агент
+│   └── Гарантирует возврат результата даже при недоступности основной модели
 │
-├── generate(model, prompt, system="", thinking=False)
-│   → str (completion без chat)
-│   │
-│   └── POST /api/generate
-│
-├── embeddings(model, input_text)
-│   → list[float] (embedding вектор, 1024 dim для bge-m3)
-│   │
-│   └── POST /api/embeddings
-│
-├── batch_embeddings(model, texts[])
-│   → list[list[float]] (батч embeddings)
-│   │
-│   └── Параллельные запросы к /api/embeddings
-│
-├── vision(model, image_base64, prompt)
+├── vision(agent, image_base64, prompt)
 │   → str (ответ vision модели)
 │   │
-│   └── POST /api/chat (images=[...])
+│   ├── agent: "vision" (по умолчанию)
+│   ├── image_base64: base64-кодированное изображение
+│   └── Использует Gemma 4 31B в vision режиме (MLX)
 │
-├── is_available()
-│   → bool (проверка доступности Ollama)
+├── embed(text)
+│   → list[float] (embedding вектор, 1024 dim для bge-m3)
 │   │
-│   └── GET /api/tags
+│   ├── Всегда через Ollama bge-m3
+│   └── POST /api/embeddings (Ollama backend)
 │
-└── get_models()
-    → list[str] (список загруженных моделей)
+└── Автоопределение профиля
+    → settings.get_model_config(agent)
     │
-    └── GET /api/tags
+    ├── Профиль "mac_studio": MLX-бэкенд, локальные модели
+    ├── Профиль "dev_linux": Ollama-бэкенд, удалённый сервер
+    └── Выбор бэкенда: MlxBackend | OllamaBackend
 ```
 
 ### 3.3. Thinking Mode
@@ -185,72 +177,66 @@ Thinking mode **отключается** для:
 
 ## 4. MODEL ROUTER
 
+> **Примечание:** Model routing теперь интегрирован в LLMEngine. Агент указывается по имени, модель определяется автоматически через профиль.
+
 ### 4.1. Роль
 
-Автоматический выбор модели на основе типа задачи.
-Пользователь не указывает модель — Router решает сам.
+Автоматический выбор модели на основе агента (имя роли).
+Пользователь не указывает модель — LLMEngine решает сам через профиль.
 
 ### 4.2. Правила маршрутизации
 
 ```
-Запрос
+Агент (имя роли)
   │
-  ├── Классификация документа
-  │     → gemma-4-e4b (быстро, ~1 сек)
+  ├── pm (Руководитель проекта)
+  │     → Llama 3.3 70B (MLX)
   │
-  ├── Извлечение метаданных (реквизиты, даты, суммы)
-  │     → gemma-4-e4b
+  ├── pto (ПТО)
+  │     → Gemma 4 31B (MLX)
   │
-  ├── Форматирование результата
-  │     → gemma-4-e4b
+  ├── smeta (Сметчик)
+  │     → Qwen3 32B (MLX)
   │
-  ├── Генерация письма/уведомления (простое)
-  │     → gemma-4-e4b
+  ├── legal (Юрист)
+  │     → Qwen3 32B (MLX)
   │
-  ├── Нормативный поиск (формулировка запросов)
-  │     → gemma-4-31b FP16 (без thinking)
+  ├── procurement (Закупщик)
+  │     → Qwen3 32B (MLX)
   │
-  ├── Юридическая экспертиза
-  │     → gemma-4-31b FP16 (thinking ON)
+  ├── logistics (Логист)
+  │     → Qwen3 32B (MLX)
   │
-  ├── Генерация протокола разногласий
-  │     → gemma-4-31b FP16 (thinking ON)
+  ├── archive (Архивариус)
+  │     → Gemma 4 9B (MLX)
   │
-  ├── Генерация претензии
-  │     → gemma-4-31b FP16 (thinking ON)
+  ├── vision (Vision)
+  │     → Gemma 4 31B (MLX vision mode)
   │
-  ├── Генерация искового заявления
-  │     → gemma-4-31b FP16 (thinking ON)
-  │
-  ├── Сверка ВОР/ПД
-  │     → gemma-4-31b FP16 (thinking ON)
-  │
-  ├── Комплексный анализ ПД
-  │     → gemma-4-31b FP16 (thinking ON)
-  │
-  ├── Генерация АОСР
-  │     → gemma-4-31b FP16 (thinking PARTIAL)
-  │
-  ├── Создание ЛСР
-  │     → gemma-4-31b FP16 (thinking PARTIAL)
-  │
-  └── OCR скана PDF
-        → minicpm-v (vision)
+  └── embed (Embeddings)
+        → bge-m3 (Ollama)
 ```
 
 ### 4.3. Fallback стратегия
 
 ```
-gemma-4-31b FP16 недоступна
-  → gemma-4-31b Q8_0 (если есть)
-    → gemma-4-e4b (сниженное качество, но работает)
-      → Ошибка "LLM недоступна"
+Модель агента недоступна (через LLMEngine.safe_chat)
+  → fallback на archive-агент (Gemma 4 9B, сниженное качество, но работает)
+    → Ошибка "LLM недоступна"
 
-bge-m3 недоступна
+Llama 3.3 70B недоступна (pm)
+  → Qwen3 32B (альтернатива для руководителя)
+    → Gemma 4 9B (archive fallback)
+
+Qwen3 32B недоступна (smeta, legal, procurement, logistics)
+  → Gemma 4 31B (альтернатива)
+    → Gemma 4 9B (archive fallback)
+
+bge-m3 недоступна (embed)
   → Ошибка "Поиск временно недоступен"
 
-minicpm-v недоступен
-  → pytesseract (fallback)
+Gemma 4 31B vision недоступна
+  → pytesseract (fallback OCR)
 ```
 
 ---
@@ -723,12 +709,7 @@ EventManager
 ## 13. СТРУКТУРА ПРОЕКТА
 
 ```
-/home/oleg/MAC_ASD/
-│
-├── mcp_servers/
-│   └── asd_core/
-│       ├── server.py            # Entry point, FastMCP, 23 инструмента
-│       └── tools/               # Реализация инструментов по модулям
+/home/z/my-project/mac_asd/
 │
 ├── src/
 │   ├── agents/
@@ -737,10 +718,16 @@ EventManager
 │   │   └── state.py             # Состояние графа
 │   │
 │   ├── core/
-│   │   ├── ollama_client.py     # HTTP клиент к Ollama API
+│   │   ├── llm_engine.py        # LLMEngine — единый интерфейс к LLM
+│   │   ├── backends/            # Бэкенды LLMEngine
+│   │   │   ├── mlx_backend.py   # MLX бэкенд (Mac Studio)
+│   │   │   └── ollama_backend.py # OllamaBackend (используется через LLMEngine)
+│   │   ├── ollama_client.py     # OllamaBackend (используется через LLMEngine)
 │   │   ├── ram_manager.py       # Управление 128GB памяти
 │   │   ├── event_manager.py     # Управление событиями и Workflow
 │   │   └── ...
+│   │
+│   ├── config.py                # Профили (mac_studio / dev_linux), settings.get_model_config()
 │   │
 │   └── db/
 │       ├── models.py            # SQLAlchemy модели
@@ -777,6 +764,7 @@ EventManager
 │   ├── setup_db.sh              # Создание БД + миграции
 │   └── test_mcp.py              # Тесты MCP инструментов
 │
+├── .env.example                 # Пример переменных окружения (профиль, URL бэкендов)
 ├── requirements.txt
 ├── alembic.ini
 └── docs/
@@ -786,7 +774,7 @@ EventManager
 ---
 
 Этот документ описывает внутреннюю архитектуру всех компонентов АСД.
-Является основой для написания кода когда появится Mac Studio.
+Документ актуализирован. LLMEngine и профили реализованы в Package 1.
 
 ---
 
