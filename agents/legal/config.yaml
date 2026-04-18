@@ -11,10 +11,6 @@ model:
   temperature: 0.15
   top_p: 0.85
   context_tokens: 32768
-  fallback:
-    engine: "ollama"
-    model_id: "deepseek-v3:latest"
-    reason: "Сложные юркейсы с большими массивами текста"
 
 mcp:
   server: "asd_core"
@@ -32,8 +28,25 @@ legal_kb:
     - "fz223"
     - "gk_rf"
     - "gradostroit_kodeks"
-    - "snip_reference"
+    - "prikaz_344pr"
+    - "prikaz_1026pr"
+    - "sp543_2024"
   rag_index: "legal_rag"
+
+specialization:
+  work_types:
+    - "общестроительные"
+    - "бетонные"
+    - "земляные"
+    - "сварочные"
+    - "монтажные"
+    - "шпунтовые"
+  excluded:
+    - "кабельные"
+    - "слаботочные"
+    - "вентиляция"
+    - "водоснабжение"
+    - "инженерные_системы"
 
 output:
   format: "json"

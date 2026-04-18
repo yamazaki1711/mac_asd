@@ -9,6 +9,8 @@ import logging
 from src.agents.skills.common.base import SkillRegistry
 from src.agents.skills.pto.work_spec import PTO_WorkSpec
 from src.agents.skills.delo.template_lib import DELO_TemplateLib
+from src.agents.skills.legal.contract_risks import LegalContractRisks
+from src.agents.skills.legal.id_composition import LegalIDComposition
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,10 @@ def create_skill_registry(llm_engine=None) -> SkillRegistry:
 
     # Delo Skills
     registry.register(DELO_TemplateLib(llm_engine=llm_engine))
+
+    # Legal Skills
+    registry.register(LegalContractRisks(llm_engine=llm_engine))
+    registry.register(LegalIDComposition(llm_engine=llm_engine))
 
     logger.info(f"Skill registry initialized: {len(registry.list_all())} skills")
     return registry
