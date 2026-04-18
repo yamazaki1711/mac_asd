@@ -1,25 +1,34 @@
-import networkx as nx
+"""
+ASD v11.0 — Graph Service.
+
+Local knowledge graph using NetworkX.
+Uses pathlib for cross-platform path handling.
+"""
+
 import os
 import logging
 import pickle
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
+
+import networkx as nx
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class GraphService:
     """Сервис для работы с локальным графом знаний (NetworkX)."""
-    
+
     def __init__(self):
-        self.graph_dir = os.path.join(settings.BASE_DIR, "data", "graphs")
-        self.graph_path = os.path.join(self.graph_dir, "knowledge_graph.gpickle")
+        self.graph_dir = settings.graphs_path
+        self.graph_path = self.graph_dir / "knowledge_graph.gpickle"
         self.graph = self._load_or_create_graph()
 
     def _load_or_create_graph(self) -> nx.DiGraph:
         """Загружает граф с диска или создает новый."""
-        if os.path.exists(self.graph_path):
+        if self.graph_path.exists():
             try:
-                with open(self.graph_path, 'rb') as f:
+                with open(self.graph_path, "rb") as f:
                     return pickle.load(f)
             except Exception as e:
                 logger.error(f"Error loading graph: {e}. Creating a new one.")
@@ -29,8 +38,8 @@ class GraphService:
 
     def save_graph(self):
         """Сохраняет текущее состояние графа на диск."""
-        os.makedirs(self.graph_dir, exist_ok=True)
-        with open(self.graph_path, 'wb') as f:
+        self.graph_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.graph_path, "wb") as f:
             pickle.dump(self.graph, f)
 
     def add_document(self, doc_id: str, metadata: Dict[str, Any]):
@@ -55,14 +64,15 @@ class GraphService:
         """Ищет связанные узлы на заданной глубине."""
         if not self.graph.has_node(node_id):
             return []
-            
+
         related = []
         # Простой BFS для поиска соседей
         edges = nx.bfs_edges(self.graph, source=node_id, depth_limit=depth)
         for u, v in edges:
             node_data = self.graph.nodes[v]
             related.append({"id": v, "data": node_data})
-            
+
         return related
+
 
 graph_service = GraphService()
