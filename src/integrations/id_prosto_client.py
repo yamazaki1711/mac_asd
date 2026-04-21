@@ -46,17 +46,135 @@ BASE_URL = "https://id-prosto.ru"
 LOGIN_URL = f"{BASE_URL}/auth/login"
 LISTS_URL = f"{BASE_URL}/lists"
 FORMS_URL = f"{BASE_URL}/forms"
+EXAMPLES_URL = f"{BASE_URL}/examples"
+PROJECTS_URL = f"{BASE_URL}/projects"
+FAQ_URL = f"{BASE_URL}/faq"
 
-# Категории id-prosto.ru (31 раздел)
-CATEGORIES = [
-    "permit", "geodethic", "earth", "piles", "concrete",
-    "steel", "masonry", "roof", "facade", "waterproofing",
-    "windows", "doors", "floors", "finishing", "painting",
-    "plumbing", "heating", "ventilation", "electric", "fire",
-    "security", "communication", "elevator", "landscaping",
-    "foundation", "walls", "columns", "beams", "slabs",
-    "stairs", "glazing",
+# ═══════════════════════════════════════════════
+# Яндекс SmartCaptcha (НЕ reCAPTCHA!)
+# ═══════════════════════════════════════════════
+SMARTCAPTCHA_SITEKEY = "ysc1_MyTawGAah44rcHpuIRcS9W2HMgervcCgVVHhQZKm3668a2e9"
+SMARTCAPTCHA_JS_URL = "https://smartcaptcha.cloud.yandex.ru/captcha.js?render=onload&onload=__onSmartCaptchaReady"
+
+# ═══════════════════════════════════════════════
+# Карта сайта (результаты разведки 2026-04-21)
+# ═══════════════════════════════════════════════
+
+# Категории перечней ИД (31 раздел — /lists/{slug})
+LIST_CATEGORIES = [
+    {"slug": "permit", "name": "Разрешительная документация"},
+    {"slug": "geodethic", "name": "Геодезические работы"},
+    {"slug": "earth", "name": "Земляные работы"},
+    {"slug": "piles", "name": "Свайные работы"},
+    {"slug": "bored-piles", "name": "Буровые сваи"},
+    {"slug": "concrete", "name": "Бетонные работы"},
+    {"slug": "precast-concrete", "name": "Сборные ЖБК"},
+    {"slug": "steel", "name": "Металлические конструкции"},
+    {"slug": "demolition", "name": "Демонтаж"},
+    {"slug": "anticorrosive", "name": "Антикоррозийная защита"},
+    {"slug": "drilling", "name": "Бурение"},
+    {"slug": "extelectric", "name": "Наружное электроснабжение"},
+    {"slug": "electric", "name": "Электромонтажные работы"},
+    {"slug": "elevators", "name": "Лифты"},
+    {"slug": "equipment", "name": "Технологическое оборудование"},
+    {"slug": "extinguishing", "name": "Пожаротушение"},
+    {"slug": "extsewerage", "name": "Наружная канализация"},
+    {"slug": "extwatersupply", "name": "Наружное водоснабжение"},
+    {"slug": "finishing-works", "name": "Отделочные работы"},
+    {"slug": "fire-alarm", "name": "Пожарная сигнализация"},
+    {"slug": "heat-pipelines", "name": "Тепловые сети"},
+    {"slug": "heating", "name": "Отопление"},
+    {"slug": "intsewerage", "name": "Внутренняя канализация"},
+    {"slug": "intwatersupply", "name": "Внутреннее водоснабжение"},
+    {"slug": "pipelines", "name": "Трубопроводы"},
+    {"slug": "roads", "name": "Дорожные работы"},
+    {"slug": "sks", "name": "Структурированные кабельные системы"},
+    {"slug": "steam-boiler", "name": "Паровые котлы"},
+    {"slug": "tanks", "name": "Резервуары"},
+    {"slug": "ventilation", "name": "Вентиляция"},
+    {"slug": "automatic", "name": "Автоматика"},
 ]
+
+# Разделы форм ИД (39 разделов — /forms/{slug})
+FORM_SECTIONS = [
+    {"slug": "344pr", "name": "Приказ Минстроя №344/пр (АОСР, АООК, АОИС)"},
+    {"slug": "1026pr", "name": "Приказ Минстроя №1026/пр (Общий журнал работ)"},
+    {"slug": "sp-48-13330", "name": "СП 48.13330.2019 Организация строительства"},
+    {"slug": "sp-126-13330", "name": "СП 126.13330.2017 Геодезические работы"},
+    {"slug": "sp-129-13330", "name": "СП 129.13330.2019 Наружные сети"},
+    {"slug": "sp-45-13330", "name": "СП 45.13330.2017 Земляные сооружения"},
+    {"slug": "sp-70-13330", "name": "СП 70.13330.2012 Несущие и ограждающие"},
+    {"slug": "sp-71-13330", "name": "СП 71.13330.2017 Отделочные работы"},
+    {"slug": "sp-72-13330", "name": "СП 72.13330.2016 Антикоррозийная защита"},
+    {"slug": "sp-73-13330", "name": "СП 73.13330.2016 Внутренние системы"},
+    {"slug": "sp-74-13330", "name": "СП 74.13330.2016 Наружные сети связи"},
+    {"slug": "sp-76-13330", "name": "СП 76.13330.2016 Электроустановки"},
+    {"slug": "sp-77-13330", "name": "СП 77.13330.2016 Автоматизация"},
+    {"slug": "sp-341-1325800", "name": "СП 341.1325800 Сваи"},
+    {"slug": "sp-365-1325800", "name": "СП 365.1325800 Резервуары"},
+    {"slug": "sp-392-1325800", "name": "СП 392.1325800 Земляные работы"},
+    {"slug": "sp-399-1325800", "name": "СП 399.1325800 Дорожные работы"},
+    {"slug": "sp-412-1325800", "name": "СП 412.1325800 Демонтаж"},
+    {"slug": "sp-520-1325800", "name": "СП 520.1325800 Тепловые сети"},
+    {"slug": "sp-543-1325800", "name": "СП 543.1325800 Приемка в эксплуатацию"},
+    {"slug": "sp-336-1325800", "name": "СП 336.1325800 Лифты"},
+    {"slug": "sp-347-1325800", "name": "СП 347.1325800 Автоматизация"},
+    {"slug": "sp-42-101-2003", "name": "СП 42-101-2003 Газораспределение"},
+    {"slug": "sp-40-102-2000", "name": "СП 40-102-2000 Водоснабжение"},
+    {"slug": "sp-68-13330", "name": "СП 68.13330.2017 Металлические конструкции"},
+    {"slug": "gost-32569", "name": "ГОСТ 32569 Трубопроводы"},
+    {"slug": "gost-22845", "name": "ГОСТ 22845 Сваи"},
+    {"slug": "gost-23118", "name": "ГОСТ 23118 Стальные конструкции"},
+    {"slug": "gost-59638", "name": "ГОСТ Р 59604.3 Сварка"},
+    {"slug": "gost-59639", "name": "ГОСТ Р 59604.4 Материалы сварочные"},
+    {"slug": "gost-r-59492", "name": "ГОСТ Р 59492 Бетонные работы"},
+    {"slug": "i-1-13-07", "name": "И 1-13-07 Электромонтаж"},
+    {"slug": "rd-11-02-2006", "name": "РД 11-02-2006 Состав ИД"},
+    {"slug": "rd-11-05-2007", "name": "РД 11-05-2007 Журналы работ"},
+    {"slug": "rd-45-156-2000", "name": "РД 45.156-2000 Кабельные линии"},
+    {"slug": "rtn-pr8", "name": "РТН Пр-8 Подъёмные сооружения"},
+    {"slug": "snip-42-01-2002", "name": "СНиП 42-01-2002 Газораспределение"},
+    {"slug": "vsn-012", "name": "ВСН 012-88 Строительство трубопроводов"},
+    {"slug": "vsn-478", "name": "ВСН 478-86 Электромонтаж"},
+]
+
+# Разделы примеров оформления (18 разделов — /examples/{slug})
+EXAMPLE_SECTIONS = [
+    "344-pr", "1026-pr", "gost-32569", "i-1-13-07",
+    "rd-11-02-2006", "sp-126-13330", "sp-129-13330",
+    "sp-341-1325800", "sp-365-1325800", "sp-392-1325800",
+    "sp-45-13330", "sp-48-13330", "sp-543-1325800",
+    "sp-70-13330", "sp-71-13330", "sp-72-13330",
+    "sp-73-13330", "sp-76-13330",
+]
+
+# Для обратной совместимости
+CATEGORIES = [c["slug"] for c in LIST_CATEGORIES]
+
+# Страницы сайта
+SITE_PAGES = {
+    "main": "/",
+    "lists": "/lists",
+    "forms": "/forms",
+    "examples": "/examples",
+    "faq": "/faq",
+    "projects": "/projects",
+    "login": "/auth/login",
+    "register": "/register",
+    "forgot_password": "/forgot-password",
+    "license": "/license",
+    "offer": "/offer",
+    "privacy": "/privacy",
+}
+
+# Контактная информация
+SITE_INFO = {
+    "email": "info@id-prosto.ru",
+    "authors": ["Александр Субботин", "Андрей Архипов"],
+    "copyright": "id-prosto, 2022-2026",
+    "tech_stack": "Next.js + Mantine UI",
+    "captcha_type": "Yandex SmartCaptcha (invisible)",
+}
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -219,12 +337,20 @@ class IdProstoClient:
             return False
 
     def _extract_recaptcha_sitekey(self, html: str) -> Optional[str]:
-        """Ищет reCAPTCHA sitekey в HTML."""
+        """
+        Извлекает sitekey капчи из HTML.
+
+        Важно: id-prosto.ru использует Яндекс SmartCaptcha (НЕ Google reCAPTCHA).
+        Sitekey уже известен из анализа JS-чанка: ysc1_MyTawGAah44rcHpuIRcS9W2HMgervcCgVVHhQZKm3668a2e9
+        """
+        # Сначала пробуем известный sitekey
+        if SMARTCAPTCHA_SITEKEY:
+            return SMARTCAPTCHA_SITEKEY
+        # Fallback: ищем в HTML
         patterns = [
-            r'data-sitekey="([^"]+)"',
-            r"data-sitekey='([^']+)'",
             r'sitekey["\s:=]+["\']([^"\']+)["\']',
-            r'render\(["\']([^"\']+)["\']',
+            r'data-sitekey="([^"]+)"',
+            r'siteKey["\s:=]+["\']([^"\']+)["\']',
         ]
         for pat in patterns:
             m = re.search(pat, html)
@@ -233,7 +359,13 @@ class IdProstoClient:
         return None
 
     def _solve_recaptcha(self, sitekey: str) -> Optional[str]:
-        """Решает reCAPTCHA через 2Captcha."""
+        """
+        Решает Яндекс SmartCaptcha через 2Captcha.
+
+        id-prosto.ru использует Яндекс SmartCaptcha (invisible mode),
+        загружаемую с smartcaptcha.cloud.yandex.ru.
+        2Captcha поддерживает решение через метод solver.recaptcha().
+        """
         try:
             from twocaptcha import TwoCaptcha
 
