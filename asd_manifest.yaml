@@ -1,0 +1,394 @@
+# =============================================================================
+# ASD Manifest v11.3 — Главные связки проекта
+# =============================================================================
+# Этот файл определяет конфигурацию моделей и инфраструктуры.
+# Обновлено: 18 апреля 2026 — полный аудит архитектуры.
+# Все модели проверены на HuggingFace (mlx-community) по фактическим данным.
+# =============================================================================
+
+version: "3.0"
+project: "mac_asd"
+
+# ---------------------------------------------------------------------------
+# 1. Модели — все через MLX (Mac Studio M4 Max 128GB)
+# ---------------------------------------------------------------------------
+# Аудит моделей (апрель 2026):
+#   Llama 3.3 70B — лучший оркестратор для 128GB (Llama 4 Scout = 60GB, не влезет)
+#   Gemma 4 31B-it — мультимодальная (#3 открытая модель), OCR/чертежи нативно
+#     → ПТО, Юрист, Сметчик, Закупщик, Логист (5 агентов, одна копия в памяти)
+#   Gemma 4 E4B — MoE 4B effective, быстрый (38-42 tok/s) → Делопроизводитель
+#   bge-m3 — лучший multilingual embedding для локального RAG
+#   Gemma 4 31B VLM (OCR) — УДАЛЁН (Gemma 4 31B обрабатывает OCR нативно)
+#   Qwen3.5-27B — УДАЛЁНА в v11.3 (заменена на Gemma 4 31B для всех рабочих агентов)
+# ---------------------------------------------------------------------------
+models:
+  # Orchestrator — тяжёлая модель, MLX (text-only)
+  # Подтверждено: ~40GB 4bit, ~5-7 tok/s на M4 Max
+  pm:
+    engine: mlx
+    model_id: mlx-community/Llama-3.3-70B-Instruct-4bit
+    precision: 4bit
+    max_memory_gb: 40
+    context_tokens: 131072
+    huggingface_url: https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-4bit
+
+  # ПТО + Юрист + Сметчик — Gemma 4 31B-it (SHARED, одна копия в памяти)
+  # Мультимодальная (#3 открытая модель), нативный OCR, 128K контекст
+  # Подтверждено: ~22.7GB peak 4bit, ~21-27 tok/s
+  # Юрист: полный анализ договоров без Map-Reduce (128K ≈ 300K символов)
+  # Сметчик: полная ВОР + ФЕР расценки в одном контексте
+  # ПТО: Vision + чертежи + OCR нативно
+  # 3 агента разделяют одну модель — НОЛЬ дополнительной памяти
+  pto:
+    engine: mlx-vlm
+    model_id: mlx-community/gemma-4-31b-it-4bit
+    precision: 4bit
+    max_memory_gb: 23
+    context_tokens: 131072   # Gemma 4 31B: полная поддержка 128K контекста
+    vision: true
+    huggingface_url: https://huggingface.co/mlx-community/gemma-4-31b-it-4bit
+
+  # Сметчик — SHARED Gemma 4 31B (уже загружена для ПТО)
+  # 128K контекст: полная ВОР + ФЕР/ТЕР расценки без чанкинга
+  smeta:
+    engine: mlx-vlm           # Тот же движок, что ПТО (Gemma 4 31B shared)
+    model_id: mlx-community/gemma-4-31b-it-4bit
+    precision: 4bit
+    max_memory_gb: 0          # Shared — модель уже загружена ПТО
+    context_tokens: 131072   # Полный 128K контекст
+    huggingface_url: https://huggingface.co/mlx-community/gemma-4-31b-it-4bit
+
+  # Юрист — SHARED Gemma 4 31B (уже загружена для ПТО)
+  # 128K контекст: полный анализ договоров без Map-Reduce
+  # Quick Review для большинства контрактов (до 300K символов)
+  legal:
+    engine: mlx-vlm           # Тот же движок, что ПТО (Gemma 4 31B shared)
+    model_id: mlx-community/gemma-4-31b-it-4bit
+    precision: 4bit
+    max_memory_gb: 0          # Shared — модель уже загружена ПТО
+    context_tokens: 131072   # Полный 128K контекст
+
+  # Закупщик — SHARED Gemma 4 31B (уже загружена для ПТО)
+  # 128K контекст: полный анализ тендерной документации, НМЦК
+  procurement:
+    engine: mlx-vlm           # Тот же движок, что ПТО (Gemma 4 31B shared)
+    model_id: mlx-community/gemma-4-31b-it-4bit
+    precision: 4bit
+    max_memory_gb: 0          # Shared — модель уже загружена ПТО
+    context_tokens: 131072   # Полный 128K контекст
+    huggingface_url: https://huggingface.co/mlx-community/gemma-4-31b-it-4bit
+
+  # Логист — SHARED Gemma 4 31B (уже загружена для ПТО)
+  # 128K контекст: прайс-листы, КП, спецификации
+  logistics:
+    engine: mlx-vlm           # Тот же движок, что ПТО (Gemma 4 31B shared)
+    model_id: mlx-community/gemma-4-31b-it-4bit
+    precision: 4bit
+    max_memory_gb: 0          # Shared — модель уже загружена ПТО
+    context_tokens: 131072   # Полный 128K контекст
+
+  # Делопроизводитель — лёгкий агент, MLX (Gemma 4 E4B = 4B effective MoE)
+  # MoE: 26B total / 4B active, ~38-42 tok/s
+  archive:
+    engine: mlx
+    model_id: mlx-community/gemma-4-e4b-it-4bit
+    precision: 4bit
+    max_memory_gb: 3
+    context_tokens: 8192
+    huggingface_url: https://huggingface.co/mlx-community/gemma-4-e4b-it-4bit
+
+  # Embeddings — MLX-Embeddings (bge-m3)
+  # Лучший multilingual embedding: 100+ языков, dense+sparse+colbert
+  embed:
+    engine: mlx-embeddings
+    model_id: mlx-community/bge-m3-mlx-4bit
+    precision: 4bit
+    max_memory_gb: 0.3
+    context_tokens: 8192
+
+# ---------------------------------------------------------------------------
+# 2. Инфраструктура
+# ---------------------------------------------------------------------------
+infrastructure:
+  mcp_server:
+    name: asd_core
+    version: "11.3.0"
+    transport: stdio
+    host: localhost
+    port: 8765
+
+  postgresql:
+    host: localhost
+    port: 5433
+    user: oleg
+    database: asd_db
+    extensions:
+      - pgvector
+      - pg_trgm
+
+  # Redis УДАЛЁН — заменён на in-process кэширование (cachetools)
+  # Причины: single-user Mac Studio, Redis избыточен, экономия 2GB RAM
+  # cachetools.TTLCache для LLM response caching
+  # SQLite для persistent cache (если нужен)
+
+  graph:
+    engine: networkx
+    storage: pickle
+    path: data/graphs/
+
+  rag:
+    vector_store: pgvector
+    graph_engine: networkx
+    fusion: rrf  # Reciprocal Rank Fusion
+
+  document_processing:
+    primary: docling       # Docling — лучший accuracy (97.9% table cell), IBM/MIT
+    fallback: pymupdf      # PyMuPDF — быстрый fallback для простых PDF
+    vision_ocr: mlx-vlm   # Gemma 4 31B — OCR сканов, чертежей, схем
+    # Gemma 4 31B VLM (OCR) УДАЛЁН — Gemma 4 31B обрабатывает OCR нативно
+
+  docx_generation:
+    engine: docxtpl        # Jinja2 + python-docx, стандарт для шаблонов
+    templates_path: data/templates/
+
+  google_workspace:
+    credentials_path: credentials/google_service_account.json
+    services:
+      - drive
+      - sheets
+      - docs
+      - gmail
+
+# ---------------------------------------------------------------------------
+# 3. Память — оценка использования (Mac Studio M4 Max 128GB)
+# ---------------------------------------------------------------------------
+memory_budget:
+  # ─────────────────────────────────────────────────────────────
+  # Аудит моделей (апрель 2026) — v11.3 обновление:
+  # ─────────────────────────────────────────────────────────────
+  #   Llama 3.3 70B 4bit         ≈ 40 GB  (Hermes/PM)
+  #   Gemma 4 31B-it 4bit (VLM)  ≈ 23 GB  (ПТО + Юрист + Сметчик + Закупщик + Логист — SHARED)
+  #   Gemma 4 E4B 4bit           ≈  3 GB  (Делопроизводитель)
+  #   bge-m3-mlx-4bit (embed)    ≈ 0.3 GB
+  #   PostgreSQL                  ≈  4 GB
+  #   macOS (OS)                  ≈  8 GB
+  #   ──────────────────────────────────
+  #   Итого ≈  78 GB / 128 GB  (запас ≈ 50 GB)
+  #
+  # 3 уникальные модели в памяти. Gemma 4 31B = vision + text + legal + smeta + procurement + logistics.
+  # ПТО/Юрист/Сметчик/Закупщик/Логист делят одну Gemma 4 31B — НОЛЬ дополнительной памяти.
+  # Gemma 4 31B: 128K контекст → Map-Reduce не нужен для большинства договоров.
+  # Qwen3.5-27B УДАЛЕНА — все рабочие агенты переведены на Gemma 4 31B (128K контекст).
+  # ─────────────────────────────────────────────────────────────
+  total_model_gb: 66
+  total_infra_gb: 4
+  os_reserve_gb: 8
+  available_gb: 128
+  headroom_gb: 50
+
+# ---------------------------------------------------------------------------
+# 4. Pipelines
+# ---------------------------------------------------------------------------
+
+# 4a. Протокол "Тендерный Конвейер"
+default_pipeline:
+  # Протокол "Тендерный Конвейер"
+  - step: 1
+    agent: procurement
+    action: download_tender_docs
+    input: tender_lot_id
+    output: tender_docs
+  - step: 2
+    agent: archive
+    action: register_documents
+    input: tender_docs
+    output: registered_docs
+  - step: 3
+    agent: pto
+    action: vision_cascade
+    input: drawings
+    output: vor_json
+  - step: 4
+    agent: smeta
+    action: calculate_profitability
+    input: vor_json
+    output: estimate_analysis
+  - step: 5
+    agent: legal
+    action: review_penalties
+    input: contract
+    output: legal_risk
+    parallel_with: 4
+  - step: 6
+    agent: logistics
+    action: check_suppliers
+    input: estimate_analysis
+    output: logistics_report
+    parallel_with: 5
+  - step: 7
+    agent: pm
+    action: collect_verdict
+    input: [estimate_analysis, legal_risk, logistics_report]
+    output: verdict
+
+# 4b. Протокол "Лабораторный Конвейер" — полный цикл лабораторного контроля
+# Сварка: ВИК → МПК/УЗК/РК → Заключение
+# Бетон: Отбор образцов → Передача → Испытание → Протокол
+lab_pipeline:
+  # Этап 1: ПТО формирует план контроля из ПД/ВОР
+  - step: 1
+    agent: pto
+    action: lab_control_plan
+    input: project_documentation
+    output: control_plan_json
+    # ПТО анализирует ПД, извлекает требования к лаб. контролю:
+    # - Какие виды работ требуют лаб. контроля
+    # - Какие ГОСТ/СП применять
+    # - Объём испытаний (кол-во образцов, стыков, точек)
+
+  # Этап 2: Закупщик ищет аккредитованные лаборатории
+  - step: 2
+    agent: procurement
+    action: lab_search
+    input: control_plan_json
+    output: lab_candidates
+    # Поиск по реестру lab_organizations + внешние источники
+    # Фильтр: область аккредитации, рейтинг, сроки
+
+  # Этап 3: Закупщик запрашивает КП у лабораторий
+  - step: 3
+    agent: procurement
+    action: lab_quote_request
+    input: lab_candidates
+    output: quotes_received
+    # Формирование писем-запросов, отправка через Gmail
+
+  # Этап 4 (параллельно): Делопроизводитель генерирует письмо-обращение
+  - step: 4
+    agent: archive
+    action: lab_request_letter
+    input: control_plan_json
+    output: request_letter_docx
+    parallel_with: 3
+
+  # Этап 5: Закупщик сравнивает КП
+  - step: 5
+    agent: procurement
+    action: lab_quote_compare
+    input: quotes_received
+    output: selected_lab
+
+  # Этап 6: Юрист проверяет договор с лабораторией
+  - step: 6
+    agent: legal
+    action: contract_review
+    input: lab_contract_draft
+    output: contract_verified
+
+  # Этап 7: Делопроизводитель регистрирует договор
+  - step: 7
+    agent: archive
+    action: lab_contract_registration
+    input: contract_verified
+    output: contract_registered
+
+  # Этап 8 (для бетона): ПТО регистрирует отбор образцов
+  - step: 8
+    agent: pto
+    action: lab_sample_registration
+    input: control_plan_json
+    output: samples_registered
+    # Запись в lab_samples: маркировка, класс, место отбора, дата формования
+
+  # Этап 9: Логист координирует доставку образцов
+  - step: 9
+    agent: logistics
+    action: lab_sample_delivery
+    input: samples_registered
+    output: delivery_confirmed
+    # Для сварки: координация выезда дефектоскопистов на объект
+    # Для бетона: доставка образцов-кубов в лабораторию
+
+  # Этап 10: Делопроизводитель регистрирует акт выполненных работ
+  - step: 10
+    agent: archive
+    action: lab_act_registration
+    input: lab_act_document
+    output: act_registered
+
+  # Этап 11: ПТО проверяет заключение лаборатории
+  - step: 11
+    agent: pto
+    action: lab_report_review
+    input: lab_report_document
+    output: report_reviewed
+    # ПТО проверяет: соответствие нормативам, полнота, дефекты
+    # Если есть замечания — формирует запрос на доработку
+
+  # Этап 12: Делопроизводитель подшивает заключение в дело
+  - step: 12
+    agent: archive
+    action: lab_report_filing
+    input: report_reviewed
+    output: report_filed
+
+# ---------------------------------------------------------------------------
+# 5. Группы инструментов MCP (тегирование)
+# ---------------------------------------------------------------------------
+tool_groups:
+  vision:
+    description: "Анализ чертежей, Vision Cascade (Gemma 4 31B VLM — OCR нативно)"
+    tools: ["vision_analyze", "vision_tile"]
+    agents: ["pto"]
+
+  smeta:
+    description: "Расценки, индексы, сметы"
+    tools: ["smeta_query", "smeta_rate_lookup", "index_lookup"]
+    agents: ["smeta", "procurement"]
+
+  legal:
+    description: "Поиск по ФЗ, юридическая база"
+    tools: ["legal_search", "fz_lookup"]
+    agents: ["legal"]
+
+  rag:
+    description: "Векторный поиск по базам знаний (pgvector + NetworkX)"
+    tools: ["rag_query"]
+    agents: ["legal", "smeta"]
+
+  graph:
+    description: "Запись/чтение графа знаний (NetworkX)"
+    tools: ["graph_query", "graph_write"]
+    agents: ["pm", "pto", "smeta", "legal", "procurement", "archive"]
+
+  artifact:
+    description: "Управление файлами и версиями"
+    tools: ["artifact_list", "artifact_write", "artifact_version"]
+    agents: ["pm", "archive"]
+
+  task:
+    description: "Диспетчеризация задач"
+    tools: ["task_dispatch", "notify"]
+    agents: ["pm"]
+
+  google:
+    description: "Google Workspace — Sheets, Docs, Drive, Gmail"
+    tools: ["google_sheets_read", "google_sheets_write", "google_docs_create",
+            "google_drive_list", "google_drive_upload", "google_gmail_send"]
+    agents: ["smeta", "archive", "pm", "legal"]
+
+  # Лабораторный контроль — полный цикл документооборота
+  lab:
+    description: "Лабораторный контроль: НК сварки, испытания бетона, входной контроль"
+    tools: ["lab_control_plan_create",      # ПТО: формирование плана из ПД
+            "lab_sample_register",          # ПТО: регистрация отбора образцов
+            "lab_report_review",            # ПТО: проверка заключения
+            "lab_organization_search",      # Закупщик: поиск аккредитованных лабораторий
+            "lab_quote_request",            # Закупщик: запрос КП
+            "lab_quote_compare",            # Закупщик: сравнение КП
+            "lab_sample_delivery",          # Логист: координация доставки образцов
+            "lab_request_letter_generate",  # Делопроизводитель: письмо-обращение
+            "lab_contract_register",        # Делопроизводитель: регистрация договора
+            "lab_act_register",             # Делопроизводитель: регистрация акта
+            "lab_report_file"]              # Делопроизводитель: подшивка заключения
+    agents: ["pto", "procurement", "logistics", "archive", "legal"]

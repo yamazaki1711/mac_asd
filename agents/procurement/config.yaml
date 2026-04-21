@@ -1,0 +1,43 @@
+agent:
+  name: "procurement"
+  role: "procurement_specialist"
+  display_name: "Закупщик"
+
+model:
+  engine: "mlx-vlm"                # Gemma 4 31B (shared с Юристом, ПТО, Сметчиком)
+  model_id: "mlx-community/gemma-4-31b-it-4bit"
+  precision: 4bit
+  max_tokens: 4096
+  temperature: 0.2
+  top_p: 0.85
+  context_tokens: 131072           # 128K контекст — полный анализ тендерной документации
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "smeta_query"
+    - "market_price_lookup"
+    - "graph_query"
+    - "graph_write"
+    - "artifact_write"
+    - "notify"
+    # Google Workspace
+    - "sheets_read"
+    - "sheets_write"
+    - "drive_search"
+    - "drive_list_folder"
+    - "gmail_send"
+
+procurement:
+  min_quotes: 3
+  evaluation_weights:
+    price: 0.40
+    delivery_time: 0.25
+    reputation: 0.15
+    payment_terms: 0.10
+    extras: 0.10
+  lot_consolidation: true
+
+output:
+  format: "json"
+  export_formats: ["json", "xlsx"]

@@ -1,0 +1,385 @@
+# =============================================================================
+# MAC_ASD v11.3 — Каталог Telegram-каналов для БЛС (База Ловушек Субподрядчика)
+# =============================================================================
+# Формат: каждый канал описан с метаданными для парсинга и приоритизации.
+# Парсер (ingest_blc_telegram.py) читает этот файл для:
+#   1. Валидации источника при импорте result.json
+#   2. Присвоения category и weight найденным ловушкам
+#   3. Фильтрации при RAG-поиске (например, только эксперты)
+#
+# Приоритеты:
+#   critical — каналы с реальной судебной практикой, обязательны к парсингу
+#   high     — экспертные каналы с глубоким разбором
+#   medium   — новостные и общие, полезны для контекста
+#   low      — общий охват, попадания редкие
+# =============================================================================
+
+channels:
+
+  # ===========================================================================
+  # ПРИОРИТЕТНЫЕ КАНАЛЫ (10 каналов — основной источник ловушек для БЛС)
+  # ===========================================================================
+
+  - username: advokatgrikevich
+    display_name: "Адвокат Грикевич — Оксана Грикевич"
+    url: "https://t.me/advokatgrikevich"
+    author: "Оксана Грикевич"
+    description: >
+      Строительные споры, госзакупки, банкротство. 659+ выигранных дел.
+      Один из самых авторитетных каналов для подрядчиков.
+      Высокая плотность кейсов с конкретными ловушками.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - строительные споры
+      - госзакупки (ФЗ-44, ФЗ-223)
+      - банкротство подрядчиков
+      - защита subcontractors
+      - судебная практика
+    subscriber_count: "9.5k"
+    engagement_rate: "0.2% ERR"
+    expected_trap_density: very_high
+
+  - username: umnaya_stroyka
+    display_name: "Умная стройка — Е. Лизунова (ЮК Контрактика)"
+    url: "https://t.me/umnaya_stroyka"
+    author: "Екатерина Лизунова, ЮК Контрактика"
+    description: >
+      Сложные строительные споры, суды по стройке. Рейтинг Коммерсанта.
+      Глубокий разбор градостроительного законодательства и судебной практики.
+      Регулярные публикации с анализом конкретных дел.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - сложные строительные споры
+      - ГрК РФ (Градостроительный кодекс)
+      - судебная практика по стройке
+      - защита подрядчиков в суде
+    subscriber_count: "10k+"
+    engagement_rate: "регулярные публикации"
+    expected_trap_density: very_high
+
+  - username: jurist
+    display_name: "Адвокат Шупиков"
+    url: "https://t.me/jurist"
+    author: "Адвокат Шупиков"
+    description: >
+      Арбитраж по 115-ФЗ, строительные контракты. Большая активная аудитория.
+      Практический разбор строительных договоров и арбитражных споров.
+      30k подписчиков — один из крупнейших стройюр-каналов.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - арбитраж (115-ФЗ)
+      - строительные контракты
+      - практические кейсы
+      - договорная работа
+    subscriber_count: "30k"
+    engagement_rate: "0.4% ERR"
+    expected_trap_density: high
+
+  - username: advokat_polikirzha
+    display_name: "Адвокат Поликыржа"
+    url: "https://t.me/advokat_polikirzha"
+    author: "Адвокат Поликыржа"
+    description: >
+      Недвижимость и строительство, судебные кейсы.
+      Фокус на практических аспектах строительных споров.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - недвижимость и стройка
+      - судебные кейсы
+      - строительные споры
+    subscriber_count: "7.5k"
+    engagement_rate: "0.1% ERR"
+    expected_trap_density: high
+
+  - username: arbitrazhnayapraktika
+    display_name: "Арбитражная практика"
+    url: "https://t.me/arbitrazhnayapraktika"
+    author: "Арбитражная практика"
+    description: >
+      Строительные споры для юристов, обзоры судебных дел.
+      Систематизированные обзоры арбитражной практики по строительству.
+      14k подписчиков — авторитетный канал для юрпрактики.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - строительные споры
+      - обзоры арбитражных дел
+      - судебная практика
+      - аналитика решений
+    subscriber_count: "14k"
+    engagement_rate: "0.1% ERR"
+    expected_trap_density: high
+
+  - username: yardrey
+    display_name: "Ярдрей (юридический)"
+    url: "https://t.me/yardrey"
+    author: "Ярдрей"
+    description: >
+      Строительство, ГрК РФ, кейсы арбитража. 168k подписчиков —
+      крупнейший стройюр-канал в России. Максимальный охват.
+      Большой поток контента, много кейсов с ловушками.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - строительство
+      - ГрК РФ
+      - кейсы арбитража
+      - строительные споры
+      - нормативное регулирование
+    subscriber_count: "168k"
+    engagement_rate: "0.3% ERR"
+    expected_trap_density: very_high
+
+  - username: sistema_jur
+    display_name: "Система Юрист"
+    url: "https://t.me/sistema_jur"
+    author: "Система Юрист"
+    description: >
+      Промышленное строительство, договоры, практика.
+      Систематизированный подход к правовым вопросам стройки.
+      12k подписчиков — стабильный экспертный канал.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - промышленное строительство
+      - договоры подряда
+      - правовая практика
+      - системный анализ рисков
+    subscriber_count: "12k"
+    engagement_rate: "0.1% ERR"
+    expected_trap_density: high
+
+  - username: ocenkaexpru
+    display_name: "К. Мандрика — Экспертиза"
+    url: "https://t.me/ocenkaexpru"
+    author: "К. Мандрика"
+    description: >
+      Судебная строительная экспертиза, кейсы. Активный канал.
+      Уникальная экспертиза — оценка и строительная экспертиза в суде.
+      Практика, непосредственно связанная с разрешением споров.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - строительная экспертиза в суде
+      - оценка объектов
+      - кейсы судебной экспертизы
+      - доказательная база подрядчика
+    subscriber_count: "7.7k"
+    engagement_rate: "активный"
+    expected_trap_density: high
+
+  - username: arbitrium_processus
+    display_name: "Арбитраж для бизнеса"
+    url: "https://t.me/arbitrium_processus"
+    author: "Арбитраж для бизнеса"
+    description: >
+      Строительные процессы, споры промышленных объектов.
+      Фокус на процессуальных аспектах строительных арбитражных споров.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - строительные процессы
+      - споры промышленных объектов
+      - арбитражная процедура
+      - процессуальные ловушки
+    subscriber_count: "8k"
+    engagement_rate: "0.1% ERR"
+    expected_trap_density: high
+
+  - username: stroitelnyi_yurist
+    display_name: "ПРАВАУ — Строительный юрист"
+    url: "https://t.me/stroitelnyi_yurist"
+    author: "ПРАВАУ"
+    description: >
+      Права в строительстве, кейсы Ростехнадзора.
+      Экспертный канал с анализом конкретных кейсов.
+      Фокус на взаимодействии с надзорными органами.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - права в строительстве
+      - Ростехнадзор
+      - надзорные органы
+      - экспертиза проектной документации
+      - кейсы взаимодействий с госорганами
+    subscriber_count: "средняя"
+    engagement_rate: "экспертная"
+    expected_trap_density: high
+
+  # ===========================================================================
+  # ВТОРОЙ ЭШЕЛОН — дополнительные каналы (context & coverage)
+  # ===========================================================================
+
+  - username: construction_legal
+    display_name: "Союз юристов: строительство"
+    url: "https://t.me/construction_legal"
+    author: "Союз юристов"
+    description: >
+      Промышленное и гражданское строительство, нормативы.
+      Официальный, авторитетный источник.
+    category: legal_association
+    priority: high
+    focus_areas:
+      - промышленное и гражданское строительство
+      - нормативы и ГОСТы
+      - правовые позиции объединений
+    subscriber_count: "официальный"
+    engagement_rate: "низкая"
+    expected_trap_density: medium
+
+  - username: BuglessLawyer
+    display_name: "Юрист без багов"
+    url: "https://t.me/BuglessLawyer"
+    author: "Юрист без багов"
+    description: >
+      Строительство без ошибок, включая промышленные объекты.
+      Блог с кейсами и практическими рекомендациями.
+    category: legal_practice
+    priority: high
+    focus_areas:
+      - ошибки в строительных договорах
+      - промышленные объекты
+      - практические кейсы
+    subscriber_count: "блог с кейсами"
+    engagement_rate: "средняя"
+    expected_trap_density: medium
+
+  - username: zem_advokat
+    display_name: "Land Law Firm"
+    url: "https://t.me/zem_advokat"
+    author: "Land Law Firm"
+    description: >
+      Земля, промышленная недвижимость, экспертиза.
+      Практика по крупным проектам.
+    category: legal_practice
+    priority: medium
+    focus_areas:
+      - земельные участки под промышленные объекты
+      - промышленная недвижимость
+      - экспертиза и кадастр
+    subscriber_count: "практика по крупным проектам"
+    engagement_rate: "средняя"
+    expected_trap_density: medium
+
+  - username: developers_policy
+    display_name: "Законы стройки"
+    url: "https://t.me/developers_policy"
+    author: "Законы стройки"
+    description: >
+      Обновления по промышленным нормам, тендерам.
+      Регулярные апдейты законодательства.
+    category: legal_news
+    priority: medium
+    focus_areas:
+      - обновления промышленных норм
+      - тендерная документация
+      - изменения законодательства
+    subscriber_count: "регулярные апдейты"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  - username: readinlaw
+    display_name: "ReadInLaw"
+    url: "https://t.me/readinlaw"
+    author: "ReadInLaw"
+    description: >
+      Градостроительство для промобъектов.
+      Анализ кодексов и нормативных актов.
+    category: legal_education
+    priority: medium
+    focus_areas:
+      - градостроительство
+      - аналитика кодексов
+      - промышленные объекты
+    subscriber_count: "средняя"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  - username: stroy_news
+    display_name: "Строй-Новости"
+    url: "https://t.me/stroy_news"
+    author: "101-app"
+    description: >
+      Новости промышленного сектора с юридическим уклоном.
+      50k+ подписчиков — широкий охват.
+    category: legal_news
+    priority: medium
+    focus_areas:
+      - новости промышленного строительства
+      - юридические аспекты
+      - рыночная аналитика
+    subscriber_count: "50k+"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  - username: jkh_pravo
+    display_name: "ЖКХ и промышленное: право"
+    url: "https://t.me/jkh_pravo"
+    author: "ЖКХ Право"
+    description: >
+      ЖКХ и промышленное: споры, регуляции.
+      Широкий охват, пересечение с промышленным строительством.
+    category: legal_news
+    priority: low
+    focus_areas:
+      - ЖКХ
+      - промышленное строительство
+      - споры и регуляции
+    subscriber_count: "широкий охват"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+
+# =============================================================================
+# Категории для классификации источников
+# =============================================================================
+categories:
+  legal_practice:
+    description: "Каналы практикующих юристов — основной источник ловушек"
+    default_weight: 1.0
+  legal_association:
+    description: "Официальные объединения юристов"
+    default_weight: 0.8
+  legal_education:
+    description: "Образовательные и аналитические каналы"
+    default_weight: 0.6
+  legal_news:
+    description: "Новостные каналы с юридическим контентом"
+    default_weight: 0.4
+
+
+# =============================================================================
+# Настройки парсинга
+# =============================================================================
+parsing:
+  # Минимальная длина текста для анализа (символов)
+  min_text_length: 50
+
+  # Максимальная длина текста для одного LLM-запроса
+  max_text_length: 8000
+
+  # Задержка между запросами к LLM (секунды) — чтобы не перегружать MLX
+  llm_throttle_seconds: 0.5
+
+  # Порог confidence для сохранения ловушки
+  confidence_threshold: 0.7
+
+  # Категория по умолчанию для каналов не из каталога
+  default_category: unknown
+
+  # Папка с JSON-экспортами Telegram Desktop
+  exports_dir: "data/telegram_exports"
+
+  # Автоматическая категоризация при импорте
+  auto_categorize: true
+
+  # Порядок парсинга при batch-режиме: сначала critical, потом high, etc.
+  priority_order:
+    - critical
+    - high
+    - medium
+    - low

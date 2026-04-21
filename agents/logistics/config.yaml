@@ -1,0 +1,40 @@
+agent:
+  name: "logistics"
+  role: "logistics_specialist"
+  display_name: "Логист"
+
+model:
+  engine: "mlx-vlm"                # Gemma 4 31B (shared с ПТО, Юристом, Сметчиком, Закупщиком)
+  model_id: "mlx-community/gemma-4-31b-it-4bit"
+  precision: 4bit
+  max_tokens: 4096
+  temperature: 0.2
+  top_p: 0.85
+  context_tokens: 131072           # 128K контекст — прайс-листы, КП, спецификации
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "vendor_lookup"
+    - "material_price_check"
+    - "delivery_track"
+    - "graph_query"
+    - "graph_write"
+    - "artifact_write"
+    - "notify"
+    # Google Workspace
+    - "sheets_read"
+    - "sheets_write"
+    - "drive_search"
+    - "drive_list_folder"
+    - "gmail_send"
+
+logistics:
+  default_suppliers_count: 3
+  delivery_deadline_days: 14
+  price_deviation_threshold: 0.15  # 15% отклонение от средней цены → предупреждение
+  preferred_regions: ["Москва", "МО", "СПб"]
+
+output:
+  format: "json"
+  export_formats: ["json", "xlsx"]

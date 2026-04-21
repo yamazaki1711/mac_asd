@@ -1,0 +1,41 @@
+agent:
+  name: "smeta"
+  role: "cost_estimator"
+  display_name: "Сметчик"
+
+model:
+  engine: "mlx-vlm"          # Gemma 4 31B (shared с ПТО и Юристом)
+  model_id: "mlx-community/gemma-4-31b-it-4bit"
+  precision: 4bit
+  max_tokens: 16384
+  temperature: 0.1
+  top_p: 0.8
+  context_tokens: 131072    # Полный 128K контекст — ВОР + ФЕР целиком
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "smeta_query"
+    - "smeta_rate_lookup"
+    - "index_lookup"
+    - "graph_query"
+    - "graph_write"
+    - "artifact_write"
+    # Google Workspace
+    - "sheets_read"
+    - "sheets_write"
+    - "sheets_create"
+    - "sheets_get_names"
+    - "drive_search"
+    - "drive_list_folder"
+
+smeta_db:
+  rates_path: "./data/rates/fer_2024.json"
+  indices_path: "./data/indices/minstroy_latest.json"
+  overhead_percent: 15.0
+  profit_percent: 8.0
+  vat_percent: 20.0
+
+output:
+  format: "json"
+  export_formats: ["json", "xlsx", "smeta_xml"]

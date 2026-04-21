@@ -1,0 +1,41 @@
+agent:
+  name: "pto"
+  role: "pto_engineer"
+  display_name: "Инженер ПТО"
+
+model:
+  engine: "mlx-vlm"
+  model_id: "mlx-community/gemma-4-31b-it-4bit"
+  vision: true
+  max_tokens: 8192
+  temperature: 0.2
+  top_p: 0.85
+  context_tokens: 131072     # Полный 128K контекст Gemma 4 31B
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "vision_analyze"
+    - "vision_tile"
+    - "graph_query"
+    - "artifact_store"
+    - "artifact_write"
+    # Google Workspace
+    - "drive_search"
+    - "drive_list_folder"
+    - "sheets_read"
+    - "sheets_write"
+    - "sheets_append"
+    - "docs_from_template"
+    - "drive_export_pdf"
+
+vision:
+  tile_size: [1024, 1024]
+  overlap: 128
+  tile_batch: 4
+  confidence_threshold: 0.6
+
+output:
+  format: "json"
+  schema: "vor_v1"
+  store_in_graph: true

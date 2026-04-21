@@ -1,0 +1,506 @@
+[
+  {
+    "page": "/examples/1026-pr/gwl-chapter-1",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_1/GWL_NEW_1_FULL.d0b01f92f19513f0.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-chapter-1.pdf",
+    "size": 124846
+  },
+  {
+    "page": "/examples/1026-pr/gwl-chapter-2",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_2/GWL_NEW_2_FULL.dc08c81df90eb5a2.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-chapter-2.pdf",
+    "size": 126602
+  },
+  {
+    "page": "/examples/1026-pr/gwl-chapter-3",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_3/GWL_NEW_3_FULL.45d3eb0e006b1f8f.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-chapter-3.pdf",
+    "size": 147134
+  },
+  {
+    "page": "/examples/1026-pr/gwl-chapter-4",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_4/GWL_NEW_4_FULL.ac43413941bb6e62.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-chapter-4.pdf",
+    "size": 123596
+  },
+  {
+    "page": "/examples/1026-pr/gwl-chapter-5",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_5/GWL_NEW_5_FULL.13f6f6117b6e742e.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-chapter-5.pdf",
+    "size": 94146
+  },
+  {
+    "page": "/examples/1026-pr/gwl-chapter-6",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_6/GWL_NEW_6_FULL.9dad62f301926f30.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-chapter-6.pdf",
+    "size": 119559
+  },
+  {
+    "page": "/examples/1026-pr/gwl-title",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/1026PR/GWL_NEW_TITLE/GWL_NEW_TITLE_FULL.60acdd465b9d2732.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/1026-pr_gwl-title.pdf",
+    "size": 233907
+  },
+  {
+    "page": "/examples/344-pr/new-aogro",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/344PR/AOGRO_NEW/AOGRO_NEW_FULL.a96073c1994d8bea.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/344-pr_new-aogro.pdf",
+    "size": 199109
+  },
+  {
+    "page": "/examples/344-pr/new-aook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/344PR/AOOK_NEW/AOOK_NEW_FULL.147537833cefbdb6.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/344-pr_new-aook.pdf",
+    "size": 207982
+  },
+  {
+    "page": "/examples/344-pr/new-aosr",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/344PR/AOSR_NEW/AOSR_NEW_FULL.dee3a1f4dca900ea.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/344-pr_new-aosr.pdf",
+    "size": 203624
+  },
+  {
+    "page": "/examples/344-pr/new-aousito",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/344PR/AOUSITO_NEW/AOUSITO_NEW_FULL.36c03d57a9b12b1d.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/344-pr_new-aousito.pdf",
+    "size": 207699
+  },
+  {
+    "page": "/examples/344-pr/new-arooks",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/344PR/AROOKS_NEW/AROOKS_NEW_FULL.7da2534c502075b2.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/344-pr_new-arooks.pdf",
+    "size": 199964
+  },
+  {
+    "page": "/examples/gost-32569/pipelines-welding-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/GOST32569/WELDING_LOGBOOK/WELDING_LOGBOOK_FULL.0ffc279211086151.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/gost-32569_pipelines-welding-logbook.pdf",
+    "size": 212644
+  },
+  {
+    "page": "/examples/gost-32569/specification",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/GOST32569/SPEC/1_SPEC_FULL.758c48bedfcd848d.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/gost-32569_specification.pdf",
+    "size": 73368
+  },
+  {
+    "page": "/examples/gost-32569/stretching",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/GOST32569/RAST_KOMP/RAST_KOMP_GOST_FULL.2215d5ad659032d7.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/gost-32569_stretching.pdf",
+    "size": 126915
+  },
+  {
+    "page": "/examples/gost-32569/svidetelstvo",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SVOMONT/SVOMONT_FULL.57893d89c4535576.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/gost-32569_svidetelstvo.pdf",
+    "size": 140751
+  },
+  {
+    "page": "/examples/gost-32569/testing",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/GOST32569/ACT_ISP/ACT_ISP_FULL.bf1dab14d9964f6a.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/gost-32569_testing.pdf",
+    "size": 127994
+  },
+  {
+    "page": "/examples/i-1-13-07/cable-sewer-in-tranche-inspection-report",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/17_CABLE_CANAL_REVIEW/17_CABLE_CANAL_REVIEW_FULL.797676b545139e1b.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_cable-sewer-in-tranche-inspection-report.pdf",
+    "size": 178744
+  },
+  {
+    "page": "/examples/i-1-13-07/cables-log",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/18_CABLES_LOG/18_CABLES_LOG_FULL.8abbbdd54e013f7a.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_cables-log.pdf",
+    "size": 161340
+  },
+  {
+    "page": "/examples/i-1-13-07/couplings-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/19_COUPLINGS_LOG/19_COUPLINGS_LOG_FULL.2f2eda901de1d23d.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_couplings-logbook.pdf",
+    "size": 126961
+  },
+  {
+    "page": "/examples/i-1-13-07/cover",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/25_COVER/25_COVER_FULL.d27a7fa3452787ed.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_cover.pdf",
+    "size": 85486
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-act-of-building-readiness",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/6_ACT_GOT_STR/6_ACT_GOT_STR_FULL.f61323b9903ed7a5.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-act-of-building-readiness.pdf",
+    "size": 134797
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-act-of-readiness",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/2_ACT_TEH/2_ACT_TEH_FULL.cbea1b52777a0303.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-act-of-readiness.pdf",
+    "size": 154192
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-defects-elimination",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/6A_SPR_LIKV_NEDOD/6A_SPR_LIKV_NEDOD_FULL.9b449adfebd7b930.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-defects-elimination.pdf",
+    "size": 121721
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-grounding-passport",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/24_PASP_ZU/24_PASP_ZU_FULL.fdad5a64cdeaef5d.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-grounding-passport.pdf",
+    "size": 131897
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-list-of-changes",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/3_VED_IZM/3_VED_IZM_FULL.55bdb44e949fc6a6.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-list-of-changes.pdf",
+    "size": 124919
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-list-of-defects",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/4_VED_NEDOD/4_VED_NEDOD_FULL.2239f8df8aac3d5c.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-list-of-defects.pdf",
+    "size": 127016
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-list-of-equipment",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/5_VED_OBOR/5_VED_OBOR_FULL.0179b7e6f3bdeacc.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-list-of-equipment.pdf",
+    "size": 126184
+  },
+  {
+    "page": "/examples/i-1-13-07/electric-ready-for-commisioning",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/6B_ACT_PERED_PNR/6B_ACT_PERED_PNR_FULL.2a735c7ba1ad0e71.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_electric-ready-for-commisioning.pdf",
+    "size": 131994
+  },
+  {
+    "page": "/examples/i-1-13-07/list-of-docs",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/1_LIST_OF_DOCS/1_LIST_OF_DOCS_FULL.3047cb497370ecf2.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_list-of-docs.pdf",
+    "size": 129766
+  },
+  {
+    "page": "/examples/i-1-13-07/measures-act",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/23_MEASURES_ACT/23_MEASURES_ACT_FULL.4903dd27aea19098.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_measures-act.pdf",
+    "size": 130070
+  },
+  {
+    "page": "/examples/i-1-13-07/power-transformer-certificate-of-acceptance",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/7_TRANSFORMATOR/7_TRANSFORMATOR_FULL.875e9f2a9bd7ee32.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_power-transformer-certificate-of-acceptance.pdf",
+    "size": 172047
+  },
+  {
+    "page": "/examples/i-1-13-07/resistance-protocol",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/15_RESISTANCE_PROTOCOL/15_RESISTANCE_PROTOCOL_FULL.2782be2afc069586.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_resistance-protocol.pdf",
+    "size": 165851
+  },
+  {
+    "page": "/examples/i-1-13-07/tranche-acceptance-certificate",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/14A_TRENCHE_REVIEW/14A_TRENCHE_REVIEW_FULL.c179546553f9dcc5.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_tranche-acceptance-certificate.pdf",
+    "size": 154224
+  },
+  {
+    "page": "/examples/i-1-13-07/warming-protocol",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/I_1.13/16_WARMING_PROTOCOL/16_WARMING_PROTOCOL_FULL.8803a3cf00de0705.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/i-1-13-07_warming-protocol.pdf",
+    "size": 143131
+  },
+  {
+    "page": "/examples/rd-11-02-2006/agro",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/AGRO/AGRO_FULL.c3934c349f6639d3.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/rd-11-02-2006_agro.pdf",
+    "size": 184509
+  },
+  {
+    "page": "/examples/rd-11-02-2006/aook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/AOOK/AOOK_FULL.bf3400f6297feeb9.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/rd-11-02-2006_aook.pdf",
+    "size": 207369
+  },
+  {
+    "page": "/examples/rd-11-02-2006/aosr",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/AOSR/AOSR_FULL.af7f369ded450f02.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/rd-11-02-2006_aosr.pdf",
+    "size": 202383
+  },
+  {
+    "page": "/examples/rd-11-02-2006/aousito",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/AOUSITO/AOUSITO_FULL.7159f03f398102b0.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/rd-11-02-2006_aousito.pdf",
+    "size": 210235
+  },
+  {
+    "page": "/examples/rd-11-02-2006/arooks",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/AROOKS/AROOKS_FULL.3dcfd4bf085ddccb.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/rd-11-02-2006_arooks.pdf",
+    "size": 185235
+  },
+  {
+    "page": "/examples/sp-126-13330/geodethic-base-acceptance",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_126/SP_126_GBA/SP_126_GBA_FULL.4e76057523aba301.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-126-13330_geodethic-base-acceptance.pdf",
+    "size": 123834
+  },
+  {
+    "page": "/examples/sp-126-13330/geodethic-works-results",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_126/SP_126_GWR/SP_126_GWR_FULL.51fe8af918a0ff8e.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-126-13330_geodethic-works-results.pdf",
+    "size": 122977
+  },
+  {
+    "page": "/examples/sp-129-13330/dezinfection",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_129/DEZINF/DEZINF_FULL.17c8b8ec3b170020.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-129-13330_dezinfection.pdf",
+    "size": 133759
+  },
+  {
+    "page": "/examples/sp-129-13330/testing-with-pressure",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_129/GIDR_ISP_NAP/GIDR_ISP_NAP_FULL.a0827f6ebc3d88e0.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-129-13330_testing-with-pressure.pdf",
+    "size": 140605
+  },
+  {
+    "page": "/examples/sp-129-13330/testing-without-pressure",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_129/GIDR_ISP_BEZ/GIDR_ISP_BEZ_FULL.721366c52af0b6f0.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-129-13330_testing-without-pressure.pdf",
+    "size": 537646
+  },
+  {
+    "page": "/examples/sp-341-1325800/accept",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_341/6_ACCEPT/ACCEPT_FULL.413af9a11ed11cec.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-341-1325800_accept.pdf",
+    "size": 145278
+  },
+  {
+    "page": "/examples/sp-341-1325800/for_stretching",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_341/4_FOR_STRETCHING/FOR_STRETCHING_FULL.d253d2ba35aa0060.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-341-1325800_for_stretching.pdf",
+    "size": 139013
+  },
+  {
+    "page": "/examples/sp-341-1325800/pilot",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_341/2_PILOT/PILOT_FULL.235c7b5e7434a575.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-341-1325800_pilot.pdf",
+    "size": 130524
+  },
+  {
+    "page": "/examples/sp-341-1325800/protokol",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_341/1_PROTOKOL/PROTOKOL_FULL.d22584a2353f1f57.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-341-1325800_protokol.pdf",
+    "size": 126596
+  },
+  {
+    "page": "/examples/sp-341-1325800/widened",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_341/3_WIDENED/WIDENED_FULL.4fd7c3151566a9a5.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-341-1325800_widened.pdf",
+    "size": 151390
+  },
+  {
+    "page": "/examples/sp-365-1325800/mounted-tank-quality-control",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/11_ACT_KK/11_ACT_KK_FULL.4a5ef10983b5bfd0.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_mounted-tank-quality-control.pdf",
+    "size": 132845
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-acceptance-act",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/16_ACT_PRIEM_REZ/16_ACT_PRIEM_REZ_FULL.d97d07e8d3323cfd.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-acceptance-act.pdf",
+    "size": 133311
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-bottom-seams",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/5_ACT_ISP_SHVOV/5_ACT_ISP_SHVOV_FULL.84bcd535c0c07921.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-bottom-seams.pdf",
+    "size": 108766
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-foundation-acceptance",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/4_ACT_PRIEM_OSN/4_ACT_PRIEM_OSN_FULL.b4341eda6ed66c9a.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-foundation-acceptance.pdf",
+    "size": 130476
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-hydraulic-test",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/12_ACT_GIDR_ISP/12_ACT_GIDR_ISP_FULL.11a372ac57ce93b6.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-hydraulic-test.pdf",
+    "size": 132409
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-installation-completion",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/14_ACT_ZAV_MONT/14_ACT_ZAV_MONT_FULL.71a38fbed7a37626.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-installation-completion.pdf",
+    "size": 130223
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-passport",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/15_PASP_REZ/15_PASP_REZ_FULL.e51ceadfcfd0fc48.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-passport.pdf",
+    "size": 148152
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-quality-protokol",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/3_PROTOKOL_KACH/3_PROTOKOL_KACH_FULL.60ec182f7f4920aa.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-quality-protokol.pdf",
+    "size": 149882
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-radiografic",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/10_ZAKL_RK/10_ZAKL_RK_FULL.9ada7b5b777e7938.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-radiografic.pdf",
+    "size": 132769
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-roof-test",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/9_ACT_ISP_GERM_POKR/9_ACT_ISP_GERM_POKR_FULL.c7d12f195df383f8.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-roof-test.pdf",
+    "size": 149944
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-structures-acceptance",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/2_ACT_PR_MK/2_ACT_PR_MK_FULL.4974adbda014171c.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-structures-acceptance.pdf",
+    "size": 133633
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-vakuum-test",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/13_ACT_IZB_DAVL_VAK/13_ACT_IZB_DAVL_VAK_FULL.d9e9cddc4b815b96.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-vakuum-test.pdf",
+    "size": 129829
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-wall-bottom-seams",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/6_ACT_ISP_STEN_DNISH/6_ACT_ISP_STEN_DNISH_FULL.176020bb7c91d68c.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-wall-bottom-seams.pdf",
+    "size": 132765
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-wall-seams-control",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/7_ACT_KK_SS_STEN/7_ACT_KK_SS_STEN_FULL.2e2ff6bcfba4cea3.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-wall-seams-control.pdf",
+    "size": 132143
+  },
+  {
+    "page": "/examples/sp-365-1325800/tank-walls-seams",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_365/8_ACT_PROSV_STEN/8_ACT_PROSV_STEN_FULL.0e9c59d3f4a07366.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-365-1325800_tank-walls-seams.pdf",
+    "size": 145984
+  },
+  {
+    "page": "/examples/sp-392-1325800/incoming-inspection-sp392",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_392/F2_1/F2_1_FULL.7c242d5da0c5b312.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-392-1325800_incoming-inspection-sp392.pdf",
+    "size": 114098
+  },
+  {
+    "page": "/examples/sp-392-1325800/piles-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_392/F4_1/PILES_LOGBOOK_FULL.f1385b4af6967a67.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-392-1325800_piles-logbook.pdf",
+    "size": 157839
+  },
+  {
+    "page": "/examples/sp-45-13330/pile-acceptance-act",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_45/PILE_ACCEPTANCE/PILE_ACCEPTANCE_FULL.eddab45fa70c54cb.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-45-13330_pile-acceptance-act.pdf",
+    "size": 132818
+  },
+  {
+    "page": "/examples/sp-45-13330/well-acceptance-act",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_45/WELL_ACCEPTANCE/WELL_ACCEPTANCE_FULL.3e605ca40a59036e.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-45-13330_well-acceptance-act.pdf",
+    "size": 168889
+  },
+  {
+    "page": "/examples/sp-48-13330/incoming-inspection",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_48/I_ZHVK/I_ZHVK_FULL.da08770ee9440fdb.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-48-13330_incoming-inspection.pdf",
+    "size": 173848
+  },
+  {
+    "page": "/examples/sp-543-1325800/incoming-inspection-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_543/G_INCOMING_INSPECTION_EXAMPLE_FULL.208ab6d1a294e44a.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-543-1325800_incoming-inspection-logbook.pdf",
+    "size": 150148
+  },
+  {
+    "page": "/examples/sp-70-13330/bolts-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_70/D_BOLTS/BOLTS_FULL.c52a9a482d79a32d.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-70-13330_bolts-logbook.pdf",
+    "size": 177930
+  },
+  {
+    "page": "/examples/sp-70-13330/calibration-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_70/E_CALIBRATION/E_CALIBRATION_FULL.f4bc69db148d0a9f.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-70-13330_calibration-logbook.pdf",
+    "size": 147031
+  },
+  {
+    "page": "/examples/sp-70-13330/concrete-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_70/F_CONCRETE/CONCRETE_FULL.fb0a40ef687ffa53.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-70-13330_concrete-logbook.pdf",
+    "size": 119168
+  },
+  {
+    "page": "/examples/sp-70-13330/structures-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_70/A_ZHRMSK/A_ZHRMSK_FULL.891b52ce09d41b82.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-70-13330_structures-logbook.pdf",
+    "size": 166825
+  },
+  {
+    "page": "/examples/sp-70-13330/structures-welding-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_70/B_ZHSR/B_welding_logbook_FULL.ba5e8616d4a72947.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-70-13330_structures-welding-logbook.pdf",
+    "size": 155736
+  },
+  {
+    "page": "/examples/sp-71-13330/completed-works-act",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_71/COMPLETED_WORKS_ACT/COMPLETED_WORKS_ACT_FULL.3b816e026a8abf18.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-71-13330_completed-works-act.pdf",
+    "size": 135891
+  },
+  {
+    "page": "/examples/sp-72-13330/anticorrosion-logbook",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_72/LOGBOOK/SP72_LOG_FULL.843b572d6fe2c234.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-72-13330_anticorrosion-logbook.pdf",
+    "size": 154837
+  },
+  {
+    "page": "/examples/sp-72-13330/coating-acceptance",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_72/ACT/SP72_ACT_FULL.1e17e31041e91f15.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-72-13330_coating-acceptance.pdf",
+    "size": 130192
+  },
+  {
+    "page": "/examples/sp-73-13330/hydrostatyc-testing",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_73/V_ISP_GERM/V_ISP_GERM_FULL.db9f7975a68473f2.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-73-13330_hydrostatyc-testing.pdf",
+    "size": 131913
+  },
+  {
+    "page": "/examples/sp-73-13330/sewerage-testing",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_73/G_ISP_KAN/G_ISP_KAN_FULL.f87a05eee2a21e83.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-73-13330_sewerage-testing.pdf",
+    "size": 130576
+  },
+  {
+    "page": "/examples/sp-73-13330/sp73-equipment-individual-testing",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_73/D_II_OBOR/D_II_OBOR_FULL.9d123b670984614f.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-73-13330_sp73-equipment-individual-testing.pdf",
+    "size": 127732
+  },
+  {
+    "page": "/examples/sp-73-13330/ventilation-system-passport",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_73/E_PASP_VENT/E_PASP_VENT_FULL.ef1a15cb7a4a7d32.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-73-13330_ventilation-system-passport.pdf",
+    "size": 177662
+  },
+  {
+    "page": "/examples/sp-76-13330/sp76-pnr",
+    "pdf_url": "https://id-prosto.ru/_next/static/chunks/src/images/examples/SP_76/SP76_PNR/SP76_PNR_FULL.803e092573ebe41e.pdf",
+    "local_file": "/home/z/my-project/download/id_samples/sp-76-13330_sp76-pnr.pdf",
+    "size": 150511
+  }
+]

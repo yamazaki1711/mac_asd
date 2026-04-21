@@ -1,0 +1,15 @@
+{
+  "findings": [],
+  "protocol_items": [],
+  "normative_refs": [],
+  "contradictions": [],
+  "verdict": "approved",
+  "summary": "Договор содержит 0 критических, 0 высоких, 0 средних рисков. Вердикт: approved.",
+  "meta": {
+    "chunks_analyzed": 3,
+    "total_raw_findings": 0,
+    "deduped_findings": 0,
+    "total_raw_protocol_items": 0,
+    "deduped_protocol_items": 0
+  }
+}

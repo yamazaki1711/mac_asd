@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  # -------------------------------------------------------------------------
+  # PostgreSQL — Vector & Relational DB (документы, метаданные, БЛС, векторы)
+  # -------------------------------------------------------------------------
+  # Redis УДАЛЁН — заменён на in-process кэширование (cachetools)
+  # Причины: single-user Mac Studio, Redis избыточен, экономия 2GB RAM
+  # -------------------------------------------------------------------------
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: asd_postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: oleg
+      POSTGRES_PASSWORD: asd_password
+      POSTGRES_DB: asd_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oleg -d asd_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

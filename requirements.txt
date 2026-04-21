@@ -1,0 +1,64 @@
+# =============================================================================
+# ASD v11.2 — Python Dependencies
+# =============================================================================
+# Установка: pip install -r requirements.txt
+# Рекомендуется: conda create -n asd_mlx python=3.11 && conda activate asd_mlx
+# Аудит: 18 апреля 2026 — все зависимости проверены и актуализированы
+
+# --- MLX (Apple Silicon) ---
+mlx-lm>=0.31.1               # Mar 2026 — критические оптимизации M4 Max
+mlx-vlm>=0.4.3               # Apr 2026 — поддержка Gemma 4, Llama 4 Scout
+mlx-embeddings>=0.0.3
+
+# --- MCP Server ---
+fastmcp[cli]>=2.14.0
+
+# --- LLM & AI ---
+httpx>=0.27.0
+numpy>=1.26.0
+Pillow>=10.0.0
+
+# --- Database ---
+sqlalchemy[asyncio]>=2.0.0   # asyncio ext для AsyncSession
+psycopg2-binary>=2.9.0
+asyncpg>=0.29.0              # Async PostgreSQL driver
+pgvector>=0.3.0
+alembic>=1.13.0
+
+# --- Configuration ---
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# --- Document Processing ---
+PyMuPDF>=1.23.0
+docling>=2.3.0               # IBM/MIT — Heron layout engine, лучший accuracy (97.9% table cell)
+python-docx>=1.1.0
+docxtpl>=0.18.0              # Jinja2 + python-docx — DOCX шаблоны
+openpyxl>=3.1.0
+
+# --- Embeddings ---
+sentence-transformers>=5.4.1  # Apr 2026 — first-class multimodal support
+
+# --- Graph ---
+networkx>=3.2.0
+
+# --- Google Workspace ---
+google-api-python-client>=2.100.0
+google-auth>=2.25.0
+google-auth-oauthlib>=1.2.0
+
+# --- Cache (in-process, вместо Redis) ---
+cachetools>=5.3.0            # TTLCache — замена Redis для single-user
+
+# --- Monitoring ---
+psutil>=5.9.0
+
+# --- LangGraph Orchestration ---
+langgraph>=1.0.0             # GA Oct 2025 — type-safe streaming, checkpointing
+langchain-core>=0.1.0
+
+# --- RAG ---
+rank-bm25>=0.2.2
+
+# --- Telegram Ingestion (БЛС) ---
+telethon>=1.36.0              # Telegram MTProto API — live ingestion для БЛС

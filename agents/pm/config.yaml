@@ -1,0 +1,40 @@
+agent:
+  name: "hermes"
+  role: "project_manager"
+  display_name: "Руководитель проекта"
+
+model:
+  engine: "mlx"
+  model_id: "mlx-community/Llama-3.3-70B-Instruct-4bit"
+  max_tokens: 8192
+  temperature: 0.3
+  top_p: 0.9
+  context_window: 131072  # 128K — полный контекст проекта
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "graph_query"
+    - "graph_write"
+    - "task_dispatch"
+    - "artifact_store"
+    - "notify"
+    # Google Workspace
+    - "drive_search"
+    - "drive_list_folder"
+    - "drive_create_folder"
+    - "sheets_read"
+    - "sheets_write"
+    - "gmail_send"
+    - "google_status"
+
+memory:
+  persistent: true
+  graph_db: "networkx"
+  vector_index: "pgvector"
+
+orchestration:
+  max_concurrent_agents: 3
+  retry_on_fail: true
+  max_retries: 2
+  escalation: "human"

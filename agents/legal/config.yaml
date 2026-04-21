@@ -1,0 +1,60 @@
+agent:
+  name: "legal"
+  role: "legal_counsel"
+  display_name: "Юрист"
+
+model:
+  engine: "mlx-vlm"          # Gemma 4 31B (shared с ПТО и Сметчиком)
+  model_id: "mlx-community/gemma-4-31b-it-4bit"
+  precision: 4bit
+  max_tokens: 16384
+  temperature: 0.15
+  top_p: 0.85
+  context_tokens: 131072    # Полный 128K контекст — договоры целиком
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "legal_search"
+    - "fz_lookup"
+    - "graph_query"
+    - "graph_write"
+    - "rag_query"
+    - "artifact_write"
+    # Google Workspace
+    - "drive_search"
+    - "drive_export_pdf"
+    - "docs_from_template"
+    - "docs_get_content"
+    - "docs_replace_text"
+    - "gmail_send"
+
+legal_kb:
+  sources:
+    - "fz44"
+    - "fz223"
+    - "gk_rf"
+    - "gradostroit_kodeks"
+    - "prikaz_344pr"
+    - "prikaz_1026pr"
+    - "sp543_2024"
+  rag_index: "legal_rag"
+
+specialization:
+  work_types:
+    - "общестроительные"
+    - "бетонные"
+    - "земляные"
+    - "сварочные"
+    - "монтажные"
+    - "шпунтовые"
+  excluded:
+    - "кабельные"
+    - "слаботочные"
+    - "вентиляция"
+    - "водоснабжение"
+    - "инженерные_системы"
+
+output:
+  format: "json"
+  verdict_required: true
