@@ -122,7 +122,7 @@ class Settings(BaseSettings):
         """Resolved path to Obsidian Wiki."""
         if self.WIKI_PATH:
             return Path(self.WIKI_PATH)
-        return Path(self.BASE_DIR) / "data" / "wiki"
+        return Path(self.BASE_DIR) / "docs" / "wiki"
 
     @property
     def artifacts_path(self) -> Path:
