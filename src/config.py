@@ -106,6 +106,12 @@ class Settings(BaseSettings):
     # --- Performance ---
     RAM_BUDGET_GB: int = int(os.getenv("RAM_BUDGET_GB", "78"))
 
+    # --- id-prosto.ru Integration ---
+    ID_PROSTO_LOGIN: str = os.getenv("ID_PROSTO_LOGIN", "")
+    ID_PROSTO_PASSWORD: str = os.getenv("ID_PROSTO_PASSWORD", "")
+    ID_PROSTO_COOKIES: str = os.getenv("ID_PROSTO_COOKIES", "")  # JSON string
+    TWOCAPTCHA_API_KEY: str = os.getenv("TWOCAPTCHA_API_KEY", "")
+
     # -------------------------------------------------------------------------
     # Computed properties
     # -------------------------------------------------------------------------
