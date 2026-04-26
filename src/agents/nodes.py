@@ -19,6 +19,9 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 from src.core.llm_engine import llm_engine
+import docx
+import fitz  # PyMuPDF
+import os
 
 logger = logging.getLogger(__name__)
 from src.db.models import AuditLog
@@ -47,7 +50,7 @@ async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     Pipeline поддерживает параллельное выполнение агентов (Сметчик+Юрист, Закупщик+Логист).
     """
-    print("--- Hermes Orchestrator Router (v11.3 hybrid) ---")
+    print("--- Руководитель проекта (Оркестратор) Router (v11.3 hybrid) ---")
     rules = load_wiki_page("Hermes_Core")
 
     # v11.3: Расширенный пайплайн с поддержкой параллельных шагов
@@ -55,10 +58,10 @@ async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "start": "archive",
         "archive_done": "procurement",
         "procurement_done": "pto",
-        "pto_done": "parallel_smeta_legal",  # Параллельный запуск Сметчик+Юрист
-        "smeta_legal_done": "logistics",
-        "logistics_done": "hermes_verdict",   # Финальный вердикт Hermes
-        "verdict_done": "complete",
+        "pto_done": "smeta",
+        "smeta_done": "legal",
+        "legal_done": "logistics",
+        "logistics_done": "complete",
     }
 
     next_val = routing_map.get(state.get("next_step"), "complete")
@@ -120,9 +123,24 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
     print("--- PTO Analysis Starting ---")
     rules = load_wiki_page("PTO_Rules")
 
+    # v11.3: Извлечение текста из файла, если он передан в стейте
+    intermediate = state.get("intermediate_data", {})
+    file_path = intermediate.get("file_path")
+    document_text = intermediate.get("document_text", "")
+
+    if file_path and os.path.exists(file_path):
+        print(f"--- PTO Reading File: {os.path.basename(file_path)} ---")
+        if file_path.endswith(".docx"):
+            doc = docx.Document(file_path)
+            document_text = "\n".join([para.text for para in doc.paragraphs])
+        elif file_path.endswith(".pdf"):
+            with fitz.open(file_path) as doc:
+                document_text = "\n".join([page.get_text() for page in doc])
+    
     prompt = (
         f"Инструкции:\n{rules}\n\n"
         f"Задача:\n{state['task_description']}\n\n"
+        f"Контекст документа:\n{document_text[:10000]}\n\n"
         f"Извлеките ВОР в формате JSON (укажите только JSON)."
     )
 
@@ -232,18 +250,24 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # Determine document source
     intermediate = state.get("intermediate_data", {})
     document_text = intermediate.get("document_text")
-    file_path = intermediate.get("file_path")
+    file_path = intermediate.get("contract_path") or intermediate.get("file_path")
     document_id = intermediate.get("document_id")
 
-    # If no document provided, analyze the task description itself
-    if not document_text and not file_path and not document_id:
-        document_text = state.get("task_description", "")
+    # v11.3: Извлечение текста из файла контракта (.docx/.pdf)
+    if file_path and os.path.exists(file_path):
+        print(f"--- Legal Reading File: {os.path.basename(file_path)} ---")
+        if file_path.endswith(".docx"):
+            doc = docx.Document(file_path)
+            document_text = "\n".join([para.text for para in doc.paragraphs])
+        elif file_path.endswith(".pdf"):
+            with fitz.open(file_path) as doc:
+                document_text = "\n".join([page.get_text() for page in doc])
 
     try:
         request = LegalAnalysisRequest(
             document_id=document_id,
             document_text=document_text,
-            file_path=file_path,
+            file_path=None, # Передаем извлеченный текст вместо пути
             review_type=ReviewType.CONTRACT,
         )
 

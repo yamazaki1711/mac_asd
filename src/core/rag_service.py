@@ -3,7 +3,7 @@ ASD v11.3 — RAG Service.
 
 Hybrid search: Vector (pgvector) + Graph (NetworkX).
 Uses llm_engine for embeddings instead of direct ollama_client.
-v11.2.2: Added search_traps() with weight-based ranking for БЛС.
+v11.3.0: Added search_traps() with weight-based ranking for БЛС.
 """
 
 import logging
@@ -101,7 +101,7 @@ class RAGService:
         """
         Поиск ловушек в БЛС с учётом weight-ранжирования.
 
-        v11.2.2: Комбинирует семантическую близость (vector distance)
+        v11.3.0: Комбинирует семантическую близость (vector distance)
         с весом источника (weight) для приоритизации ловушек
         из авторитетных каналов (legal_practice > legal_news).
 

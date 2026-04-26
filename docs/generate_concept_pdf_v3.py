@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MAC ASD v11.2 — Навыки агентов и рабочие процессы (v3).
+MAC ASD v11.3.0 — Навыки агентов и рабочие процессы (v3).
 Генерация PDF через ReportLab — БЕЗ HTML/Playwright обложки.
 Все шрифты TrueType, никаких Type 3 bitmap.
 """
@@ -181,9 +181,9 @@ class CoverPage(Flowable):
         c.setFillColor(TEXT_PRIMARY)
         c.drawString(72, h - 150, 'MAC ASD')
 
-        # Hero: "v11.2" in accent color
+        # Hero: "v11.3.0" in accent color
         c.setFillColor(ACCENT)
-        c.drawString(72 + c.stringWidth('MAC ASD ', 'Calibri-Bold', 40), h - 150, 'v11.2')
+        c.drawString(72 + c.stringWidth('MAC ASD ', 'Calibri-Bold', 40), h - 150, 'v11.3.0')
 
         # Subtitle
         c.setFont('Calibri-Bold', 22)
@@ -213,7 +213,7 @@ class CoverPage(Flowable):
         c.line(72, meta_top + 14, w - 72, meta_top + 14)
 
         meta_labels = ['Версия', 'Дата', 'Платформа', 'Архитектура']
-        meta_values = ['v11.2.2', 'Апрель 2026', 'Mac Studio M4 Max 128GB / MLX', 'LangGraph + LLMEngine + pgvector']
+        meta_values = ['v11.3.0', 'Апрель 2026', 'Mac Studio M4 Max 128GB / MLX', 'LangGraph + LLMEngine + pgvector']
 
         y = meta_top - 4
         for label, value in zip(meta_labels, meta_values):
@@ -314,7 +314,7 @@ def build_content():
     story.extend(add_h1('1. Введение'))
 
     story.append(p(
-        'MAC ASD v11.2 (Multi-Agent Construction AI System for Automated Subcontracting Decisions) '
+        'MAC ASD v11.3.0 (Multi-Agent Construction AI System for Automated Subcontracting Decisions) '
         'представляет собой мультиагентную систему искусственного интеллекта, спроектированную для '
         'автоматизации принятия решений в сфере строительного субподряда. Система объединяет семь '
         'специализированных ИИ-агентов, каждый из которых обладает уникальным набором навыков (skills), '
@@ -382,7 +382,7 @@ def build_content():
          Paragraph('Регистрация, классификация, ИД, архив', TABLE_CELL_STYLE)],
     ]
     story.append(make_table(agent_overview, col_ratios=[0.14, 0.17, 0.22, 0.47]))
-    story.append(Paragraph('Таблица 1. Обзор агентов MAC ASD v11.2', CAPTION_STYLE))
+    story.append(Paragraph('Таблица 1. Обзор агентов MAC ASD v11.3.0', CAPTION_STYLE))
     story.append(Spacer(1, 18))
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -573,7 +573,7 @@ def build_content():
 
     story.extend(add_h2('5.1. Общая характеристика'))
     story.append(p(
-        'Агент Юрист - единственный полностью функциональный агент в текущей реализации (v11.2.2). '
+        'Агент Юрист - единственный полностью функциональный агент в текущей реализации (v11.3.0). '
         'Он построен на базе Qwen3.5 27B с температурой 0.1 и специализируется на выявлении '
         'юридических рисков в строительных контрактах. Уникальной особенностью Юриста является '
         'интеграция с БЛС (Базой Ловушек Подрядчика) - структурированной базой рисков, пополняемой '
@@ -622,7 +622,7 @@ def build_content():
     story.append(Paragraph('Таблица 5. Навыки агента Юрист', CAPTION_STYLE))
     story.append(Spacer(1, 12))
 
-    story.extend(add_h2('5.3. БЛС: База ловушек подрядчика (v11.2.2)'))
+    story.extend(add_h2('5.3. БЛС: База ловушек подрядчика (v11.3.0)'))
     story.append(p(
         'БЛС представляет собой структурированную базу типовых рисковых условий, встречающихся '
         'в строительных контрактах. На текущий момент база содержит 21 ловушку, сгруппированную '
@@ -631,7 +631,7 @@ def build_content():
         'риски (2). Каждая ловушка содержит: название, описание риска, категорию, уровень '
         'риска (critical/high/medium), ссылку на норму права (статья ГК РФ/ГрК РФ), '
         'рекомендацию по митигации и формулировку для протокола разногласий. Три новые '
-        'ловушки добавлены в v11.2.2: согласование субподрядчиков с Заказчиком (ст. 706 ГК РФ), '
+        'ловушки добавлены в v11.3.0: согласование субподрядчиков с Заказчиком (ст. 706 ГК РФ), '
         'безлимитная компенсация расходов при просрочке (ст. 15, 393 ГК РФ) и приоритет '
         'корпоративных политик Заказчика (ст. 421, 424 ГК РФ).'
     ))
@@ -944,7 +944,7 @@ def build_content():
          Paragraph('Почта, таблицы, веб-поиск', TABLE_CELL_STYLE)],
     ]
     story.append(make_table(tech_stack, col_ratios=[0.20, 0.35, 0.45]))
-    story.append(Paragraph('Таблица 11. Стек технологий MAC ASD v11.2', CAPTION_STYLE))
+    story.append(Paragraph('Таблица 11. Стек технологий MAC ASD v11.3.0', CAPTION_STYLE))
     story.append(Spacer(1, 12))
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -955,7 +955,7 @@ def build_content():
     story.append(p(
         'На основе утвержденных концептов навыков агентов и рабочих процессов предлагается '
         'следующая последовательность разработки, учитывающая зависимости между компонентами '
-        'и приоритеты бизнес-логики. Юрист уже реализован (v11.2.2), следующие приоритеты - '
+        'и приоритеты бизнес-логики. Юрист уже реализован (v11.3.0), следующие приоритеты - '
         'ПТО Vision и Логист с интеграцией поставщиков.'
     ))
 
@@ -967,7 +967,7 @@ def build_content():
         [Paragraph('P1', TABLE_CELL_CENTER),
          Paragraph('Юрист: Map-Reduce, БЛС (21 ловушка), протоколы разногласий с реквизитами, ст. 445 ГК РФ', TABLE_CELL_STYLE),
          Paragraph('Юрист', TABLE_CELL_STYLE),
-         Paragraph('Готово (v11.2.2)', TABLE_CELL_STYLE)],
+         Paragraph('Готово (v11.3.0)', TABLE_CELL_STYLE)],
         [Paragraph('P2', TABLE_CELL_CENTER),
          Paragraph('ПТО Vision: SK_VOR_EXTRACT, SK_DRAWING_ANALYZE, ParserEngine', TABLE_CELL_STYLE),
          Paragraph('ПТО', TABLE_CELL_STYLE),
@@ -1022,10 +1022,10 @@ doc = TocDocTemplate(
     rightMargin=RIGHT_MARGIN,
     topMargin=TOP_MARGIN,
     bottomMargin=BOTTOM_MARGIN,
-    title='MAC ASD v11.2 - Навыки агентов и рабочие процессы',
+    title='MAC ASD v11.3.0 - Навыки агентов и рабочие процессы',
     author='Z.ai',
     creator='Z.ai',
-    subject='Концептуальный документ MAC ASD v11.2',
+    subject='Концептуальный документ MAC ASD v11.3.0',
 )
 
 story = []

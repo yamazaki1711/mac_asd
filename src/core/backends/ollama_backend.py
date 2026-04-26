@@ -38,7 +38,7 @@ class OllamaBackend:
         Chat completion. Returns assistant message content as string.
 
         Args:
-            model: Ollama model name (e.g. "qwen3:32b")
+            model: Ollama model name (e.g. "gemma4:31b-cloud")
             messages: List of {"role": "user"|"system"|"assistant", "content": "..."}
             temperature: Sampling temperature
             num_ctx: Context window size in tokens
@@ -48,6 +48,8 @@ class OllamaBackend:
         Returns:
             Assistant response text
         """
+        url = f"{self.base_url}/chat"
+        print(f"DEBUG: Ollama Backend CALL -> {url} (model: {model})")
         payload = {
             "model": model,
             "messages": messages,

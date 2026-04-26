@@ -63,7 +63,7 @@ async def load_traps(yaml_path: str, force: bool = False) -> dict:
 
     logger.info(f"Found {len(traps)} traps in {yaml_path}")
 
-    # Category → weight mapping (v11.2.2: 10 categories, 58 traps)
+    # Category → weight mapping (v11.3.0: 10 categories, 58 traps)
     category_weights = {
         "payment": 100,
         "penalty": 100,

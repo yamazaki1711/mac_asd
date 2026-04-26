@@ -11,7 +11,7 @@ Provides:
 - BLC (База Ловушек Субподрядчика) seed data
 - Expanded checklist: insurance, operational fines, procedural deadlines
 - Price revision threshold: 15% (Пленум ВС РФ №7)
-- v11.2.2: +3 traps (subcontractor approval, unlimited delay costs, corporate policies)
+- v11.3.0: +3 traps (subcontractor approval, unlimited delay costs, corporate policies)
 
 Architecture: MLX-only (Mac Studio M4 Max 128GB).
 """
@@ -27,9 +27,9 @@ class LegalContractRisks(SkillBase):
     Содержит базу известных «ловушек» и чек-листы для экспертизы
     договоров по видам работ компании.
 
-    v11.2.1: +8 ловушек (всего 18), расширенный чек-лист (22 пункта),
+    v11.3.0: +8 ловушек (всего 18), расширенный чек-лист (22 пункта),
     порог пересмотра цены 15% по Пленуму ВС РФ №7.
-    v11.2.2: +3 ловушки (всего 21) — согласование субподрядчиков,
+    v11.3.0: +3 ловушки (всего 21) — согласование субподрядчиков,
     безлимитная компенсация расходов при просрочке, приоритет корп. политик.
     """
 
@@ -38,7 +38,7 @@ class LegalContractRisks(SkillBase):
     agent = "legal"
 
     # =========================================================================
-    # Known traps (seed data for БЛС) — v11.2.1: 18 traps
+    # Known traps (seed data for БЛС) — v11.3.0: 18 traps
     # =========================================================================
 
     BLC_SEED_DATA: List[Dict[str, Any]] = [
@@ -224,7 +224,7 @@ class LegalContractRisks(SkillBase):
             "severity": "medium",
         },
 
-        # --- NEW v11.2.1: 8 additional traps from comparative analysis ---
+        # --- NEW v11.3.0: 8 additional traps from comparative analysis ---
 
         {
             "title": "Заранее оценённые убытки с исключением ст. 333 ГК РФ",
@@ -405,7 +405,7 @@ class LegalContractRisks(SkillBase):
             "severity": "high",
         },
 
-        # --- NEW v11.2.2: 3 additional traps from comparative analysis ---
+        # --- NEW v11.3.0: 3 additional traps from comparative analysis ---
 
         {
             "title": "Согласование субподрядчиков с Заказчиком",
@@ -511,7 +511,7 @@ class LegalContractRisks(SkillBase):
     }
 
     # =========================================================================
-    # Compliance checkpoints per review type — v11.2.1: 22 items
+    # Compliance checkpoints per review type — v11.3.0: 22 items
     # =========================================================================
 
     CONTRACT_CHECKLIST: List[Dict[str, str]] = [
@@ -528,7 +528,7 @@ class LegalContractRisks(SkillBase):
         {"item": "Актуальность нормативных ссылок (нет РД)", "legal_basis": "Приказ № 344/пр, № 1026/пр"},
         {"item": "Вид работ соответствует специализации", "legal_basis": "СРО, лицензии"},
 
-        # --- New v11.2.1: 11 additional checkpoints ---
+        # --- New v11.3.0: 11 additional checkpoints ---
         {"item": "Страхование: размер франшизы, суброгация", "legal_basis": "ГК РФ гл. 48, ст. 965"},
         {"item": "Операционные штрафы: соразмерность нарушению, применимость ст. 333 ГК РФ",
          "legal_basis": "ГК РФ ст. 333, Пленум ВС РФ №7"},
@@ -553,7 +553,7 @@ class LegalContractRisks(SkillBase):
     ]
 
     # =========================================================================
-    # Price revision threshold — v11.2.1: 15% per Пленум ВС РФ №7
+    # Price revision threshold — v11.3.0: 15% per Пленум ВС РФ №7
     # =========================================================================
 
     PRICE_REVISION_THRESHOLD_PCT = 15  # Пленум ВС РФ №7 от 24.03.2016

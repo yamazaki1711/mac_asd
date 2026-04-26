@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 class EventManager:
     """
-    Управляющий событиями (State Machine) для АСД v11.0.
+    Управляющий событиями (State Machine) для АСД v11.3.0.
     Отвечает за переходы между этапами жизненного цикла проекта.
     """
 

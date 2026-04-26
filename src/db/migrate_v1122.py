@@ -1,5 +1,5 @@
 """
-MAC_ASD v11.2.2 — DB Migration: Add channel, category, weight to legal_traps.
+MAC_ASD v11.3.0 — DB Migration: Add channel, category, weight to legal_traps.
 
 Run once:
     python -m src.db.migrate_v1122

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MAC ASD v11.2 — Навыки агентов и рабочие процессы (v3).
+MAC ASD v11.3.0 — Навыки агентов и рабочие процессы (v3).
 Генерация PDF через ReportLab — БЕЗ HTML/Playwright обложки.
 Все шрифты TrueType, никаких Type 3 bitmap.
 """
@@ -181,9 +181,9 @@ class CoverPage(Flowable):
         c.setFillColor(TEXT_PRIMARY)
         c.drawString(72, h - 150, 'MAC ASD')
 
-        # Hero: "v11.2" in accent color
+        # Hero: "v11.3.0" in accent color
         c.setFillColor(ACCENT)
-        c.drawString(72 + c.stringWidth('MAC ASD ', 'Calibri-Bold', 40), h - 150, 'v11.2')
+        c.drawString(72 + c.stringWidth('MAC ASD ', 'Calibri-Bold', 40), h - 150, 'v11.3.0')
 
         # Subtitle
         c.setFont('Calibri-Bold', 22)
@@ -202,7 +202,7 @@ class CoverPage(Flowable):
         c.setFillColor(TEXT_PRIMARY)
         c.setFillAlpha(1.0)
         c.drawString(88, summary_y + 50, 'Детальное описание функционала семи ИИ-агентов')
-        c.drawString(88, summary_y + 28, '(Hermes, ПТО, Сметчик, Юрист, Закупщик,')
+        c.drawString(88, summary_y + 28, '(Руководитель проекта, ПТО, Сметчик, Юрист, Закупщик,')
         c.drawString(88, summary_y + 6, 'Логист, Делопроизводитель) и проектирование')
         c.drawString(88, summary_y - 16, 'двух ключевых рабочих процессов.')
 
@@ -213,7 +213,7 @@ class CoverPage(Flowable):
         c.line(72, meta_top + 14, w - 72, meta_top + 14)
 
         meta_labels = ['Версия', 'Дата', 'Платформа', 'Архитектура']
-        meta_values = ['v11.2.2', 'Апрель 2026', 'Mac Studio M4 Max 128GB / MLX', 'LangGraph + LLMEngine + pgvector']
+        meta_values = ['v11.3.0', 'Апрель 2026', 'Mac Studio M4 Max 128GB / MLX', 'LangGraph + LLMEngine + pgvector']
 
         y = meta_top - 4
         for label, value in zip(meta_labels, meta_values):
@@ -314,13 +314,13 @@ def build_content():
     story.extend(add_h1('1. Введение'))
 
     story.append(p(
-        'MAC ASD v11.2 (Multi-Agent Construction AI System for Automated Subcontracting Decisions) '
+        'MAC ASD v11.3.0 (Multi-Agent Construction AI System for Automated Subcontracting Decisions) '
         'представляет собой мультиагентную систему искусственного интеллекта, спроектированную для '
         'автоматизации принятия решений в сфере строительного субподряда. Система объединяет семь '
         'специализированных ИИ-агентов, каждый из которых обладает уникальным набором навыков (skills), '
         'ориентированных на конкретные аспекты строительного процесса. Архитектура системы построена на '
         'базе LangGraph StateGraph, обеспечивающей оркестрацию взаимодействия агентов через центральный '
-        'узел-маршрутизатор Hermes, а LLMEngine с поддержкой профиля mac_studio (MLX) '
+        'узел-маршрутизатор Руководитель проекта, а LLMEngine с поддержкой профиля mac_studio (MLX) '
         'позволяет запускать все модели локально на Mac Studio M4 Max 128GB без зависимости от внешних API.'
     ))
 
@@ -352,7 +352,7 @@ def build_content():
          Paragraph('<b>Роль</b>', TABLE_HEADER_STYLE),
          Paragraph('<b>Модель (Mac Studio)</b>', TABLE_HEADER_STYLE),
          Paragraph('<b>Ключевая специализация</b>', TABLE_HEADER_STYLE)],
-        [Paragraph('Hermes', TABLE_CELL_CENTER),
+        [Paragraph('Руководитель проекта', TABLE_CELL_CENTER),
          Paragraph('Оркестратор / PM', TABLE_CELL_STYLE),
          Paragraph('Llama 3.3 70B 4-bit', TABLE_CELL_CENTER),
          Paragraph('Маршрутизация, координация, принятие решений', TABLE_CELL_STYLE)],
@@ -382,23 +382,23 @@ def build_content():
          Paragraph('Регистрация, классификация, ИД, архив', TABLE_CELL_STYLE)],
     ]
     story.append(make_table(agent_overview, col_ratios=[0.14, 0.17, 0.22, 0.47]))
-    story.append(Paragraph('Таблица 1. Обзор агентов MAC ASD v11.2', CAPTION_STYLE))
+    story.append(Paragraph('Таблица 1. Обзор агентов MAC ASD v11.3.0', CAPTION_STYLE))
     story.append(Spacer(1, 18))
 
     # ═══════════════════════════════════════════════════════════════════════
     # SECTION 2: HERMES
     # ═══════════════════════════════════════════════════════════════════════
-    story.extend(add_h1('2. Hermes - Оркестратор (PM)'))
+    story.extend(add_h1('2. Руководитель проекта - Оркестратор (PM)'))
 
     story.extend(add_h2('2.1. Общая характеристика'))
     story.append(p(
-        'Hermes является центральным узлом системы и выполняет функции менеджера проекта (PM). '
+        'Руководитель проекта является центральным узлом системы и выполняет функции менеджера проекта (PM). '
         'Этот агент построен на базе Llama 3.3 70B - крупнейшей модели в системе, что обусловлено '
-        'необходимостью сложного логического вывода, маршрутизации и координации. Hermes не выполняет '
+        'необходимостью сложного логического вывода, маршрутизации и координации. Руководитель проекта не выполняет '
         'узкоспециализированные задачи сам, а делегирует их профильным агентам, отслеживая ход '
         'выполнения и принимая решения о следующих шагах. В текущей реализации используется линейный '
         'пайплайн (if/elif), однако целевая архитектура предусматривает LLM-роутинг, при котором '
-        'Hermes анализирует текущее состояние графа AgentState и принимает решение о следующем '
+        'Руководитель проекта анализирует текущее состояние графа AgentState и принимает решение о следующем '
         'действии на основе контекста, а не жестко заданных правил.'
     ))
 
@@ -411,7 +411,7 @@ def build_content():
          Paragraph('<b>Выход</b>', TABLE_HEADER_STYLE)],
         [Paragraph('SK_ROUTING', TABLE_CELL_STYLE),
          Paragraph('Интеллектуальная маршрутизация: анализ AgentState и определение следующего узла графа. Заменяет жесткий routing_map на LLM-решение.', TABLE_CELL_STYLE),
-         Paragraph('AgentState, wiki-правила Hermes_Core', TABLE_CELL_STYLE),
+         Paragraph('AgentState, wiki-правила Руководитель проекта_Core', TABLE_CELL_STYLE),
          Paragraph('next_step (имя узла)', TABLE_CELL_STYLE)],
         [Paragraph('SK_VERDICT', TABLE_CELL_STYLE),
          Paragraph('Формирование итогового вердикта по тендеру: анализ данных от всех агентов и выдача решения "подавать / не подавать" с обоснованием.', TABLE_CELL_STYLE),
@@ -435,16 +435,16 @@ def build_content():
          Paragraph('Вызов reflection_node', TABLE_CELL_STYLE)],
     ]
     story.append(make_table(hermes_skills, col_ratios=[0.16, 0.40, 0.22, 0.22]))
-    story.append(Paragraph('Таблица 2. Навыки агента Hermes', CAPTION_STYLE))
+    story.append(Paragraph('Таблица 2. Навыки агента Руководитель проекта', CAPTION_STYLE))
     story.append(Spacer(1, 12))
 
     story.extend(add_h2('2.3. Роль в рабочих процессах'))
     story.append(p(
-        'В режиме поиска лотов Hermes координирует последовательную обработку каждого тендера: '
+        'В режиме поиска лотов Руководитель проекта координирует последовательную обработку каждого тендера: '
         'после регистрации документов Делопроизводителем он направляет их Закупщику для оценки НМЦК, '
         'затем ПТО для извлечения ВОР, далее Логисту для поиска поставщиков, Сметчику для расчета '
-        'стоимости и Юристу для проверки рисков. По завершении всех этапов Hermes формирует '
-        'итоговый вердикт. В режиме сопровождения строительства Hermes отслеживает этапы проекта, '
+        'стоимости и Юристу для проверки рисков. По завершении всех этапов Руководитель проекта формирует '
+        'итоговый вердикт. В режиме сопровождения строительства Руководитель проекта отслеживает этапы проекта, '
         'инициирует генерацию исполнительной документации, отслеживает сроки оплаты и при '
         'необходимости запускает претензионный процесс. Ключевое отличие от текущей линейной '
         'реализации - способность динамически перепрыгивать через этапы или возвращаться к '
@@ -573,7 +573,7 @@ def build_content():
 
     story.extend(add_h2('5.1. Общая характеристика'))
     story.append(p(
-        'Агент Юрист - единственный полностью функциональный агент в текущей реализации (v11.2.2). '
+        'Агент Юрист - единственный полностью функциональный агент в текущей реализации (v11.3.0). '
         'Он построен на базе Qwen3.5 27B с температурой 0.1 и специализируется на выявлении '
         'юридических рисков в строительных контрактах. Уникальной особенностью Юриста является '
         'интеграция с БЛС (Базой Ловушек Подрядчика) - структурированной базой рисков, пополняемой '
@@ -622,7 +622,7 @@ def build_content():
     story.append(Paragraph('Таблица 5. Навыки агента Юрист', CAPTION_STYLE))
     story.append(Spacer(1, 12))
 
-    story.extend(add_h2('5.3. БЛС: База ловушек подрядчика (v11.2.2)'))
+    story.extend(add_h2('5.3. БЛС: База ловушек подрядчика (v11.3.0)'))
     story.append(p(
         'БЛС представляет собой структурированную базу типовых рисковых условий, встречающихся '
         'в строительных контрактах. На текущий момент база содержит 21 ловушку, сгруппированную '
@@ -631,7 +631,7 @@ def build_content():
         'риски (2). Каждая ловушка содержит: название, описание риска, категорию, уровень '
         'риска (critical/high/medium), ссылку на норму права (статья ГК РФ/ГрК РФ), '
         'рекомендацию по митигации и формулировку для протокола разногласий. Три новые '
-        'ловушки добавлены в v11.2.2: согласование субподрядчиков с Заказчиком (ст. 706 ГК РФ), '
+        'ловушки добавлены в v11.3.0: согласование субподрядчиков с Заказчиком (ст. 706 ГК РФ), '
         'безлимитная компенсация расходов при просрочке (ст. 15, 393 ГК РФ) и приоритет '
         'корпоративных политик Заказчика (ст. 421, 424 ГК РФ).'
     ))
@@ -792,7 +792,7 @@ def build_content():
         'реализован как LangGraph StateGraph с последовательным прохождением через агентов: '
         'Делопроизводитель (регистрация) - Закупщик (предварительная оценка) - ПТО (извлечение ВОР) '
         '- Логист (поиск поставщиков) - Сметчик (расчет себестоимости) - Юрист (анализ рисков) '
-        '- Hermes (вердикт). Каждый этап добавляет данные в AgentState, которые используются '
+        '- Руководитель проекта (вердикт). Каждый этап добавляет данные в AgentState, которые используются '
         'последующими агентами.'
     ))
 
@@ -828,7 +828,7 @@ def build_content():
          Paragraph('Анализ проекта договора, выявление рисков через БЛС', TABLE_CELL_STYLE),
          Paragraph('LegalFindings + ComplianceReport', TABLE_CELL_STYLE)],
         [Paragraph('7', TABLE_CELL_CENTER),
-         Paragraph('Hermes', TABLE_CELL_STYLE),
+         Paragraph('Руководитель проекта', TABLE_CELL_STYLE),
          Paragraph('Формирование итогового вердикта: подавать / не подавать', TABLE_CELL_STYLE),
          Paragraph('VerdictReport', TABLE_CELL_STYLE)],
     ]
@@ -869,7 +869,7 @@ def build_content():
          Paragraph('Акты КС-2/КС-3 (DOCX/PDF)', TABLE_CELL_STYLE)],
         [Paragraph('Контроль оплаты', TABLE_CELL_STYLE),
          Paragraph('EventManager (срок оплаты)', TABLE_CELL_STYLE),
-         Paragraph('Hermes, Юрист', TABLE_CELL_STYLE),
+         Paragraph('Руководитель проекта, Юрист', TABLE_CELL_STYLE),
          Paragraph('Напоминание / претензия', TABLE_CELL_STYLE)],
         [Paragraph('Претензионная работа', TABLE_CELL_STYLE),
          Paragraph('Юрист (нарушение условий)', TABLE_CELL_STYLE),
@@ -944,7 +944,7 @@ def build_content():
          Paragraph('Почта, таблицы, веб-поиск', TABLE_CELL_STYLE)],
     ]
     story.append(make_table(tech_stack, col_ratios=[0.20, 0.35, 0.45]))
-    story.append(Paragraph('Таблица 11. Стек технологий MAC ASD v11.2', CAPTION_STYLE))
+    story.append(Paragraph('Таблица 11. Стек технологий MAC ASD v11.3.0', CAPTION_STYLE))
     story.append(Spacer(1, 12))
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -955,7 +955,7 @@ def build_content():
     story.append(p(
         'На основе утвержденных концептов навыков агентов и рабочих процессов предлагается '
         'следующая последовательность разработки, учитывающая зависимости между компонентами '
-        'и приоритеты бизнес-логики. Юрист уже реализован (v11.2.2), следующие приоритеты - '
+        'и приоритеты бизнес-логики. Юрист уже реализован (v11.3.0), следующие приоритеты - '
         'ПТО Vision и Логист с интеграцией поставщиков.'
     ))
 
@@ -967,7 +967,7 @@ def build_content():
         [Paragraph('P1', TABLE_CELL_CENTER),
          Paragraph('Юрист: Map-Reduce, БЛС (21 ловушка), протоколы разногласий с реквизитами, ст. 445 ГК РФ', TABLE_CELL_STYLE),
          Paragraph('Юрист', TABLE_CELL_STYLE),
-         Paragraph('Готово (v11.2.2)', TABLE_CELL_STYLE)],
+         Paragraph('Готово (v11.3.0)', TABLE_CELL_STYLE)],
         [Paragraph('P2', TABLE_CELL_CENTER),
          Paragraph('ПТО Vision: SK_VOR_EXTRACT, SK_DRAWING_ANALYZE, ParserEngine', TABLE_CELL_STYLE),
          Paragraph('ПТО', TABLE_CELL_STYLE),
@@ -989,8 +989,8 @@ def build_content():
          Paragraph('Делопроизводитель', TABLE_CELL_STYLE),
          Paragraph('Планируется', TABLE_CELL_STYLE)],
         [Paragraph('P7', TABLE_CELL_CENTER),
-         Paragraph('Hermes LLM-роутинг: замена routing_map на SK_ROUTING', TABLE_CELL_STYLE),
-         Paragraph('Hermes', TABLE_CELL_STYLE),
+         Paragraph('Руководитель проекта LLM-роутинг: замена routing_map на SK_ROUTING', TABLE_CELL_STYLE),
+         Paragraph('Руководитель проекта', TABLE_CELL_STYLE),
          Paragraph('Планируется', TABLE_CELL_STYLE)],
         [Paragraph('P8', TABLE_CELL_CENTER),
          Paragraph('Workflow поиска лотов: интеграция всех агентов в единый пайплайн', TABLE_CELL_STYLE),
@@ -1022,10 +1022,10 @@ doc = TocDocTemplate(
     rightMargin=RIGHT_MARGIN,
     topMargin=TOP_MARGIN,
     bottomMargin=BOTTOM_MARGIN,
-    title='MAC ASD v11.2 - Навыки агентов и рабочие процессы',
+    title='MAC ASD v11.3.0 - Навыки агентов и рабочие процессы',
     author='Z.ai',
     creator='Z.ai',
-    subject='Концептуальный документ MAC ASD v11.2',
+    subject='Концептуальный документ MAC ASD v11.3.0',
 )
 
 story = []

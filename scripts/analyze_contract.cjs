@@ -1,5 +1,5 @@
 /**
- * MAC_ASD v11.2.2 — Анализ договора генподряда с БЛС (58 ловушек, 10 категорий)
+ * MAC_ASD v11.3.0 — Анализ договора генподряда с БЛС (58 ловушек, 10 категорий)
  * Map-Reduce через z-ai-web-dev-sdk
  */
 
@@ -162,7 +162,7 @@ ${formattedMaps.substring(0, 15000)}
   // Parse and display
   console.log("\n" + "=".repeat(70));
   console.log("РЕЗУЛЬТАТ АНАЛИЗА ДОГОВОРА ГЕНПОДРЯДА ЦОД ВЕРХНИЕ ПОЛЯ");
-  console.log(`АСД v11.2.2 + БЛС (${traps.length} ловушек, 10 категорий) + Map-Reduce`);
+  console.log(`АСД v11.3.0 + БЛС (${traps.length} ловушек, 10 категорий) + Map-Reduce`);
   console.log("=".repeat(70));
   
   try {
@@ -236,7 +236,7 @@ ${formattedMaps.substring(0, 15000)}
     // Save structured output
     const output = {
       contract: "Договор генподряда ЦОД Верхние поля (без РС/ЗОС/РВ)",
-      analysis_version: `v11.2.2 + БЛС(${traps.length})`,
+      analysis_version: `v11.3.0 + БЛС(${traps.length})`,
       verdict: verdict,
       total_findings: findings.length,
       findings: findings,

@@ -256,9 +256,9 @@ async def process_telegram_post(
         title=data.get("title", "Untitled Trap"),
         description=description,
         source=source_name,
-        channel=source_name,  # v11.2.2: explicit channel field
-        category=category,    # v11.2.2: category from catalog
-        weight=weight,        # v11.2.2: weight for RAG scoring
+        channel=source_name,  # v11.3.0: explicit channel field
+        category=category,    # v11.3.0: category from catalog
+        weight=weight,        # v11.3.0: weight for RAG scoring
         court_cases=data.get("court_cases", []),
         mitigation=data.get("mitigation", ""),
         embedding=embedding,

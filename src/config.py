@@ -6,7 +6,7 @@ Profiles:
     mac_studio — Mac Studio M4 Max 128GB + MLX (продакшен)
 
 Model Lineup (mac_studio):
-    Llama 3.3 70B 4-bit   → Hermes / PM (оркестратор)
+    Llama 3.3 70B 4-bit   → Руководитель проекта / PM (оркестратор)
     Gemma 4 31B 4-bit     → ПТО + Юрист + Сметчик + Закупщик + Логист (shared, 128K контекст)
     Gemma 4 E4B 4-bit     → Делопроизводитель (лёгкий MoE, быстрая)
     bge-m3                → Embeddings
@@ -27,13 +27,13 @@ from pydantic_settings import BaseSettings
 # =============================================================================
 PROFILE_MODELS: Dict[str, Dict[str, Dict[str, str]]] = {
     "dev_linux": {
-        "pm":          {"engine": "ollama", "model": "qwen3:32b"},
-        "pto":         {"engine": "ollama", "model": "qwen3:32b"},
-        "smeta":       {"engine": "ollama", "model": "qwen3:32b"},
-        "legal":       {"engine": "ollama", "model": "qwen3:32b"},
-        "procurement": {"engine": "ollama", "model": "qwen3:32b"},
-        "logistics":   {"engine": "ollama", "model": "qwen3:32b"},
-        "archive":     {"engine": "ollama", "model": "qwen3:8b"},
+        "pm":          {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "pto":         {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "smeta":       {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "legal":       {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "procurement": {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "logistics":   {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "archive":     {"engine": "ollama", "model": "gemma4:31b-cloud"},
         "embed":       {"engine": "ollama", "model": "bge-m3"},
         "vision":      {"engine": "ollama", "model": "minicpm-v"},
     },
@@ -75,7 +75,8 @@ class Settings(BaseSettings):
     ASD_PROFILE: str = os.getenv("ASD_PROFILE", "dev_linux")
 
     # --- LLM: Ollama ---
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    llm_base_url: str = "http://127.0.0.1:11434"
+    OLLAMA_BASE_URL: str = "http://127.0.0.1:11434"
 
     # --- LLM: Model overrides (optional) ---
     MODEL_PM: Optional[str] = os.getenv("MODEL_PM")
@@ -115,6 +116,7 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # Computed properties
     # -------------------------------------------------------------------------
+
 
     @property
     def database_url(self) -> str:
@@ -177,7 +179,7 @@ class Settings(BaseSettings):
 
         # Use profile defaults
         profile_config = PROFILE_MODELS.get(self.ASD_PROFILE, PROFILE_MODELS["dev_linux"])
-        return profile_config.get(agent, {"engine": "ollama", "model": "qwen3:32b"})
+        return profile_config.get(agent, {"engine": "ollama", "model": "gemma4:31b-cloud"})
 
     @property
     def is_mac_studio(self) -> bool:

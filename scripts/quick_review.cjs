@@ -1,5 +1,5 @@
 /**
- * MAC_ASD v11.2.2 — Quick Review анализа договора ЦОД
+ * MAC_ASD v11.3.0 — Quick Review анализа договора ЦОД
  * Один LLM-вызов с кратким содержанием + полная БЛС (58 ловушек)
  */
 
@@ -88,7 +88,7 @@ ${reviewText}
   // Parse and display
   console.log("=".repeat(70));
   console.log("РЕЗУЛЬТАТ АНАЛИЗА ДОГОВОРА ГЕНПОДРЯДА ЦОД «ВЕРХНИЕ ПОЛЯ»");
-  console.log(`АСД v11.2.2 + БЛС (${traps.length} ловушек, 10 категорий) + Quick Review`);
+  console.log(`АСД v11.3.0 + БЛС (${traps.length} ловушек, 10 категорий) + Quick Review`);
   console.log("=".repeat(70));
   
   try {
@@ -165,7 +165,7 @@ ${reviewText}
     // Save structured output
     const output = {
       contract: "Договор генподряда ЦОД Верхние поля (без РС/ЗОС/РВ)",
-      analysis_version: `v11.2.2 + БЛС(${traps.length}) Quick Review`,
+      analysis_version: `v11.3.0 + БЛС(${traps.length}) Quick Review`,
       verdict: verdict,
       total_findings: findings.length,
       severity_breakdown: bySev,
