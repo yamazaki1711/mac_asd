@@ -1,6 +1,6 @@
 version: '1.0'
 source: id-prosto.ru
-description: База шаблонов ИД для ПТО-агента MAC_ASD v11.3
+description: База шаблонов ИД для ПТО-агента MAC_ASD v12.0
 extraction_date: '2026-04-21'
 stats:
   work_categories: 31

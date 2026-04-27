@@ -62,7 +62,7 @@ class AuditLog(Base):
 class LegalTrap(Base):
     """
     БЛС (База Ловушек Субподрядчика) - структурированные риски из Telegram или опыта.
-    v11.3.0: Добавлены поля channel, category, weight для интеграции с каталогом каналов.
+    v12.0.0: Добавлены поля channel, category, weight для интеграции с каталогом каналов.
     """
     __tablename__ = "legal_traps"
     
@@ -70,9 +70,9 @@ class LegalTrap(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     source = Column(String(255))  # e.g., "Telegram @advokatgrikevich", "Internal"
-    channel = Column(String(255))  # v11.3.0: Username канала (e.g., "advokatgrikevich")
-    category = Column(String(100))  # v11.3.0: legal_practice | legal_association | legal_education | legal_news
-    weight = Column(Integer, default=100)  # v11.3.0: Вес 0-100 для RAG scoring (из каталога: weight*100)
+    channel = Column(String(255))  # v12.0.0: Username канала (e.g., "advokatgrikevich")
+    category = Column(String(100))  # v12.0.0: legal_practice | legal_association | legal_education | legal_news
+    weight = Column(Integer, default=100)  # v12.0.0: Вес 0-100 для RAG scoring (из каталога: weight*100)
     court_cases = Column(JSON)  # e.g. ["А40-123/2023", "Постановление КС РФ №..."]
     mitigation = Column(Text)  # Рекомендация к протоколу разногласий
     created_at = Column(DateTime, server_default=func.now())

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "source": "id-prosto.ru",
-  "description": "База шаблонов исполнительной документации для ПТО-агента MAC_ASD v11.3",
+  "description": "База шаблонов исполнительной документации для ПТО-агента MAC_ASD v12.0",
   "stats": {
     "work_categories": 31,
     "total_documents_in_lists": 569,

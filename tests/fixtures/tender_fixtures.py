@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Test Fixtures for Tender Pipeline.
+ASD v12.0 — Test Fixtures for Tender Pipeline.
 
 3 реальных сценария для валидации конвейера:
 1. Простой тендер (GO) — чистый договор, хорошая маржа

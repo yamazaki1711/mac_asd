@@ -1,5 +1,5 @@
 """
-MAC_ASD v11.3 — Skill Base Classes.
+MAC_ASD v12.0 — Skill Base Classes.
 
 Унифицированный интерфейс для всех навыков агентов.
 Каждый навык:

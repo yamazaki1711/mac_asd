@@ -1,5 +1,5 @@
 """
-MAC_ASD v11.3 — Load BLC Traps from YAML to Database.
+MAC_ASD v12.0 — Load BLC Traps from YAML to Database.
 
 Reads traps/default_traps.yaml (58 traps, 10 categories),
 generates embeddings via bge-m3, and inserts into legal_traps table.
@@ -63,7 +63,7 @@ async def load_traps(yaml_path: str, force: bool = False) -> dict:
 
     logger.info(f"Found {len(traps)} traps in {yaml_path}")
 
-    # Category → weight mapping (v11.3.0: 10 categories, 58 traps)
+    # Category → weight mapping (v12.0.0: 10 categories, 58 traps)
     category_weights = {
         "payment": 100,
         "penalty": 100,

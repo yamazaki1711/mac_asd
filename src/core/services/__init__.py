@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Core Services.
+ASD v12.0 — Core Services.
 """
 
 from src.core.services.legal_service import LegalService, legal_service

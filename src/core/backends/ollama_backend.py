@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Ollama Backend.
+ASD v12.0 — Ollama Backend.
 
 HTTP client to Ollama API. Works on any machine with Ollama installed.
 Used for:

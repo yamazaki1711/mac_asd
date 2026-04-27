@@ -1,9 +1,9 @@
 """
-ASD v11.3 — Legal Service.
+ASD v12.0 — Legal Service.
 
 Core service for contract analysis with Quick Review + БЛС + Map-Reduce fallback.
 
-v11.3 Pipeline (Gemma 4 31B, 128K context):
+v12.0 Pipeline (Gemma 4 31B, 128K context):
     1. Upload & Parse  → ParserEngine extracts text from PDF/DOCX
     2. БЛС Lookup      → Find similar known traps via RAG
     3. Quick Review     → LLM analyzes FULL document in one call (128K context)
@@ -47,7 +47,7 @@ class LegalService:
     """
     Сервис юридической экспертизы контрактов.
 
-    v11.3: С Gemma 4 31B (128K контекст) стратегия выбора режима изменилась:
+    v12.0: С Gemma 4 31B (128K контекст) стратегия выбора режима изменилась:
     - Quick Review: документы до ~280K символов (128K токенов, ~150 страниц)
       Это покрывает подавляющее большинство строительных контрактов.
     - Map-Reduce: только для документов > 280K символов (редкость)
@@ -131,7 +131,7 @@ class LegalService:
             )
 
         # Step 2: Choose analysis strategy
-        # v11.3: Gemma 4 31B supports 128K context (~280K chars)
+        # v12.0: Gemma 4 31B supports 128K context (~280K chars)
         # Quick Review handles the vast majority of construction contracts
         total_chars = len(document_text)
 
@@ -294,7 +294,7 @@ class LegalService:
         """
         Поиск похожих ловушек в БЛС через RAG.
 
-        v11.3.0: Использует search_traps() с weight-ранжированием,
+        v12.0.0: Использует search_traps() с weight-ранжированием,
         чтобы ловушки из авторитетных каналов (legal_practice)
         имели приоритет над новостными (legal_news).
 

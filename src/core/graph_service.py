@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Graph Service.
+ASD v12.0 — Graph Service.
 
 Local knowledge graph using NetworkX.
 Uses pathlib for cross-platform path handling.

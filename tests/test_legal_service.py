@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Tests for Legal Service.
+ASD v12.0 — Tests for Legal Service.
 
 Tests the core legal analysis pipeline:
 - Text chunking

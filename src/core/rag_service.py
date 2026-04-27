@@ -3,7 +3,7 @@ ASD v12.0 — RAG Service.
 
 Hybrid search: Vector (pgvector) + Graph (NetworkX).
 Uses llm_engine for embeddings instead of direct ollama_client.
-v11.3.0: Added search_traps() with weight-based ranking for БЛС.
+v12.0.0: Added search_traps() with weight-based ranking for БЛС.
 v12.0.0: Added search_lessons() for Lessons Learned RAG (delegated to lessons_service).
 """
 
@@ -71,7 +71,7 @@ class RAGService:
     async def hybrid_search(self, query: str, top_k: int = 5) -> Dict[str, Any]:
         """
         Гибридный поиск: Векторный RAG + контекст графа NetworkX.
-        Это реализация паттерна LightRAG из CONCEPT_v11.md.
+        Это реализация паттерна LightRAG из CONCEPT_v12.md.
         """
         # Шаг 1: Получаем лучшие чанки семантическим поиском
         vector_results = await self.search(query, top_k=top_k)
@@ -102,7 +102,7 @@ class RAGService:
         """
         Поиск ловушек в БЛС с учётом weight-ранжирования.
 
-        v11.3.0: Комбинирует семантическую близость (vector distance)
+        v12.0.0: Комбинирует семантическую близость (vector distance)
         с весом источника (weight) для приоритизации ловушек
         из авторитетных каналов (legal_practice > legal_news).
 

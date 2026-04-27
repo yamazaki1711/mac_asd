@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Unified LLM Engine.
+ASD v12.0 — Unified LLM Engine.
 
 Single entry point for all LLM operations across all agents.
 Automatically selects backend (Ollama / MLX) based on profile configuration.
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 class LLMEngine:
     """
-    Unified LLM interface for ASD v11.3.
+    Unified LLM interface for ASD v12.0.
 
     Routes requests to the appropriate backend based on profile configuration.
     In dev_linux profile — all requests go to Ollama.
@@ -282,7 +282,7 @@ class LLMEngine:
         """
         Default context window size per agent role.
 
-        v11.3: Gemma 4 31B (PTO/Legal/Smeta) → 128K context.
+        v12.0: Gemma 4 31B (PTO/Legal/Smeta) → 128K context.
         Эти агенты делят одну модель и используют полный 128K контекст,
         что позволяет анализировать длинные договоры без Map-Reduce.
 

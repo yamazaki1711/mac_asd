@@ -225,7 +225,7 @@ class LegalContractRisks(SkillBase):
             "severity": "medium",
         },
 
-        # --- NEW v11.3.0: 8 additional traps from comparative analysis ---
+        # --- NEW v12.0.0: 8 additional traps from comparative analysis ---
 
         {
             "title": "Заранее оценённые убытки с исключением ст. 333 ГК РФ",
@@ -406,7 +406,7 @@ class LegalContractRisks(SkillBase):
             "severity": "high",
         },
 
-        # --- NEW v11.3.0: 3 additional traps from comparative analysis ---
+        # --- NEW v12.0.0: 3 additional traps from comparative analysis ---
 
         {
             "title": "Согласование субподрядчиков с Заказчиком",
@@ -529,7 +529,7 @@ class LegalContractRisks(SkillBase):
         {"item": "Актуальность нормативных ссылок (нет РД)", "legal_basis": "Приказ № 344/пр, № 1026/пр"},
         {"item": "Вид работ соответствует специализации", "legal_basis": "СРО, лицензии"},
 
-        # --- New v11.3.0: 11 additional checkpoints ---
+        # --- New v12.0.0: 11 additional checkpoints ---
         {"item": "Страхование: размер франшизы, суброгация", "legal_basis": "ГК РФ гл. 48, ст. 965"},
         {"item": "Операционные штрафы: соразмерность нарушению, применимость ст. 333 ГК РФ",
          "legal_basis": "ГК РФ ст. 333, Пленум ВС РФ №7"},

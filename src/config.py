@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5433"))
 
-    # Redis УДАЛЁН в v11.3 — заменён на in-process кэширование (cachetools)
+    # Redis УДАЛЁН в v12.0 — заменён на in-process кэширование (cachetools)
     # Причина: single-user Mac Studio, Redis избыточен, экономия 2GB RAM
 
     # --- Performance ---

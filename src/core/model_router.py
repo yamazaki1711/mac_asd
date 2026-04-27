@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Model Router.
+ASD v12.0 — Model Router.
 
 Routes task types to appropriate models based on current profile configuration.
 Delegates model selection to Settings.get_model_config().
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ModelRouter:
     """
-    Маршрутизатор моделей ASD v11.3.
+    Маршрутизатор моделей ASD v12.0.
 
     Определяет, какой агент (и соответственно модель) обрабатывает
     конкретный тип задачи. Конфигурация моделей берётся из профиля

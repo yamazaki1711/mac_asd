@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Google Workspace MCP Tools.
+ASD v12.0 — Google Workspace MCP Tools.
 
 Инструменты для доступа агентов к Google Drive, Sheets, Docs, Gmail.
 Каждый инструмент делегирует вызов GoogleWorkspaceService.

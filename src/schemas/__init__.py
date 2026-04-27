@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Pydantic Schemas.
+ASD v12.0 — Pydantic Schemas.
 
 Typed input/output contracts for all agents and services.
 """

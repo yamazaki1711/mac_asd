@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Verdict Report Schema.
+ASD v12.0 — Verdict Report Schema.
 
 Итоговый отчёт о решении по тендеру.
 Генерируется Hermes после сбора сигналов от всех агентов.

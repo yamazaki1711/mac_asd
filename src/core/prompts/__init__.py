@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Prompt Templates.
+ASD v12.0 — Prompt Templates.
 
 Structured prompts for all LLM operations.
 """

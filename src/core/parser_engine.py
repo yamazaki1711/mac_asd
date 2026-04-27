@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class ParserEngine:
     """
     Движок парсинга документов ASD.
-    Поддерживает двухэтапный конвейер (Vision Cascade) для ПДФ, как заявлено в CONCEPT_v11.md.
+    Поддерживает двухэтапный конвейер (Vision Cascade) для ПДФ, как заявлено в CONCEPT_v12.md.
     Stage 1: Чистый текст (PyMuPDF)
     Stage 2: Vision OCR (Ollama minicpm-v или Tesseract) для сканированных страниц.
     """

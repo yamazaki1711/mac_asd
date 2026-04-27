@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Tests for Google Workspace Integration.
+ASD v12.0 — Tests for Google Workspace Integration.
 
 Тестирует:
   - GoogleWorkspaceService: структура, lazy init, is_configured

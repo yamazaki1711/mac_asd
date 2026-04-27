@@ -1,5 +1,5 @@
 """
-MAC_ASD v11.3 — Skills Package 2 Test Script.
+MAC_ASD v12.0 — Skills Package 2 Test Script.
 
 Тестирование PTO_WorkSpec и DELO_TemplateLib без LLM.
 """
@@ -197,7 +197,7 @@ async def test_integration():
 
 async def main():
     """Запуск всех тестов."""
-    print("\n🧪 MAC_ASD v11.3 — Package 2 Skills Test Suite\n")
+    print("\n🧪 MAC_ASD v12.0 — Package 2 Skills Test Suite\n")
 
     try:
         await test_pto_work_spec()

@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Ollama Client (DEPRECATED — use llm_engine instead).
+ASD v12.0 — Ollama Client (DEPRECATED — use llm_engine instead).
 
 This module is kept for backward compatibility with existing code
 that directly imports `ollama_client`. New code should use:

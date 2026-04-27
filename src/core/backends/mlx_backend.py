@@ -1,5 +1,5 @@
 """
-ASD v11.3 — MLX Backend (Apple Silicon).
+ASD v12.0 — MLX Backend (Apple Silicon).
 
 In-process LLM inference via Apple MLX framework.
 Only available on Mac Studio M4 Max with macOS.

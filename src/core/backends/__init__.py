@@ -1,5 +1,5 @@
 """
-ASD v11.3 — LLM Backends.
+ASD v12.0 — LLM Backends.
 
 OllamaBackend  — HTTP client to Ollama API (works on any machine)
 MLXBackend    — Apple MLX in-process (Mac Studio M4 Max only)

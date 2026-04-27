@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Ingest Telegram Export to BLC (База Ловушек Субподрядчика).
+ASD v12.0 — Ingest Telegram Export to BLC (База Ловушек Субподрядчика).
 
 Parses Telegram Desktop JSON export(s), extracts legal traps via LLM,
 and saves them to the database with embeddings.
@@ -256,9 +256,9 @@ async def process_telegram_post(
         title=data.get("title", "Untitled Trap"),
         description=description,
         source=source_name,
-        channel=source_name,  # v11.3.0: explicit channel field
-        category=category,    # v11.3.0: category from catalog
-        weight=weight,        # v11.3.0: weight for RAG scoring
+        channel=source_name,  # v12.0.0: explicit channel field
+        category=category,    # v12.0.0: category from catalog
+        weight=weight,        # v12.0.0: weight for RAG scoring
         court_cases=data.get("court_cases", []),
         mitigation=data.get("mitigation", ""),
         embedding=embedding,
@@ -398,7 +398,7 @@ async def list_channels(catalog: Optional[ChannelCatalog] = None) -> None:
         catalog = ChannelCatalog()
 
     print("\n" + "=" * 70)
-    print("MAC_ASD v11.3 — Каталог Telegram-каналов для БЛС")
+    print("MAC_ASD v12.0 — Каталог Telegram-каналов для БЛС")
     print("=" * 70)
 
     # Group by priority
@@ -433,7 +433,7 @@ async def list_channels(catalog: Optional[ChannelCatalog] = None) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="MAC_ASD v11.3 — Ingest Telegram JSON exports to BLC",
+        description="MAC_ASD v12.0 — Ingest Telegram JSON exports to BLC",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

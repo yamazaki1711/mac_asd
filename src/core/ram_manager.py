@@ -1,5 +1,5 @@
 """
-ASD v11.3 — RAM Manager.
+ASD v12.0 — RAM Manager.
 
 Manages Unified Memory on Mac Studio and system RAM on Linux.
 Uses llm_engine for model load/unload operations.

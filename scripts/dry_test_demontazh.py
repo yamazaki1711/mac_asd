@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Dry Test: Project "Demontazh"
+ASD v12.0 — Dry Test: Project "Demontazh"
 =========================================
 Запуск полной цепочки агентов на реальных данных из /home/oleg/демонтаж/
 """
@@ -36,7 +36,7 @@ async def run_dry_test():
 
     # 2. Создание проекта в БД
     with Session() as session:
-        project = Project(name="Сухой тест: Демонтаж (v11.3)")
+        project = Project(name="Сухой тест: Демонтаж (v12.0)")
         session.add(project)
         session.commit()
         project_id = project.id

@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Wiki Loader.
+ASD v12.0 — Wiki Loader.
 
 Loads Obsidian Wiki pages for agent context.
 Uses pathlib for cross-platform path handling.

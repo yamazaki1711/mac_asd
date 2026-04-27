@@ -1,9 +1,9 @@
 """
-ASD v11.3 — Legal Schemas.
+ASD v12.0 — Legal Schemas.
 
 Pydantic models for legal agent input/output validation.
 
-v11.3.0 changes:
+v12.0.0 changes:
 - Added LegalVerdict.DANGEROUS (3+ critical risks)
 - Added LegalFinding.contractor_edit (редакция Подрядчика для протокола)
 - Added ProtocolItem model (3-колоночный формат протокола разногласий)
@@ -54,7 +54,7 @@ class ReviewType(str, Enum):
 
 
 # =============================================================================
-# Protocol Models (v11.3.0)
+# Protocol Models (v12.0.0)
 # =============================================================================
 
 class ProtocolPartyInfo(BaseModel):
@@ -105,7 +105,7 @@ class LegalFinding(BaseModel):
     """
     Одно юридическое замечание / ловушка.
 
-    v11.3.0: Добавлено contractor_edit — точная редакция Подрядчика
+    v12.0.0: Добавлено contractor_edit — точная редакция Подрядчика
     для протокола разногласий. Каждая правка опирается на закон.
     """
     category: LegalFindingCategory = Field(
@@ -197,7 +197,7 @@ class LegalAnalysisResult(BaseModel):
     """
     Результат юридической экспертизы.
 
-    v11.3.0: Добавлены protocol_items для генерации протокола разногласий.
+    v12.0.0: Добавлены protocol_items для генерации протокола разногласий.
     """
     document_ref: Optional[str] = Field(
         default=None,

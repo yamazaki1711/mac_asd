@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Reflection Node (Self-Learning Loop).
+ASD v12.0 — Reflection Node (Self-Learning Loop).
 
 Analyzes audit logs → draws conclusions → updates Obsidian Wiki.
 Uses llm_engine for LLM calls instead of direct ollama_client.

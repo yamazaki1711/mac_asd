@@ -211,7 +211,7 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
     rules = load_wiki_page("PTO_Rules")
     work_type = _extract_work_type(state)
 
-    # v11.3: Извлечение текста из файла, если он передан в стейте
+    # v12.0: Извлечение текста из файла, если он передан в стейте
     intermediate = state.get("intermediate_data", {})
     file_path = intermediate.get("file_path")
     document_text = intermediate.get("document_text", "")
@@ -372,7 +372,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     file_path = intermediate.get("contract_path") or intermediate.get("file_path")
     document_id = intermediate.get("document_id")
 
-    # v11.3: Извлечение текста из файла контракта (.docx/.pdf)
+    # v12.0: Извлечение текста из файла контракта (.docx/.pdf)
     if file_path and os.path.exists(file_path):
         print(f"--- Legal Reading File: {os.path.basename(file_path)} ---")
         if file_path.endswith(".docx"):

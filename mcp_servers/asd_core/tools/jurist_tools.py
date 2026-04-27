@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Jurist MCP Tools.
+ASD v12.0 — Jurist MCP Tools.
 
 9 tools for the Legal Agent with real LLM logic:
   1. asd_upload_document          — Parse PDF/DOCX → chunks
@@ -139,7 +139,7 @@ async def asd_generate_protocol(
     """
     Протокол разногласий к договору (DOCX).
 
-    v11.3.0: Генерирует полноценный DOCX с 3-колоночной таблицей:
+    v12.0.0: Генерирует полноценный DOCX с 3-колоночной таблицей:
     | Пункт, статья | Редакция Заказчика | Редакция Подрядчика |
 
     Каждая правка Подрядчика опирается на конкретную статью закона (ГК РФ,
@@ -396,7 +396,7 @@ async def asd_add_trap(
     """
     Ручное добавление «Ловушки субподрядчика» в БЛС.
 
-    v11.3.0: Добавлены поля channel, category, court_cases для интеграции
+    v12.0.0: Добавлены поля channel, category, court_cases для интеграции
     с каталогом Telegram-каналов.
 
     Args:
@@ -470,7 +470,7 @@ async def asd_list_telegram_channels(
     """
     Вывод каталога Telegram-каналов для БЛС.
 
-    v11.3.0: Показывает все каналы из config/telegram_channels.yaml
+    v12.0.0: Показывает все каналы из config/telegram_channels.yaml
     с метаданными (категория, приоритет, фокус-области).
 
     Args:
@@ -531,7 +531,7 @@ async def asd_ingest_telegram(
     """
     Импорт Telegram JSON-экспорта в БЛС (одиночный или пакетный).
 
-    v11.3.0: Поддерживает каталог каналов для автокатегоризации
+    v12.0.0: Поддерживает каталог каналов для автокатегоризации
     и приоритизации ловушек.
 
     Args:

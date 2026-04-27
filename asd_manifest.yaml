@@ -19,7 +19,7 @@ project: "mac_asd"
 #   Gemma 4 E4B — MoE 4B effective, быстрый (38-42 tok/s) → Делопроизводитель
 #   bge-m3 — лучший multilingual embedding для локального RAG
 #   Gemma 4 31B VLM (OCR) — УДАЛЁН (Gemma 4 31B обрабатывает OCR нативно)
-#   Qwen3.5-27B — УДАЛЁНА в v11.3 (заменена на Gemma 4 31B для всех рабочих агентов)
+#   Qwen3.5-27B — УДАЛЁНА в v12.0 (заменена на Gemma 4 31B для всех рабочих агентов)
 # ---------------------------------------------------------------------------
 models:
   # Orchestrator — тяжёлая модель, MLX (text-only)
@@ -150,6 +150,17 @@ infrastructure:
   docx_generation:
     engine: docxtpl        # Jinja2 + python-docx, стандарт для шаблонов
     templates_path: data/templates/
+
+  # IS Generator — Исполнительные Схемы (2 пути)
+  is_generator:
+    vector_path:                           # Path 1: DWG/DXF векторный пайплайн
+      dwg_to_dxf: oda_file_converter      # CLI конвертер (внешний, не pip)
+      dxf_engine: ezdxf                    # clip_by_bbox, аннотации, GOST stamp
+      export: cairosvg                     # SVG→PDF векторный экспорт
+    pdf_overlay_path:                      # Path 2: PDF-base + vector overlay
+      pdf_engine: pymupdf                  # кроп PDF, растровый базис
+      annotation: svg_overlay              # векторные аннотации поверх растра
+    stamp_standard: "ГОСТ 21.101-2020"
 
   google_workspace:
     credentials_path: credentials/google_service_account.json

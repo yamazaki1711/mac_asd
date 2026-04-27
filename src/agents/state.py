@@ -1,7 +1,7 @@
 """
 ASD v12.0 — Agent State Schema (Versioned).
 
-Evolution from v11.3.0 to v12.0:
+Evolution from v12.0.0 to v12.0:
 - Versioned schema with migration path
 - Typed intermediate data (no more Dict[str, Any] bags)
 - Confidence scores per agent output
