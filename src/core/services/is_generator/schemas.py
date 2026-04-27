@@ -1,6 +1,9 @@
 """
 Pydantic-схемы для модуля ISGenerator (Исполнительные Схемы).
 Определяют структуры данных, проходящие через весь пайплайн генерации ИС.
+
+v12.0 — расширение: два пути генерации (DXF-First и PDF-Overlay),
+фактические отметки/размеры, штамп ГОСТ 21.101-2020, индекс РД.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -22,6 +25,20 @@ class SurveyFormat(str, Enum):
     LEICA_GSI    = "leica_gsi"      # Формат Leica GSI-8/GSI-16
     CREDO_TXT    = "credo_txt"      # Экспорт из CREDO DAT
     XLSX         = "xlsx"           # Таблица Excel
+
+
+class RDFormat(str, Enum):
+    """Формат исходного рабочего чертежа."""
+    DWG = "dwg"       # AutoCAD DWG (конвертируется в DXF через ODA)
+    DXF = "dxf"       # AutoCAD DXF (готов к обработке ezdxf)
+    PDF = "pdf"        # PDF от проектировщика (растровая подложка + векторные аннотации)
+    SCAN = "scan"      # Скан/фото бумажного чертежа (только VLM + ручная верификация)
+
+
+class ISPipeline(str, Enum):
+    """Выбор пайплайна генерации ИС."""
+    DXF_FIRST = "dxf_first"       # Путь 1: векторный (DWG/DXF → clip → annotate → PDF)
+    PDF_OVERLAY = "pdf_overlay"   # Путь 2: PDF-подложка + векторные аннотации
 
 
 # ─── Точка геодезии ────────────────────────────────────────────────────────────
@@ -70,6 +87,121 @@ class Deviation(BaseModel):
     tolerance_mm: float     # Применённый допуск
 
 
+# ─── Фактическая отметка (из актов/АОСР) ──────────────────────────────────────
+
+class FactMark(BaseModel):
+    """Фактическая отметка для нанесения на ИС.
+
+    Источник: акт освидетельствования, АОСР, журнал работ.
+    Примеры: "Факт. отм. +3.247", "Уровень чистого пола +0.000".
+    """
+    label: str              # Описание: "Отм. низа балки", "Уровень пола"
+    design_value: str       # Проектное значение: "+3.250"
+    fact_value: str         # Фактическое значение: "+3.247"
+    unit: str = "м"         # Единица измерения
+    position_x: float = 0.0  # X координата на чертеже (DXF или PDF)
+    position_y: float = 0.0  # Y координата на чертеже
+    source: str = ""        # Источник: "АОСР-012", "Акт от 15.03.2026"
+    deviation_mm: float = 0.0  # Разница факт-проект в мм
+
+
+class FactDimension(BaseModel):
+    """Фактический размер (линейный) для нанесения на ИС.
+
+    Источник: замеры на захватке, геодезическая съёмка.
+    Примеры: "Факт. пролёт 6010 мм", "Толщина стены 410 мм".
+    """
+    label: str              # Описание: "Пролёт А-Б", "Толщина стены"
+    design_value_mm: float  # Проектный размер: 6000.0
+    fact_value_mm: float    # Фактический размер: 6010.0
+    tolerance_mm: float = 0.0  # Допуск по СП/ГОСТ
+    position_x: float = 0.0  # X центра размерной линии
+    position_y: float = 0.0  # Y центра размерной линии
+    source: str = ""        # Источник: "Замер 12.03.2026"
+
+    @property
+    def deviation_mm(self) -> float:
+        """Отклонение факт от проекта в мм."""
+        return self.fact_value_mm - self.design_value_mm
+
+    @property
+    def is_within_tolerance(self) -> bool:
+        """В допуске?"""
+        if self.tolerance_mm <= 0:
+            return True  # допуск не задан — не проверяем
+        return abs(self.deviation_mm) <= self.tolerance_mm
+
+
+# ─── Данные штампа ГОСТ 21.101-2020 ──────────────────────────────────────────
+
+class ISStampData(BaseModel):
+    """Данные для заполнения основной надписи (штампа) по ГОСТ 21.101-2020.
+
+    Структура штампа:
+    ┌──────────────────────────────────────────────────────────────┐
+    │ Наим. объекта          │ Стадия │ Лист │ Листов              │
+    ├─────────────────────────┼────────┼──────┼─────────────────────┤
+    │ Наим. схемы (ИС)       │   И    │  1   │  1                  │
+    ├─────────────────────────┴────────┴──────┴─────────────────────┤
+    │ Разраб. │ Иванов │ 15.03 │ Масштаб │                         │
+    │ Провер. │ Петров │ 16.03 │  1:100  │                         │
+    │ Т.контр │        │       │         │                         │
+    │ Н.контр │        │       │         │                         │
+    │ Утв.    │        │       │         │                         │
+    └─────────┴────────┴───────┴─────────┘─────────────────────────┘
+    """
+    # Верхняя часть
+    object_name: str = ""         # Наименование объекта: "Жилой дом №3, корп. А"
+    scheme_name: str = ""         # Наименование схемы: "Исполнительная схема фундаментов"
+    stage: str = "И"              # Стадия: И = Исполнительная
+    sheet_number: int = 1         # Номер листа
+    total_sheets: int = 1         # Всего листов
+    scale: str = ""               # Масштаб: "1:100", "1:200"
+
+    # Нижняя часть — подписи
+    developer: str = ""           # Разработал (ФИО)
+    developer_date: str = ""      # Дата разработки
+    checker: str = ""             # Проверил (ФИО)
+    checker_date: str = ""        # Дата проверки
+    tech_control: str = ""        # Т.контр.
+    tech_control_date: str = ""   # Дата
+    norm_control: str = ""        # Н.контр.
+    norm_control_date: str = ""   # Дата
+    approver: str = ""            # Утвердил (ФИО)
+    approver_date: str = ""       # Дата утверждения
+
+    # Дополнительные данные для ИС
+    aosr_id: str = ""             # Номер АОСР, к которому относится ИС
+    work_type: str = ""           # Вид работ: "бетонные", "монтажные"
+    project_code: str = ""        # Шифр проекта
+    organization: str = ""        # Организация-исполнитель
+
+
+# ─── Информация о листе РД ────────────────────────────────────────────────────
+
+class RDSheetInfo(BaseModel):
+    """Один лист рабочей документации — элемент индекса РД.
+
+    Заполняется Делопроизводителем при регистрации РД.
+    Используется ПТО-агентом для поиска нужного листа под захватку.
+    """
+    project_code: str          # Шифр проекта: "ПГС-2024-012"
+    sheet_number: str          # Номер листа: "Лист 3", "КМ-12"
+    sheet_name: str            # Наименование: "План фундаментов на отм. -2.100"
+    work_type: str             # Вид работ: "бетонные", "монтажные"
+    section: str = ""          # Раздел/захватка: "Захватка 1", "Ось А-В"
+    format: RDFormat           # Формат файла
+    file_path: str             # Путь к файлу на диске
+    page_number: int = 0       # Номер страницы (для PDF — страница в документе)
+    bbox: Optional[list[float]] = None  # [x_min, y_min, x_max, y_max] — область захватки
+    registered_at: str = ""    # Дата регистрации
+    registered_by: str = ""    # Кто зарегистрировал
+
+    class Config:
+        # Разрешаем использовать RDFormat как строку
+        use_enum_values = True
+
+
 # ─── Результат генерации ИС ───────────────────────────────────────────────────
 
 class ISResult(BaseModel):
@@ -77,28 +209,72 @@ class ISResult(BaseModel):
     project_id: str
     aosr_id: str
 
-    output_dxf_path: str    # Путь к аннотированному DXF
-    output_pdf_path: str    # Путь к финальному PDF
+    pipeline: ISPipeline = ISPipeline.DXF_FIRST  # Какой пайплайн использовался
 
-    total_axes: int
-    matched_axes: int
-    critical_deviations: int
-    warning_deviations: int
-    ok_deviations: int
+    output_dxf_path: str = ""    # Путь к аннотированному DXF (Путь 1)
+    output_pdf_path: str = ""    # Путь к финальному PDF
 
-    deviations: list[Deviation]
-    unmatched_axes: list[str]        # Оси без геодезических замеров
-    unmatched_survey_points: list[str]  # Замеры без осей в чертеже
+    rd_sheet: Optional[RDSheetInfo] = None  # Лист РД, послуживший основой
 
-    coordinate_transform_applied: bool  # Применено ли преобразование CRS
+    total_axes: int = 0
+    matched_axes: int = 0
+    critical_deviations: int = 0
+    warning_deviations: int = 0
+    ok_deviations: int = 0
+
+    deviations: list[Deviation] = []
+    fact_marks: list[FactMark] = []
+    fact_dimensions: list[FactDimension] = []
+
+    unmatched_axes: list[str] = []
+    unmatched_survey_points: list[str] = []
+
+    coordinate_transform_applied: bool = False
+
+    stamp_data: Optional[ISStampData] = None  # Данные штампа
 
     def to_dict(self) -> dict:
         return self.model_dump()
 
     @property
     def is_acceptable(self) -> bool:
-        """ИС можно подписывать? Нет критических отклонений."""
-        return self.critical_deviations == 0
+        """ИС можно подписывать? Нет критических отклонений и все факт. размеры в допуске."""
+        has_critical_dev = self.critical_deviations > 0
+        has_dim_violation = any(
+            not d.is_within_tolerance for d in self.fact_dimensions
+            if d.tolerance_mm > 0
+        )
+        return not has_critical_dev and not has_dim_violation
+
+
+# ─── Bounding Box ─────────────────────────────────────────────────────────────
+
+@dataclass
+class BBox:
+    """Прямоугольная область для вырезания фрагмента из РД."""
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+
+    @property
+    def width(self) -> float:
+        return self.x_max - self.x_min
+
+    @property
+    def height(self) -> float:
+        return self.y_max - self.y_min
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return (self.x_min + self.x_max) / 2, (self.y_min + self.y_max) / 2
+
+    def contains(self, x: float, y: float, margin: float = 0.0) -> bool:
+        """Точка внутри bbox (с опциональным отступом)?"""
+        return (
+            self.x_min - margin <= x <= self.x_max + margin
+            and self.y_min - margin <= y <= self.y_max + margin
+        )
 
 
 # ─── Параметры трансформации координат ────────────────────────────────────────

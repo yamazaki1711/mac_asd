@@ -3,6 +3,8 @@
 
 Использует ezdxf для извлечения геометрии LINE, LWPOLYLINE и ARC
 с привязкой к слоям (ОСИ, КМ, ШПУНТ и т.д.).
+
+v12.0 — добавлен clip_by_bbox() для вырезания фрагмента РД под захватку.
 """
 from __future__ import annotations
 
@@ -14,7 +16,7 @@ from typing import TYPE_CHECKING, Sequence
 logger = logging.getLogger(__name__)
 
 # Импорт схем
-from src.core.services.is_generator.schemas import DesignAxis
+from src.core.services.is_generator.schemas import BBox, DesignAxis
 
 try:
     import ezdxf
@@ -289,3 +291,180 @@ class DXFParser:
         logger.info(f"Конвертация DWG→DXF: {dwg_path} → {dxf_path}")
         odafc.convert(str(dwg_path), str(dxf_path), version="R2013", audit=False)
         return dxf_path
+
+    # ─── Вырезание фрагмента (clip by bbox) ────────────────────────────────────
+
+    def clip_by_bbox(
+        self,
+        file_path: str | Path,
+        bbox: BBox,
+        output_path: str | Path,
+        margin: float = 0.0,
+        include_layers: Sequence[str] | None = None,
+        exclude_layers: Sequence[str] | None = None,
+    ) -> Path:
+        """
+        Вырезает фрагмент DXF по bounding box (захватка).
+
+        Создаёт новый DXF-документ, содержащий только сущности,
+        попадающие в bbox. Сущности, пересекающие границу bbox,
+        обрезаются (clip) по возможности, либо включаются целиком.
+
+        Это основной метод для «копипаста из РД»:
+        ПТО-шник выделяет область захватки → АСД вырезает фрагмент → annotate.
+
+        Args:
+            file_path: Путь к исходному DXF (или DWG).
+            bbox: Прямоугольная область захвата.
+            output_path: Путь к выходному DXF-фрагменту.
+            margin: Отступ вокруг bbox (для захвата ближайших меток).
+            include_layers: Только эти слои копировать (None = все).
+            exclude_layers: Эти слои исключить (None = ничего).
+
+        Returns:
+            Путь к созданному DXF-фрагменту.
+        """
+        if not EZDXF_AVAILABLE:
+            raise ImportError("ezdxf не установлен: pip install ezdxf")
+
+        src_path = Path(file_path)
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if src_path.suffix.lower() == ".dwg":
+            src_path = self._convert_dwg_to_dxf(src_path)
+
+        src_doc = ezdxf.readfile(str(src_path))
+        src_msp = src_doc.modelspace()
+
+        # Создаём новый документ
+        new_doc = ezdxf.new(dxfversion="R2013")
+        new_msp = new_doc.modelspace()
+
+        # Копируем определения слоёв
+        include_set = frozenset(s.upper() for s in include_layers) if include_layers else None
+        exclude_set = frozenset(s.upper() for s in exclude_layers) if exclude_layers else frozenset()
+
+        copied_count = 0
+        for entity in src_msp:
+            # Фильтр по слоям
+            layer_upper = entity.dxf.layer.upper() if entity.dxf.hasattr("layer") else ""
+            if include_set and layer_upper not in include_set:
+                continue
+            if layer_upper in exclude_set:
+                continue
+
+            # Проверяем попадание в bbox
+            if self._entity_in_bbox(entity, bbox, margin=margin):
+                try:
+                    new_entity = entity.copy()
+                    new_msp.add_entity(new_entity)
+                    copied_count += 1
+                except Exception as e:
+                    logger.debug(f"Сущность {entity.dxftype()} не скопирована: {e}")
+
+        # Копируем использованные слои
+        for layer_name in self._get_used_layers(new_msp):
+            src_layer = src_doc.layers.get(layer_name)
+            if src_layer and new_doc.layers.get(layer_name) is None:
+                try:
+                    new_doc.layers.add(layer_name, dxfattribs={
+                        "color": src_layer.dxf.color,
+                        "linetype": src_layer.dxf.linetype,
+                    })
+                except Exception:
+                    pass
+
+        new_doc.saveas(str(out_path))
+        logger.info(
+            f"DXF clip: {src_path.name} → {out_path.name} "
+            f"bbox=({bbox.x_min:.0f},{bbox.y_min:.0f})-({bbox.x_max:.0f},{bbox.y_max:.0f}) "
+            f"entities={copied_count}"
+        )
+        return out_path
+
+    @staticmethod
+    def _entity_in_bbox(entity, bbox: BBox, margin: float = 0.0) -> bool:
+        """
+        Проверяет, попадает ли сущность в bbox (с margin).
+
+        Упрощённая проверка: если любая ключевая точка сущности
+        попадает в расширенный bbox — включаем.
+        """
+        etype = entity.dxftype()
+
+        try:
+            if etype == "LINE":
+                sx, sy = float(entity.dxf.start.x), float(entity.dxf.start.y)
+                ex, ey = float(entity.dxf.end.x), float(entity.dxf.end.y)
+                # Линия попадает, если хотя бы один конец внутри
+                # или линия пересекает bbox (упрощённо: оба конца вне,
+                # но линия проходит через)
+                if bbox.contains(sx, sy, margin) or bbox.contains(ex, ey, margin):
+                    return True
+                # Пересечение: оба конца по разные стороны
+                return not (
+                    (sx < bbox.x_min - margin and ex < bbox.x_min - margin)
+                    or (sx > bbox.x_max + margin and ex > bbox.x_max + margin)
+                    or (sy < bbox.y_min - margin and ey < bbox.y_min - margin)
+                    or (sy > bbox.y_max + margin and ey > bbox.y_max + margin)
+                )
+
+            elif etype == "LWPOLYLINE":
+                for pt in entity.get_points(format="xy"):
+                    if bbox.contains(float(pt[0]), float(pt[1]), margin):
+                        return True
+                return False
+
+            elif etype == "CIRCLE":
+                cx, cy = float(entity.dxf.center.x), float(entity.dxf.center.y)
+                r = float(entity.dxf.radius)
+                # Центр в bbox или bbox пересекает окружность
+                return bbox.contains(cx, cy, margin + r)
+
+            elif etype == "ARC":
+                cx, cy = float(entity.dxf.center.x), float(entity.dxf.center.y)
+                return bbox.contains(cx, cy, margin + float(entity.dxf.radius))
+
+            elif etype in ("TEXT", "MTEXT", "ATTDEF"):
+                try:
+                    pos = entity.dxf.insert
+                    return bbox.contains(float(pos.x), float(pos.y), margin)
+                except Exception:
+                    return False
+
+            elif etype in ("INSERT",):  # Block reference
+                try:
+                    pos = entity.dxf.insert
+                    return bbox.contains(float(pos.x), float(pos.y), margin)
+                except Exception:
+                    return False
+
+            else:
+                # Для неизвестных типов — пробуем bounding box ezdxf
+                try:
+                    from ezdxf.path import make_path
+                    path = make_path(entity)
+                    if path:
+                        ext = path.bbox()
+                        return not (
+                            ext.max.x < bbox.x_min - margin
+                            or ext.min.x > bbox.x_max + margin
+                            or ext.max.y < bbox.y_min - margin
+                            or ext.min.y > bbox.y_max + margin
+                        )
+                except Exception:
+                    pass
+                return False
+
+        except Exception:
+            return False
+
+    @staticmethod
+    def _get_used_layers(msp) -> set[str]:
+        """Возвращает множество имён слоёв, используемых в modelspace."""
+        layers: set[str] = set()
+        for entity in msp:
+            if entity.dxf.hasattr("layer"):
+                layers.add(entity.dxf.layer)
+        return layers

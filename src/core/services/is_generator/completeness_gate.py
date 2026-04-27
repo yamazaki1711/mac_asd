@@ -101,6 +101,13 @@ def _is_non_empty_file(path: Path) -> bool:
 def _is_dxf_or_dwg(path: Path) -> bool:
     return path.exists() and path.suffix.lower() in (".dxf", ".dwg") and path.stat().st_size > 0
 
+def _is_pdf_file(path: Path) -> bool:
+    return path.exists() and path.suffix.lower() == ".pdf" and path.stat().st_size > 0
+
+def _is_dxf_dwg_or_pdf(path: Path) -> bool:
+    """DXF, DWG или PDF — любой формат подходит для генерации ИС."""
+    return path.exists() and path.suffix.lower() in (".dxf", ".dwg", ".pdf") and path.stat().st_size > 0
+
 def _is_survey_file(path: Path) -> bool:
     return path.exists() and path.suffix.lower() in (".csv", ".txt", ".xlsx", ".xls", ".gsi") and path.stat().st_size > 0
 
@@ -109,16 +116,32 @@ IS_DEFAULT_REQUIREMENTS: list[DocRequirement] = [
     DocRequirement(
         key="design_dxf",
         label="Проектный DXF/DWG",
-        level=DocLevel.MANDATORY,
+        level=DocLevel.RECOMMENDED,
         validator=_is_dxf_or_dwg,
-        hint="Необходим файл рабочих чертежей (КМ, КЖ и т.д.) в формате DXF или DWG.",
+        hint="Файл рабочих чертежей (КМ, КЖ и т.д.) в формате DXF или DWG. "
+             "Если отсутствует — используется PDF-подложка (Путь 2).",
+    ),
+    DocRequirement(
+        key="design_pdf",
+        label="Проектный PDF (альтернатива)",
+        level=DocLevel.RECOMMENDED,
+        validator=_is_pdf_file,
+        hint="PDF от проектировщика. Используется как подложка при отсутствии DXF/DWG.",
+    ),
+    DocRequirement(
+        key="any_design_file",
+        label="Любой исходник РД (DXF/DWG/PDF)",
+        level=DocLevel.MANDATORY,
+        validator=_is_dxf_dwg_or_pdf,
+        hint="Необходим хотя бы один файл РД: DXF, DWG или PDF.",
     ),
     DocRequirement(
         key="survey_report",
         label="Геодезический отчёт",
-        level=DocLevel.MANDATORY,
+        level=DocLevel.RECOMMENDED,
         validator=_is_survey_file,
-        hint="Файл замеров тахеометра (CSV, GSI, CREDO TXT, XLSX).",
+        hint="Файл замеров тахеометра (CSV, GSI, CREDO TXT, XLSX). "
+             "Необязателен если есть FactMark/FactDimension с ручными данными.",
     ),
     DocRequirement(
         key="aosr_template",
