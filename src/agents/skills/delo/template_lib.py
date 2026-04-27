@@ -1,5 +1,5 @@
 """
-MAC_ASD v11.3 — DELO_TemplateLib Skill.
+MAC_ASD v12.0 — DELO_TemplateLib Skill.
 
 Библиотека шаблонов документов ИД. Хранит и управляет актуальными формами
 всех документов по видам работ компании.
@@ -8,7 +8,7 @@ MAC_ASD v11.3 — DELO_TemplateLib Skill.
   - Только действующие формы (РД-11-02-2006 и РД 11-05-2007 ОТМЕНЕНЫ)
   - Версионирование шаблонов при изменении нормативной базы
   - Валидация заполняемых реквизитов
-  - Специализация: только виды работ компании
+  - Специализация: все виды работ компании (v12.0: инженерные системы включены)
 """
 
 import logging
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 TEMPLATE_VERSION = "2.0"
-TEMPLATE_DATE = "2026-04-18"
+TEMPLATE_DATE = "2026-04-27"
 
 
 class TemplateStatus(str, Enum):
@@ -122,8 +122,8 @@ ACT_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "name": "Акт освидетельствования участков сетей ИТО",
         "form": "Приказ Минстроя № 344/пр, Приложение № 5",
         "status": TemplateStatus.ACTIVE,
-        "note": "НЕ применяется для видов работ компании (нет инженерных систем)",
-        "applicable": False,
+        "note": "Применяется для инженерных сетей ИТО (водоснабжение, канализация, теплоснабжение, электроснабжение, связь)",
+        "applicable": True,
         "fields": [
             {"key": "location", "label": "Место составления", "type": "text", "required": True},
             {"key": "date", "label": "Дата составления", "type": "date", "required": True},
@@ -281,17 +281,6 @@ class DELO_TemplateLib(SkillBase):
         # Поиск в актах
         if template_type in ACT_TEMPLATES:
             template = ACT_TEMPLATES[template_type]
-            # Проверка на неприменимость
-            if not template.get("applicable", True):
-                return SkillResult(
-                    status=SkillStatus.REJECTED,
-                    skill_id=self.skill_id,
-                    data=template,
-                    warnings=[
-                        f"Шаблон '{template['name']}' не применяется для видов работ компании. "
-                        f"Компания не выполняет инженерные системы."
-                    ],
-                )
             return SkillResult(
                 status=SkillStatus.SUCCESS,
                 skill_id=self.skill_id,

@@ -1,15 +1,17 @@
 """
-MAC_ASD v11.3 — SmetaRateLookup Skill.
+MAC_ASD v12.0 — SmetaRateLookup Skill.
 
 База единичных расценок по видам работ компании.
-Содержит эталонные расценки ФЕР/ГЭСН для 6 специализаций:
-  общестроительные, бетонные, земляные, сварочные, монтажные, шпунтовые.
+Содержит эталонные расценки ФЕР/ГЭСН для 10+ специализаций:
+  общестроительные, бетонные, земляные, сварочные, монтажные, шпунтовые,
+  отделочные, инженерные_системы, электромонтаж, слаботочные.
 
 Предоставляет:
   - Поиск расценки по коду ФЕР или описанию работы
   - Фильтрация по виду работ
   - Проверка актуальности индекса Минстроя
   - Расчёт с учётом поправочных коэффициентов
+  - Разрешение вида работ через WorkTypeRegistry
 
 Нормативная база (2026):
   - ФЕР-2024 (федеральные единичные расценки)
@@ -25,6 +27,9 @@ from typing import Dict, Any, List, Optional
 from enum import Enum
 
 from src.agents.skills.common.base import SkillBase, SkillResult, SkillStatus
+from src.agents.skills.common.work_type_registry import (
+    WorkType, get_smeta_category, resolve_work_type,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -411,6 +416,179 @@ RATE_DATABASE: Dict[str, List[Dict[str, Any]]] = {
             "norm_reference": "ГЭСН 30-01-008-01",
         },
     ],
+    "отделочные": [
+        {
+            "code": "ФЕР11-01-001-01",
+            "description": "Устройство стяжек цементных толщиной 20 мм",
+            "unit": "100 м2",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 3200.00,
+                RateCategory.MATERIALS: 5800.00,
+                RateCategory.MACHINERY: 450.00,
+            },
+            "overhead_pct": 13.0,
+            "profit_pct": 7.0,
+            "applicable_works": ["отделочные"],
+            "norm_reference": "ГЭСН 11-01-001-01",
+        },
+        {
+            "code": "ФЕР15-02-001-01",
+            "description": "Оштукатуривание поверхностей стен цементным раствором",
+            "unit": "100 м2",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 4800.00,
+                RateCategory.MATERIALS: 3200.00,
+                RateCategory.MACHINERY: 280.00,
+            },
+            "overhead_pct": 13.0,
+            "profit_pct": 7.0,
+            "applicable_works": ["отделочные"],
+            "norm_reference": "ГЭСН 15-02-001-01",
+        },
+        {
+            "code": "ФЕР11-01-009-01",
+            "description": "Устройство покрытий из линолеума",
+            "unit": "100 м2",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 2600.00,
+                RateCategory.MATERIALS: 12400.00,
+                RateCategory.MACHINERY: 180.00,
+            },
+            "overhead_pct": 13.0,
+            "profit_pct": 7.0,
+            "applicable_works": ["отделочные"],
+            "norm_reference": "ГЭСН 11-01-009-01",
+        },
+    ],
+    "инженерные_системы": [
+        {
+            "code": "ФЕР16-02-001-01",
+            "description": "Прокладка трубопроводов водоснабжения из стальных труб",
+            "unit": "100 м",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 5400.00,
+                RateCategory.MATERIALS: 18500.00,
+                RateCategory.MACHINERY: 1200.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["инженерные_системы"],
+            "norm_reference": "ГЭСН 16-02-001-01",
+        },
+        {
+            "code": "ФЕР18-01-001-01",
+            "description": "Прокладка трубопроводов отопления из стальных труб",
+            "unit": "100 м",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 6200.00,
+                RateCategory.MATERIALS: 15200.00,
+                RateCategory.MACHINERY: 980.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["инженерные_системы"],
+            "norm_reference": "ГЭСН 18-01-001-01",
+        },
+        {
+            "code": "ФЕР20-01-001-01",
+            "description": "Монтаж воздуховодов прямоугольных",
+            "unit": "10 м2",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 2800.00,
+                RateCategory.MATERIALS: 8600.00,
+                RateCategory.MACHINERY: 1500.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["инженерные_системы"],
+            "norm_reference": "ГЭСН 20-01-001-01",
+        },
+    ],
+    "электромонтаж": [
+        {
+            "code": "ФЕР46-02-001-01",
+            "description": "Прокладка кабеля в траншее",
+            "unit": "100 м",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 3800.00,
+                RateCategory.MATERIALS: 6200.00,
+                RateCategory.MACHINERY: 2400.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["электромонтаж"],
+            "norm_reference": "ГЭСН 46-02-001-01",
+        },
+        {
+            "code": "ФЕР46-03-001-01",
+            "description": "Монтаж лотков кабельных",
+            "unit": "100 м",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 2400.00,
+                RateCategory.MATERIALS: 9800.00,
+                RateCategory.MACHINERY: 800.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["электромонтаж"],
+            "norm_reference": "ГЭСН 46-03-001-01",
+        },
+        {
+            "code": "ФЕР46-05-001-01",
+            "description": "Установка распределительных коробок",
+            "unit": "шт",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 420.00,
+                RateCategory.MATERIALS: 1800.00,
+                RateCategory.MACHINERY: 0.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["электромонтаж"],
+            "norm_reference": "ГЭСН 46-05-001-01",
+        },
+    ],
+    "слаботочные": [
+        {
+            "code": "ФЕР46-06-001-01",
+            "description": "Прокладка кабеля связи в траншее",
+            "unit": "100 м",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 2800.00,
+                RateCategory.MATERIALS: 5400.00,
+                RateCategory.MACHINERY: 1800.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["слаботочные"],
+            "norm_reference": "ГЭСН 46-06-001-01",
+        },
+        {
+            "code": "ФЕР46-07-001-01",
+            "description": "Монтаж оборудования связи",
+            "unit": "комплект",
+            "rate_source": RateSource.FER,
+            "base_costs": {
+                RateCategory.LABOR: 8200.00,
+                RateCategory.MATERIALS: 15600.00,
+                RateCategory.MACHINERY: 1200.00,
+            },
+            "overhead_pct": 12.0,
+            "profit_pct": 8.0,
+            "applicable_works": ["слаботочные"],
+            "norm_reference": "ГЭСН 46-07-001-01",
+        },
+    ],
 }
 
 # Индексы изменения сметной стоимости Минстроя (seed data)
@@ -448,6 +626,26 @@ MINSTROY_INDICES: Dict[str, Dict[str, Any]] = {
         },
         "шпунтовые": {
             "index": 1.0761,
+            "region": "РФ средний",
+            "note": "К базисному уровню 01.01.2024",
+        },
+        "отделочные": {
+            "index": 1.0795,
+            "region": "РФ средний",
+            "note": "К базисному уровню 01.01.2024",
+        },
+        "инженерные_системы": {
+            "index": 1.0834,
+            "region": "РФ средний",
+            "note": "К базисному уровню 01.01.2024",
+        },
+        "электромонтаж": {
+            "index": 1.0756,
+            "region": "РФ средний",
+            "note": "К базисному уровню 01.01.2024",
+        },
+        "слаботочные": {
+            "index": 1.0712,
             "region": "РФ средний",
             "note": "К базисному уровню 01.01.2024",
         },
@@ -500,7 +698,7 @@ class SmetaRateLookup(SkillBase):
         action = params.get("action")
         if not action:
             return {"valid": False, "errors": ["Параметр 'action' обязателен"]}
-        valid_actions = {"lookup", "search", "list_by_work", "get_index", "list_coefficients"}
+        valid_actions = {"lookup", "search", "list_by_work", "get_index", "list_coefficients", "resolve_work_type"}
         if action not in valid_actions:
             return {"valid": False, "errors": [f"Неизвестное действие: {action}. Допустимые: {valid_actions}"]}
         return {"valid": True}
@@ -515,6 +713,7 @@ class SmetaRateLookup(SkillBase):
             list_by_work: Все расценки для вида работ
             get_index: Актуальный индекс Минстроя
             list_coefficients: Поправочные коэффициенты
+            resolve_work_type: Разрешить строку в категорию сметной расценки через WorkTypeRegistry
         """
         action = params["action"]
 
@@ -528,6 +727,8 @@ class SmetaRateLookup(SkillBase):
             return self._get_index(params.get("work_type"))
         elif action == "list_coefficients":
             return self._list_coefficients()
+        elif action == "resolve_work_type":
+            return self._resolve_work_type(params.get("input", ""))
 
     def _lookup(self, code: str) -> SkillResult:
         """Найти расценку по коду ФЕР."""
@@ -679,4 +880,50 @@ class SmetaRateLookup(SkillBase):
                 "coefficients": ADJUSTMENT_COEFFICIENTS,
                 "total": len(ADJUSTMENT_COEFFICIENTS),
             },
+        )
+
+    def _resolve_work_type(self, input_str: str) -> SkillResult:
+        """Разрешить произвольную строку в вид работ и категорию сметной расценки.
+
+        Использует WorkTypeRegistry для кросс-агентного маппинга.
+        """
+        if not input_str:
+            return SkillResult(
+                status=SkillStatus.ERROR,
+                skill_id=self.skill_id,
+                errors=["Параметр 'input' обязателен для resolve_work_type"],
+            )
+
+        resolved = resolve_work_type(input_str)
+        if resolved is None:
+            return SkillResult(
+                status=SkillStatus.REJECTED,
+                skill_id=self.skill_id,
+                data={"input": input_str},
+                errors=[f"Не удалось разрешить '{input_str}' в вид работ"],
+                warnings=[
+                    "Допустимые форматы: имя константы (EARTHWORK_EXCAVATION), "
+                    "русское наименование, категория ПТО, категория расценки, префикс ФЕР."
+                ],
+            )
+
+        try:
+            smeta_category = get_smeta_category(resolved)
+        except ValueError:
+            smeta_category = None
+
+        result_data: Dict[str, Any] = {
+            "input": input_str,
+            "resolved_work_type": resolved,
+            "smeta_category": smeta_category,
+        }
+
+        if smeta_category and smeta_category in RATE_DATABASE:
+            result_data["rates_available"] = len(RATE_DATABASE[smeta_category])
+            result_data["index_available"] = smeta_category in MINSTROY_INDICES["indices_by_work_type"]
+
+        return SkillResult(
+            status=SkillStatus.SUCCESS,
+            skill_id=self.skill_id,
+            data=result_data,
         )

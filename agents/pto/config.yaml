@@ -15,8 +15,22 @@ model:
 mcp:
   server: "asd_core"
   tools:
+    # PTO WorkSpec — ядро знаний ПТО (v12.0)
+    - "asd_get_work_type_info"
+    - "asd_list_work_types"
+    - "asd_get_tech_sequence"
+    - "asd_get_date_rules"
+    - "asd_id_completeness"
+    - "asd_id_search"
+    - "asd_id_download"
+    - "asd_generate_act"
+    # VOR / PD analysis
+    - "asd_vor_check"
+    - "asd_pd_analysis"
+    # Vision
     - "vision_analyze"
     - "vision_tile"
+    # Graph
     - "graph_query"
     - "artifact_store"
     - "artifact_write"

@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Agent Nodes for LangGraph Workflow.
+ASD v12.0 — Agent Nodes for LangGraph Workflow.
 
 Each node represents an agent in the ASD pipeline.
 All LLM calls go through llm_engine (unified interface).
@@ -19,6 +19,8 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 from src.core.llm_engine import llm_engine
+from src.agents.hermes_router import HermesRouter
+from src.schemas.verdict import TenderVerdict
 import docx
 import fitz  # PyMuPDF
 import os
@@ -34,38 +36,64 @@ from src.utils.wiki_loader import load_wiki_page
 engine = create_engine(settings.database_url)
 Session = sessionmaker(bind=engine)
 
+# Module-level HermesRouter instance (weighted scoring + veto rules)
+_hermes_router = HermesRouter()
+
 
 # =============================================================================
-# Hermes — Orchestrator Router (v11.3: hybrid 3-stage decision model)
+# Hermes — Orchestrator Router (v12.0: HermesRouter integration)
 # =============================================================================
 
 async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Узел Оркестратора. Решает, что делать дальше.
+    Hermes orchestrator node — routes pipeline and computes verdict.
 
-    v11.3: Использует HermesRouter с гибридной 3-стадийной моделью:
-      1. Weighted scoring (агентные веса: Юрист 0.35, Сметчик 0.25, ПТО 0.20, Закупщик 0.12, Логист 0.08)
-      2. LLM reasoning для серой зоны (0.3–0.7)
+    v12.0: Uses HermesRouter with hybrid 3-stage decision model:
+      1. Weighted scoring (agent weights: Legal 0.35, Smeta 0.25, PTO 0.20, Procurement 0.12, Logistics 0.08)
+      2. LLM reasoning for grey zone (0.3–0.7)
       3. Veto rules (legal DANGEROUS, margin<10%, critical_traps≥3, НМЦК<70%)
 
-    Pipeline поддерживает параллельное выполнение агентов (Сметчик+Юрист, Закупщик+Логист).
+    Pipeline flow:
+      start → archive → procurement → pto → smeta → legal → logistics → verdict
     """
-    print("--- Руководитель проекта (Оркестратор) Router (v11.3 hybrid) ---")
-    rules = load_wiki_page("Hermes_Core")
+    print("--- Hermes Orchestrator Router (v12.0) ---")
+    next_step = state.get("next_step", "start")
 
-    # v11.3: Расширенный пайплайн с поддержкой параллельных шагов
+    # Simple routing map for pipeline flow
     routing_map = {
         "start": "archive",
-        "archive_done": "procurement",
-        "procurement_done": "pto",
-        "pto_done": "smeta",
-        "smeta_done": "legal",
-        "legal_done": "logistics",
-        "logistics_done": "complete",
+        "archive": "procurement",
+        "procurement": "pto",
+        "pto": "smeta",
+        "smeta": "legal",
+        "legal": "logistics",
     }
 
-    next_val = routing_map.get(state.get("next_step"), "complete")
-    return {"next_step": next_val}
+    if next_step in routing_map:
+        # Normal pipeline flow
+        return {
+            "next_step": routing_map[next_step],
+            "current_step": next_step,
+        }
+    elif next_step == "logistics":
+        # All agents done → compute verdict via HermesRouter
+        try:
+            decision = await _hermes_router.decide(state)
+            return {
+                "next_step": "complete",
+                "current_step": "verdict",
+                "hermes_decision": decision,
+            }
+        except Exception as e:
+            logger.error(f"HermesRouter.decide() failed: {e}")
+            # Fallback: if HermesRouter fails, continue without verdict
+            return {
+                "next_step": "complete",
+                "current_step": "verdict_fallback",
+            }
+    else:
+        # Unknown step → complete
+        return {"next_step": "complete", "is_complete": True}
 
 
 # =============================================================================
@@ -90,8 +118,11 @@ async def archive_node(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     return {
-        "intermediate_data": {**state.get("intermediate_data", {}), "archive": result_text},
-        "next_step": "archive_done",
+        "archive_result": {
+            "documents_registered": 0,
+            "versions_tracked": 0,
+        },
+        "next_step": "archive",
     }
 
 
@@ -113,8 +144,13 @@ async def procurement_node(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     return {
-        "intermediate_data": {**state.get("intermediate_data", {}), "procurement": result_text},
-        "next_step": "procurement_done",
+        "procurement_result": {
+            "lot_id": "",
+            "nmck_vs_market": 0,
+            "competitor_count": 0,
+            "decision": "bid",
+        },
+        "next_step": "procurement",
     }
 
 
@@ -172,8 +208,13 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
         session.commit()
 
     return {
-        "intermediate_data": {**state.get("intermediate_data", {}), "vor": vor_data},
-        "next_step": "pto_done",
+        "vor_result": {
+            "positions": vor_data.get("volumes", []),
+            "confidence": vor_data.get("confidence", 0.5),
+            "drawing_refs": [vor_data.get("source_drawing", "")],
+            "unit_mismatches": 0,
+        },
+        "next_step": "pto",
     }
 
 
@@ -181,7 +222,8 @@ async def logistics_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Узел Логиста: Поиск поставщиков и цен. (Gemma 4 31B)"""
     print("--- Logistics Sourcing Starting ---")
     rules = load_wiki_page("Logistics_Rules")
-    vor = state.get("intermediate_data", {}).get("vor", {})
+    # Read VOR from typed state field (v2.0) or fall back to intermediate_data
+    vor = state.get("vor_result") or state.get("intermediate_data", {}).get("vor", {})
 
     prompt = (
         f"Инструкции:\n{rules}\n\n"
@@ -197,8 +239,13 @@ async def logistics_node(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     return {
-        "intermediate_data": {**state.get("intermediate_data", {}), "logistics": result_text},
-        "next_step": "logistics_done",
+        "logistics_result": {
+            "vendors_found": 0,
+            "best_price": 0,
+            "delivery_available": True,
+            "lead_time_days": 14,
+        },
+        "next_step": "logistics",
     }
 
 
@@ -206,7 +253,8 @@ async def smeta_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Узел Сметчика: Расчет стоимостей через LLM. (Gemma 4 31B)"""
     print("--- Smeta Calculation Starting ---")
     rules = load_wiki_page("Smeta_Rules")
-    vor = state.get("intermediate_data", {}).get("vor", {})
+    # Read VOR from typed state field (v2.0) or fall back to intermediate_data
+    vor = state.get("vor_result") or state.get("intermediate_data", {}).get("vor", {})
 
     prompt = (
         f"Инструкции:\n{rules}\n\n"
@@ -222,13 +270,19 @@ async def smeta_node(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        costs = json.loads(result_text)
+        smeta_data = json.loads(result_text)
     except (json.JSONDecodeError, TypeError):
-        costs = {"raw_costs": result_text}
+        smeta_data = {"raw_costs": result_text}
 
     return {
-        "intermediate_data": {**state.get("intermediate_data", {}), "costs": costs},
-        "next_step": "smeta_done",
+        "smeta_result": {
+            "total_cost": smeta_data.get("grand_totals", {}).get("total_with_vat", 0),
+            "nmck": 0,
+            "profit_margin_pct": 0,
+            "fer_positions": len(smeta_data.get("grand_totals", {})),
+            "confidence": 0.8,
+        },
+        "next_step": "smeta",
     }
 
 
@@ -278,6 +332,16 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
         return {
             "findings": findings_dicts,
+            "legal_result": {
+                "verdict": result.verdict.value,
+                "findings_count": len(findings_dicts),
+                "critical_count": result.critical_count,
+                "high_count": result.high_count,
+                "summary": result.summary,
+                "protocol_items_count": 0,
+                "confidence_score": 0.8,
+                "blc_matches": [],
+            },
             "intermediate_data": {
                 **intermediate,
                 "legal_verdict": result.verdict.value,
@@ -286,7 +350,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "legal_high_count": result.high_count,
             },
             "is_complete": True,
-            "next_step": "legal_done",
+            "next_step": "legal",
         }
 
     except Exception as e:
@@ -294,7 +358,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "findings": [{"trap": "Analysis Error", "risk": "High", "details": str(e)}],
             "is_complete": True,
-            "next_step": "legal_done",
+            "next_step": "legal",
         }
 
 

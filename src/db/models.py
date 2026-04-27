@@ -147,3 +147,116 @@ class PriceListItem(Base):
     quantity_available = Column(Integer) # Остаток у поставщика
     
     price_list = relationship("PriceList", back_populates="items")
+
+# --- LABORATORY CONTROL TABLES ---
+
+class LabOrganization(Base):
+    """Аккредитованные лаборатории для строительного контроля."""
+    __tablename__ = "lab_organizations"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(512), nullable=False)
+    inn = Column(String(12), unique=True)
+    accreditation_number = Column(String(50))
+    accreditation_date = Column(DateTime)
+    category = Column(String(100))  # construction_lab, geotechnical_lab, welding_lab, concrete_lab
+    rating = Column(Integer, default=5)  # 1-5
+    contact_info = Column(JSON)  # {email, phone, address, representative}
+    test_methods = Column(JSON)  # List of accredited test methods
+    created_at = Column(DateTime, server_default=func.now())
+    
+    requests = relationship("LabRequest", back_populates="organization")
+
+class LabRequest(Base):
+    """Заявки в лабораторию на испытания."""
+    __tablename__ = "lab_requests"
+    
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("lab_organizations.id"))
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    request_type = Column(String(100))  # commercial_proposal, sample_testing, field_inspection
+    status = Column(String(50), default="draft")  # draft, sent, received, in_progress, completed, cancelled
+    description = Column(Text)
+    deadline = Column(DateTime)
+    commercial_proposal = Column(JSON)  # {price, terms, delivery_time}
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    organization = relationship("LabOrganization", back_populates="requests")
+    samples = relationship("LabSample", back_populates="request")
+
+class LabSample(Base):
+    """Образцы для лабораторных испытаний."""
+    __tablename__ = "lab_samples"
+    
+    id = Column(Integer, primary_key=True)
+    request_id = Column(Integer, ForeignKey("lab_requests.id"))
+    sample_type = Column(String(100))  # concrete_cube, steel_specimen, soil, asphalt
+    sample_identifier = Column(String(100))  # Маркировка образца
+    manufacture_date = Column(DateTime)
+    delivery_date = Column(DateTime)
+    test_date = Column(DateTime)
+    test_method = Column(String(200))  # ГОСТ метода испытания
+    result_value = Column(String(100))  # Результат (прочность, марка и т.п.)
+    result_status = Column(String(50))  # pass, fail, pending
+    created_at = Column(DateTime, server_default=func.now())
+    
+    request = relationship("LabRequest", back_populates="samples")
+
+class LabContract(Base):
+    """Договоры с лабораториями."""
+    __tablename__ = "lab_contracts"
+    
+    id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("lab_organizations.id"))
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    contract_number = Column(String(100))
+    contract_date = Column(DateTime)
+    contract_value = Column(Integer)  # В копейках
+    valid_until = Column(DateTime)
+    status = Column(String(50), default="active")  # active, expired, cancelled
+    document_id = Column(Integer, ForeignKey("documents.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
+class LabAct(Base):
+    """Акты выполненных работ лаборатории."""
+    __tablename__ = "lab_acts"
+    
+    id = Column(Integer, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("lab_contracts.id"))
+    act_number = Column(String(100))
+    act_date = Column(DateTime)
+    act_value = Column(Integer)  # В копейках
+    description = Column(Text)
+    status = Column(String(50), default="issued")  # issued, accepted, rejected
+    document_id = Column(Integer, ForeignKey("documents.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
+class LabReport(Base):
+    """Заключения лаборатории (результаты испытаний)."""
+    __tablename__ = "lab_reports"
+    
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    organization_id = Column(Integer, ForeignKey("lab_organizations.id"))
+    report_number = Column(String(100))
+    report_date = Column(DateTime)
+    report_type = Column(String(200))  # Тип заключения (прочность бетона, сварка и т.п.)
+    conclusion = Column(Text)  # Текст заключения
+    status = Column(String(50), default="received")  # received, reviewed, accepted, rejected
+    review_notes = Column(Text)
+    document_id = Column(Integer, ForeignKey("documents.id"))
+    created_at = Column(DateTime, server_default=func.now())
+
+class LabControlPlan(Base):
+    """Планы лабораторного контроля по проектам."""
+    __tablename__ = "lab_control_plans"
+    
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    plan_name = Column(String(255))
+    work_types = Column(JSON)  # List of work types requiring lab control
+    test_schedule = Column(JSON)  # Schedule of tests
+    status = Column(String(50), default="draft")  # draft, approved, in_progress, completed
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
