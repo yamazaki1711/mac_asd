@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Main Entry Point.
+MAC_ASD v12.0 — Main Entry Point.
 
 Runs the demonstration pipeline:
   Archive → Procurement → PTO → [Smeta + Legal] → Logistics → Hermes Verdict → Reflection
@@ -28,7 +28,7 @@ logger = logging.getLogger("ASD_MAIN")
 
 
 async def run_demo():
-    logger.info(f"--- ЗАПУСК ДЕМОНСТРАЦИИ ASD v11.3 (profile: {settings.ASD_PROFILE}) ---")
+    logger.info(f"--- ЗАПУСК ДЕМОНСТРАЦИИ MAC_ASD v12.0 (profile: {settings.ASD_PROFILE}) ---")
     logger.info(f"Project root: {settings.BASE_DIR}")
     logger.info(f"Wiki path: {settings.wiki_path}")
     logger.info(f"Artifacts path: {settings.artifacts_path}")

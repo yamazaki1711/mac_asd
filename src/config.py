@@ -1,5 +1,5 @@
 """
-АСД v11.3 — Конфигурация с поддержкой профилей.
+MAC_ASD v12.0 — Конфигурация с поддержкой профилей.
 
 Profiles:
     dev_linux  — Linux + Ollama (разработка, RTX 5060 8GB)
@@ -68,8 +68,8 @@ def _detect_project_root() -> Path:
 
 class Settings(BaseSettings):
     # --- Project Info ---
-    PROJECT_NAME: str = "ASD_v11"
-    VERSION: str = "11.3"
+    PROJECT_NAME: str = "MAC_ASD"
+    VERSION: str = "12.0"
 
     # --- Profile ---
     ASD_PROFILE: str = os.getenv("ASD_PROFILE", "dev_linux")

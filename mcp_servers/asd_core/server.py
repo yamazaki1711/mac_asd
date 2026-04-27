@@ -296,6 +296,56 @@ async def asd_lessons_list(
         limit=limit,
     )
 
+@mcp.tool()
+async def asd_lessons_context(
+    work_type: str,
+    agent_name: str = "",
+    task_description: str = "",
+    top_k: int = 5,
+) -> str:
+    """
+    Получить контекст из уроков для инъекции в промпт агента (Level 2 RAG).
+    Возвращает отформатированный текст с релевантными уроками, готовый для вставки в промпт.
+    
+    Args:
+        work_type: Вид работ из WorkTypeRegistry
+        agent_name: Имя агента (ПТО, Юрист, Сметчик...)
+        task_description: Описание задачи (для семантического поиска)
+        top_k: Количество уроков в контексте
+    """
+    return await lessons_service.get_lessons_context(
+        work_type=work_type,
+        agent_name=agent_name or None,
+        task_description=task_description or None,
+        top_k=top_k,
+    )
+
+@mcp.tool()
+async def asd_lessons_reject(lesson_id: int) -> Dict[str, Any]:
+    """
+    Отклонить урок — ложное срабатывание. Удаляет урок из базы.
+    
+    Args:
+        lesson_id: ID урока для отклонения
+    """
+    deleted = await lessons_service.reject_lesson(lesson_id=lesson_id)
+    if not deleted:
+        return {"error": f"Lesson #{lesson_id} not found"}
+    return {"id": lesson_id, "deleted": True}
+
+@mcp.tool()
+async def asd_auto_rules(work_type: str = "*") -> List[Dict[str, Any]]:
+    """
+    Получить автоматические правила для инъекции в промпты агентов (Level 3 Skill Mutation).
+    Правила, подтверждённые N раз, автоматически влияют на поведение агентов.
+    
+    Args:
+        work_type: Фильтр по виду работ (* = все)
+    """
+    return await lessons_service.get_auto_rules(
+        work_type=work_type if work_type != "*" else None,
+    )
+
 # ---------------------------------------------------------------------------
 # Pipeline Execution (Testing)
 # ---------------------------------------------------------------------------

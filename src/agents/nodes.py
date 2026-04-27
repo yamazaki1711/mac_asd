@@ -38,7 +38,8 @@ engine = create_engine(settings.database_url)
 Session = sessionmaker(bind=engine)
 
 # Module-level HermesRouter instance (weighted scoring + veto rules)
-_hermes_router = HermesRouter()
+# v12.0: llm_engine передан для LLM-рассуждения в серой зоне (0.3–0.7)
+_hermes_router = HermesRouter(llm_engine=llm_engine)
 
 
 # =============================================================================

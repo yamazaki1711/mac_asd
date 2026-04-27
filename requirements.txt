@@ -1,5 +1,5 @@
 # =============================================================================
-# ASD v11.4.0 — Python Dependencies
+# MAC_ASD v12.0 — Python Dependencies
 # =============================================================================
 # Установка: pip install -r requirements.txt
 # Рекомендуется: conda create -n asd_mlx python=3.12 && conda activate asd_mlx

@@ -415,8 +415,10 @@ class LessonsService:
         """
         if lesson.category == "coeff_error":
             return (
-                f"ОБЯЗАТЕЛЬНО проверяй коэффициенты пересчёта в сметах на {lesson.work_type}. "
-                f"Урок: {lesson.title}. {lesson.description}"
+                f"ОБЯЗАТЕЛЬНО проверяй расчётное обоснование коэффициентов пересчёта в сметах "
+                f"на {lesson.work_type}. Если коэффициент применён без расчёта элементов "
+                f"(размеры блоков, материал/плотность перегородок и перекрытий) — Flag как "
+                f"coeff_error. Урок: {lesson.title}. {lesson.description}"
             )
         elif lesson.category == "risk":
             return (

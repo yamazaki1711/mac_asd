@@ -282,7 +282,7 @@ def create_initial_state(
         confidence_scores={},
         hermes_decision=None,
         current_step="start",
-        next_step="archive",
+        next_step="start",
         event_type=None,
         is_complete=False,
         audit_trail=[],
