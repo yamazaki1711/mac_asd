@@ -31,6 +31,7 @@ from src.db.init_db import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.config import settings
 from src.utils.wiki_loader import load_wiki_page
+from src.core.lessons_service import lessons_service
 
 # Setup DB session for Audit Logging
 engine = create_engine(settings.database_url)
@@ -38,6 +39,51 @@ Session = sessionmaker(bind=engine)
 
 # Module-level HermesRouter instance (weighted scoring + veto rules)
 _hermes_router = HermesRouter()
+
+
+# =============================================================================
+# Уровень 2: RAG-инъекция уроков (Lessons Learned) в контекст агентов
+# =============================================================================
+
+async def _get_lessons_context(
+    agent_name: str, 
+    task_description: str, 
+    work_type: str = "*"
+) -> str:
+    """
+    Получить контекст из Lessons Learned для инъекции в промпт агента.
+    
+    Автоматически ищет релевантные уроки через RAG и формирует
+    текстовый блок для добавления в промпт.
+    
+    Args:
+        agent_name: Имя агента (ПТО, Юрист, Сметчик...)
+        task_description: Описание задачи (для семантического поиска)
+        work_type: Вид работ из WorkTypeRegistry
+        
+    Returns:
+        Строка с уроками или пустая строка
+    """
+    try:
+        context = await lessons_service.get_lessons_context(
+            work_type=work_type,
+            agent_name=agent_name,
+            task_description=task_description,
+            top_k=5,
+        )
+        if context:
+            print(f"  📚 {agent_name}: injected lessons context ({len(context)} chars)")
+        return context
+    except Exception as e:
+        logger.warning(f"Failed to inject lessons context for {agent_name}: {e}")
+        return ""
+
+
+def _extract_work_type(state: Dict[str, Any]) -> str:
+    """Извлечь вид работ из стейта для RAG-поиска уроков."""
+    intermediate = state.get("intermediate_data", {})
+    # Извлекаем из intermediate_data или из описания задачи
+    return intermediate.get("work_type", "*")
 
 
 # =============================================================================
@@ -130,8 +176,12 @@ async def procurement_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Узел Закупщика: Анализ тендера и НМЦК. (Gemma 4 31B)"""
     print("--- Procurement Analysis Starting ---")
     rules = load_wiki_page("Procurement_Rules")
+    work_type = _extract_work_type(state)
+    lessons = await _get_lessons_context("Закупщик", state['task_description'], work_type)
+    
     prompt = (
         f"Инструкции:\n{rules}\n\n"
+        f"{lessons}\n\n"
         f"Задача:\n{state['task_description']}\n\n"
         f"Оцените лот и его рентабельность."
     )
@@ -158,6 +208,7 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Узел ПТО: Анализ объемов работ через LLM. (Gemma 4 31B VLM)"""
     print("--- PTO Analysis Starting ---")
     rules = load_wiki_page("PTO_Rules")
+    work_type = _extract_work_type(state)
 
     # v11.3: Извлечение текста из файла, если он передан в стейте
     intermediate = state.get("intermediate_data", {})
@@ -173,8 +224,12 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
             with fitz.open(file_path) as doc:
                 document_text = "\n".join([page.get_text() for page in doc])
     
+    # v12.0: RAG-инъекция уроков (Lessons Learned)
+    lessons = await _get_lessons_context("ПТО", state['task_description'], work_type)
+    
     prompt = (
         f"Инструкции:\n{rules}\n\n"
+        f"{lessons}\n\n"
         f"Задача:\n{state['task_description']}\n\n"
         f"Контекст документа:\n{document_text[:10000]}\n\n"
         f"Извлеките ВОР в формате JSON (укажите только JSON)."
@@ -224,9 +279,13 @@ async def logistics_node(state: Dict[str, Any]) -> Dict[str, Any]:
     rules = load_wiki_page("Logistics_Rules")
     # Read VOR from typed state field (v2.0) or fall back to intermediate_data
     vor = state.get("vor_result") or state.get("intermediate_data", {}).get("vor", {})
+    work_type = _extract_work_type(state)
+    # v12.0: RAG-инъекция уроков (Lessons Learned)
+    lessons = await _get_lessons_context("Логист", state['task_description'], work_type)
 
     prompt = (
         f"Инструкции:\n{rules}\n\n"
+        f"{lessons}\n\n"
         f"ВОР:\n{json.dumps(vor, ensure_ascii=False)}\n\n"
         f"Найдите поставщиков для этих работ."
     )
@@ -255,9 +314,13 @@ async def smeta_node(state: Dict[str, Any]) -> Dict[str, Any]:
     rules = load_wiki_page("Smeta_Rules")
     # Read VOR from typed state field (v2.0) or fall back to intermediate_data
     vor = state.get("vor_result") or state.get("intermediate_data", {}).get("vor", {})
+    work_type = _extract_work_type(state)
+    # v12.0: RAG-инъекция уроков (Lessons Learned)
+    lessons = await _get_lessons_context("Сметчик", state['task_description'], work_type)
 
     prompt = (
         f"Инструкции:\n{rules}\n\n"
+        f"{lessons}\n\n"
         f"Доступные объемы:\n{json.dumps(vor, ensure_ascii=False)}\n\n"
         f"Оцените стоимость, верните валидный JSON."
     )
@@ -294,6 +357,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     - Если в intermediate_data есть document_text/file_path — полный анализ (до 300K символов в 128K контексте)
     - Иначе — быстрый обзор по task_description (Quick Review)
 
+    v12.0: RAG-инъекция уроков (Lessons Learned) для учёта предыдущего опыта.
     БЛС: 58 ловушек в 10 категориях.
     """
     print("--- Legal Review Starting ---")
@@ -316,6 +380,13 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
         elif file_path.endswith(".pdf"):
             with fitz.open(file_path) as doc:
                 document_text = "\n".join([page.get_text() for page in doc])
+
+    # v12.0: RAG-инъекция уроков (Lessons Learned)
+    work_type = _extract_work_type(state)
+    lessons = await _get_lessons_context("Юрист", state['task_description'], work_type)
+    # Уроки добавляются в intermediate_data для использования LegalService
+    if lessons and document_text:
+        document_text = f"{lessons}\n\n{document_text}"
 
     try:
         request = LegalAnalysisRequest(

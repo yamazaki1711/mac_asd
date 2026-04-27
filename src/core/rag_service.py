@@ -1,9 +1,10 @@
 """
-ASD v11.3 — RAG Service.
+ASD v12.0 — RAG Service.
 
 Hybrid search: Vector (pgvector) + Graph (NetworkX).
 Uses llm_engine for embeddings instead of direct ollama_client.
 v11.3.0: Added search_traps() with weight-based ranking for БЛС.
+v12.0.0: Added search_lessons() for Lessons Learned RAG (delegated to lessons_service).
 """
 
 import logging

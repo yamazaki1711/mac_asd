@@ -260,3 +260,45 @@ class LabControlPlan(Base):
     status = Column(String(50), default="draft")  # draft, approved, in_progress, completed
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# --- LESSONS LEARNED (Опытный контур MAC_ASD v12.0) ---
+
+class LessonLearned(Base):
+    """
+    Уроки из анализа лотов — институциональная память системы.
+    
+    Каждый анализ лота может порождать уроки, которые:
+    1. Хранятся в БД с эмбеддингами (pgvector)
+    2. Извлекаются через RAG при анализе нового лота
+    3. После N подтверждений — мутируют в автоматические правила агентов
+    
+    Категории уроков:
+    - coeff_error: Ошибочные коэффициенты в сметах
+    - risk: Риски, неочевидные при поверхностном анализе
+    - false_risk: Ложные риски (генерируются, но не применимы)
+    - norm_violation: Нарушения нормативных требований
+    - contract_trap: Опасные условия контракта
+    - best_practice: Лучшая практика, выявленная опытным путём
+    """
+    __tablename__ = "lessons_learned"
+    
+    id = Column(Integer, primary_key=True)
+    lot_number = Column(String(50))        # Номер извещения на Госзакупках
+    work_type = Column(String(100))        # Код WorkTypeRegistry (demolition, construction...)
+    agent_name = Column(String(50))        # ПТО, Юрист, Сметчик, Закупщик, Логист, Дело
+    category = Column(String(50))          # coeff_error, risk, false_risk, norm_violation, contract_trap, best_practice
+    title = Column(String(512), nullable=False)   # Краткое описание урока
+    description = Column(Text, nullable=False)     # Подробное описание
+    severity = Column(String(20))          # critical, high, medium, low
+    norm_reference = Column(String(512))   # Ссылка на нормативку (СП, ГОСТ, Приказ...)
+    lot_context = Column(JSON)             # Контекст лота: {region, nmck, object_type, ...}
+    verified = Column(Boolean, default=False)     # Подтверждено пользователем
+    verification_count = Column(Integer, default=0)  # Сколько раз подтвердилось на практике
+    auto_rule = Column(Boolean, default=False)    # Мутировало в автоматическое правило?
+    auto_rule_text = Column(Text)          # Текст правила для инъекции в промпт
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # Вектор для RAG-поиска (bge-m3 = 1024 dim)
+    embedding = Column(Vector(1024))

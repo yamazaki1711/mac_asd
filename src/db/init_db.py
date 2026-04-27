@@ -1,7 +1,8 @@
 """
-ASD v11.3 — Database Initialization.
+ASD v12.0 — Database Initialization.
 
 Creates tables, extensions (pgvector, pg_trgm), and graph storage.
+v12.0: Added LessonLearned table for Опытный контур.
 """
 
 import logging

@@ -175,6 +175,128 @@ mcp.add_tool(asd_gmail_send)
 mcp.add_tool(asd_google_status)
 
 # ---------------------------------------------------------------------------
+# Группа 16: Опытный контур — Lessons Learned (4 инструмента)
+# ---------------------------------------------------------------------------
+from src.core.lessons_service import lessons_service
+
+@mcp.tool()
+async def asd_lessons_search(
+    query: str,
+    work_type: str = "*",
+    agent_name: str = "",
+    category: str = "",
+    top_k: int = 5,
+) -> List[Dict[str, Any]]:
+    """
+    Поиск уроков из предыдущих анализов (Lessons Learned) через RAG.
+    Используется агентами для получения релевантного опыта перед анализом нового лота.
+    
+    Args:
+        query: Поисковый запрос (семантический поиск)
+        work_type: Вид работ (demolition, construction...) или * для всех
+        agent_name: Фильтр по агенту (ПТО, Юрист, Сметчик...)
+        category: Фильтр по категории (coeff_error, risk, false_risk, contract_trap...)
+        top_k: Количество результатов
+    """
+    return await lessons_service.search_lessons(
+        query=query,
+        work_type=work_type if work_type != "*" else None,
+        agent_name=agent_name or None,
+        category=category or None,
+        top_k=top_k,
+    )
+
+@mcp.tool()
+async def asd_lessons_add(
+    title: str,
+    description: str,
+    agent_name: str,
+    category: str,
+    severity: str = "medium",
+    work_type: str = "*",
+    lot_number: str = "",
+    norm_reference: str = "",
+) -> Dict[str, Any]:
+    """
+    Добавить новый урок в базу Lessons Learned.
+    Урок автоматически получает эмбеддинг для RAG-поиска.
+    
+    Args:
+        title: Краткое описание урока
+        description: Подробное описание
+        agent_name: Агент-владелец (ПТО, Юрист, Сметчик, Закупщик, Логист, Дело)
+        category: Категория (coeff_error, risk, false_risk, norm_violation, contract_trap, best_practice)
+        severity: Критичность (critical, high, medium, low)
+        work_type: Вид работ из WorkTypeRegistry (* = все)
+        lot_number: Номер извещения на Госзакупках
+        norm_reference: Ссылка на нормативный документ
+    """
+    lesson = await lessons_service.create_lesson(
+        title=title,
+        description=description,
+        agent_name=agent_name,
+        category=category,
+        severity=severity,
+        work_type=work_type,
+        lot_number=lot_number or None,
+        norm_reference=norm_reference or None,
+    )
+    return {
+        "id": lesson.id,
+        "title": lesson.title,
+        "category": lesson.category,
+        "severity": lesson.severity,
+        "created": True,
+    }
+
+@mcp.tool()
+async def asd_lessons_verify(lesson_id: int) -> Dict[str, Any]:
+    """
+    Верифицировать урок (подтвердить его применимость).
+    При достижении порога подтверждений урок мутирует в автоматическое правило.
+    
+    Args:
+        lesson_id: ID урока для верификации
+    """
+    lesson = await lessons_service.verify_lesson(lesson_id=lesson_id)
+    if not lesson:
+        return {"error": f"Lesson #{lesson_id} not found"}
+    return {
+        "id": lesson.id,
+        "title": lesson.title,
+        "verified": lesson.verified,
+        "verification_count": lesson.verification_count,
+        "auto_rule": lesson.auto_rule,
+        "auto_rule_text": lesson.auto_rule_text,
+    }
+
+@mcp.tool()
+async def asd_lessons_list(
+    work_type: str = "*",
+    agent_name: str = "",
+    category: str = "",
+    verified_only: bool = False,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """
+    Список уроков с фильтрацией (без векторного поиска).
+    
+    Args:
+        work_type: Фильтр по виду работ
+        agent_name: Фильтр по агенту
+        category: Фильтр по категории
+        verified_only: Только верифицированные
+        limit: Максимум записей
+    """
+    return await lessons_service.list_lessons(
+        work_type=work_type if work_type != "*" else None,
+        agent_name=agent_name or None,
+        category=category or None,
+        verified_only=verified_only,
+        limit=limit,
+    )
+
+# ---------------------------------------------------------------------------
 # Pipeline Execution (Testing)
 # ---------------------------------------------------------------------------
 @mcp.tool()
