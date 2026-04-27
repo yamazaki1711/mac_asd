@@ -401,6 +401,8 @@ MLX (Apple)
 | **Graph** | NetworkX | pip install networkx | Без изменений |
 | **Search** | LightRAG (Graph+Vector+RRF) | Собственная реализация | pgvector через MLX embeddings |
 | **DOCX** | python-docx | pip install python-docx | Протоколы разногласий, претензии, иски |
+| **ИС-чертежи (вектор)** | ezdxf + ODA File Converter + cairosvg | pip install ezdxf cairosvg; ODA CLI | DWG→DXF конверсия, clip/аннотация РД-фрагментов, векторный SVG→PDF |
+| **ИС-чертежи (PDF-base)** | PyMuPDF (fitz) | pip install pymupdf | Кроп PDF-базиса + векторные аннотации (Path 2) |
 | **Backend** | Python 3.11+ | brew install python@3.11 | ARM64 native |
 | **Cache** | cachetools | pip install cachetools | In-process cache, Redis удалён |
 | **RAM** | RAM Manager | psutil + macOS sysctl | Управление 128GB Unified Memory |
@@ -445,6 +447,11 @@ python-docx>=1.1.0     # Генерация документов (протоко
 # PDF v3
 reportlab>=4.0.0       # Чистый ReportLab для PDF-генерации
                         # Calibri + CJK TrueType шрифты
+
+# ИС-чертежи (Исполнительные Схемы)
+ezdxf>=1.3.0           # DXF чтение/запись/clip/аннотация
+cairosvg>=2.7.0        # Векторный SVG→PDF экспорт
+                        # ODA File Converter — внешний CLI (DWG→DXF)
 
 # LLM & AI
 pydantic>=2.0.0

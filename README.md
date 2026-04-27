@@ -89,6 +89,8 @@
 | **MCP Server** | FastMCP (66+ инструментов) | Единый интерфейс инструментов для агентов |
 | **Wiki** | Obsidian (Markdown) | Правила агентов, самообучение |
 | **Документы** | python-docx, PyMuPDF, Docling | Генерация DOCX, парсинг PDF, OCR |
+| **ИС-чертежи (вектор)** | ezdxf, ODA File Converter, cairosvg | DWG→DXF конверсия, clip/аннотация РД-фрагментов, векторный SVG→PDF экспорт |
+| **ИС-чертежи (PDF-base)** | PyMuPDF (fitz) | Кроп PDF-базиса + векторные аннотации поверх растра (Path 2) |
 | **Google Workspace** | Drive, Sheets, Docs, Gmail | Интеграция с облачными сервисами |
 
 ---
