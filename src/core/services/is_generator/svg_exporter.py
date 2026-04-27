@@ -261,16 +261,38 @@ class SVGExporter:
 
     @staticmethod
     def _svg_to_pdf_matplotlib(svg_content: str, output_pdf: Path) -> None:
-        """Последний fallback: сохраняет растровый PDF через matplotlib."""
+        """Последний fallback: рендерит SVG в растровый PDF через matplotlib."""
         try:
             import matplotlib.pyplot as plt
-            import cairo
+            import matplotlib.image as mpimg
+            import io
+            import base64
 
-            fig, ax = plt.subplots(figsize=(16.54, 11.69))
-            ax.axis("off")
-            # Это не сработает хорошо, но лучше чем ничего
-            fig.savefig(str(output_pdf), dpi=200, bbox_inches="tight")
-            plt.close(fig)
-            logger.warning(f"PDF сохранён через matplotlib (растровый fallback): {output_pdf}")
+            # Пробуем отрендерить SVG через cairosvg в PNG, затем в PDF
+            try:
+                import cairosvg
+                png_data = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"), dpi=200)
+                img_buf = io.BytesIO(png_data)
+                img = mpimg.imread(img_buf, format="png")
+
+                fig, ax = plt.subplots(figsize=(16.54, 11.69))
+                ax.axis("off")
+                ax.imshow(img, aspect="auto")
+                fig.savefig(str(output_pdf), dpi=200, bbox_inches="tight", pad_inches=0)
+                plt.close(fig)
+                logger.warning(f"PDF (растровый fallback через cairosvg→PNG→PDF): {output_pdf}")
+            except ImportError:
+                # cairosvg уже не сработал — рисуем пустой PDF с текстом
+                fig, ax = plt.subplots(figsize=(16.54, 11.69))
+                ax.axis("off")
+                ax.text(
+                    0.5, 0.5,
+                    "SVG export unavailable — install cairosvg",
+                    ha="center", va="center", fontsize=14,
+                    transform=ax.transAxes,
+                )
+                fig.savefig(str(output_pdf), dpi=72, bbox_inches="tight")
+                plt.close(fig)
+                logger.warning(f"Пустой PDF (cairosvg недоступен): {output_pdf}")
         except Exception as e:
-            logger.error(f"Не удалось создать PDF: {e}")
+            logger.error(f"Не удалось создать PDF (matplotlib fallback): {e}")

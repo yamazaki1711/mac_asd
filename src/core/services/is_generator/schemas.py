@@ -233,6 +233,8 @@ class ISResult(BaseModel):
 
     stamp_data: Optional[ISStampData] = None  # Данные штампа
 
+    output_verified: bool = False  # Пост-генерационная верификация выходных файлов
+
     def to_dict(self) -> dict:
         return self.model_dump()
 

@@ -49,6 +49,8 @@ from src.core.services.is_generator.schemas import (
     AnchorPoint,
     BBox,
     CoordinateTransform,
+    Deviation,
+    DeviationStatus,
     FactDimension,
     FactMark,
     ISPipeline,
@@ -63,6 +65,7 @@ from src.core.services.is_generator.geodata_parser import GeodataParser
 from src.core.services.is_generator.dxf_parser import DXFParser
 from src.core.services.is_generator.deviation_calculator import DeviationCalculator
 from src.core.services.is_generator.dxf_annotator import DXFAnnotator
+from src.core.services.is_generator.completeness_gate import CompletenessGate
 
 
 class ISGenerator:
@@ -189,9 +192,14 @@ class ISGenerator:
         result.pipeline = pipeline
         result.rd_sheet = rd_sheet
 
+        # Пост-генерационная верификация выходных файлов
+        output_check = CompletenessGate.verify_output(result)
+        result.output_verified = all(output_check.values())
+
         logger.info(
             f"[ISGenerator] Завершено. pipeline={pipeline.value} "
-            f"Acceptable={result.is_acceptable}"
+            f"Acceptable={result.is_acceptable} "
+            f"OutputVerified={result.output_verified}"
         )
         return result
 
@@ -384,8 +392,12 @@ class ISGenerator:
         except Exception as e:
             logger.error(f"SVG-экспорт overlay DXF не удался: {e}")
 
-        # Отклонения для PDF-пути (без автоматического matching)
-        deviations = self._compute_pdf_deviations(survey_points)
+        # Отклонения для PDF-пути (из FactMark/FactDimension)
+        deviations = self._compute_pdf_deviations(
+            survey_points,
+            fact_marks=fact_marks,
+            fact_dimensions=fact_dimensions,
+        )
 
         result = ISResult(
             project_id=project_id,
@@ -410,6 +422,76 @@ class ISGenerator:
         return result
 
     @staticmethod
-    def _compute_pdf_deviations(survey_points: list[SurveyPoint]) -> list:
-        """Для PDF-пути: отклонения не рассчитываются автоматически (нет проектных осей)."""
-        return []  # В PDF-пути нужны FactMark/FactDimension с ручными координатами
+    def _compute_pdf_deviations(
+        survey_points: list[SurveyPoint],
+        fact_marks: list[FactMark] | None = None,
+        fact_dimensions: list[FactDimension] | None = None,
+    ) -> list[Deviation]:
+        """
+        Для PDF-пути: отклонения рассчитываются из FactMark/FactDimension,
+        поскольку проектные оси из DXF недоступны.
+
+        Если FactMark содержит deviation_mm > 0 — создаём Deviation с CRITICAL/WARNING.
+        Если есть survey_points без matching — включаем как unmatched.
+        """
+        deviations: list[Deviation] = []
+
+        # Из FactMark — формируем отклонения если deviation_mm значимая
+        if fact_marks:
+            for mark in fact_marks:
+                if mark.deviation_mm == 0.0:
+                    continue
+
+                # Классификация по величине отклонения
+                if abs(mark.deviation_mm) > 10:
+                    status = DeviationStatus.CRITICAL
+                elif abs(mark.deviation_mm) > 5:
+                    status = DeviationStatus.WARNING
+                else:
+                    status = DeviationStatus.OK
+
+                dev = Deviation(
+                    axis_id=f"mark_{mark.label}",
+                    axis_label=mark.label,
+                    survey_point_id=mark.source or "manual",
+                    match_score=1.0,
+                    delta_x_mm=0.0,
+                    delta_y_mm=0.0,
+                    delta_z_mm=mark.deviation_mm,
+                    distance_mm=abs(mark.deviation_mm),
+                    status=status,
+                    tolerance_mm=10.0,  # Допуск по умолчанию
+                )
+                deviations.append(dev)
+
+        # Из FactDimension — аналогично
+        if fact_dimensions:
+            for dim in fact_dimensions:
+                if dim.deviation_mm == 0.0:
+                    continue
+                if dim.tolerance_mm <= 0:
+                    continue  # Нет допуска — не генерируем Deviation
+
+                ratio = abs(dim.deviation_mm) / dim.tolerance_mm
+                if ratio > 1.0:
+                    status = DeviationStatus.CRITICAL
+                elif ratio >= 0.8:
+                    status = DeviationStatus.WARNING
+                else:
+                    status = DeviationStatus.OK
+
+                dev = Deviation(
+                    axis_id=f"dim_{dim.label}",
+                    axis_label=dim.label,
+                    survey_point_id=dim.source or "manual",
+                    match_score=1.0,
+                    delta_x_mm=dim.deviation_mm,
+                    delta_y_mm=0.0,
+                    delta_z_mm=0.0,
+                    distance_mm=abs(dim.deviation_mm),
+                    status=status,
+                    tolerance_mm=dim.tolerance_mm,
+                )
+                deviations.append(dev)
+
+        return deviations

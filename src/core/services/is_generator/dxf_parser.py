@@ -365,15 +365,21 @@ class DXFParser:
 
         # Копируем использованные слои
         for layer_name in self._get_used_layers(new_msp):
-            src_layer = src_doc.layers.get(layer_name)
-            if src_layer and new_doc.layers.get(layer_name) is None:
+            # ezdxf.layers.get() бросает DXFTableEntryError если слой не найден
+            # Поэтому используем безопасную проверку
+            if not self._layer_exists(new_doc, layer_name):
                 try:
+                    src_layer = src_doc.layers.get(layer_name)
                     new_doc.layers.add(layer_name, dxfattribs={
                         "color": src_layer.dxf.color,
                         "linetype": src_layer.dxf.linetype,
                     })
                 except Exception:
-                    pass
+                    # Слой не найден в исходнике — создаём с параметрами по умолчанию
+                    try:
+                        new_doc.layers.add(layer_name, dxfattribs={"color": 7})
+                    except Exception:
+                        pass
 
         new_doc.saveas(str(out_path))
         logger.info(
@@ -468,3 +474,12 @@ class DXFParser:
             if entity.dxf.hasattr("layer"):
                 layers.add(entity.dxf.layer)
         return layers
+
+    @staticmethod
+    def _layer_exists(doc, layer_name: str) -> bool:
+        """Безопасная проверка существования слоя (ezdxf.layers.get бросает исключение)."""
+        try:
+            doc.layers.get(layer_name)
+            return True
+        except Exception:
+            return False

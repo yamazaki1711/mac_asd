@@ -245,3 +245,48 @@ class CompletenessGate:
         report = self.check(doc_paths)
         report.raise_if_blocked()
         return report
+
+    # ─── Пост-генерационная верификация ──────────────────────────────────────
+
+    @staticmethod
+    def verify_output(result: "ISResult") -> dict[str, bool]:
+        """
+        Проверяет, что генерация ИС завершилась корректно —
+        выходные файлы существуют и имеют ненулевой размер.
+
+        Вызывается ПОСЛЕ ISGenerator.generate() для подтверждения,
+        что PDF/DXF действительно были созданы.
+
+        Args:
+            result: ISResult от ISGenerator.generate()
+
+        Returns:
+            Словарь {"dxf_ok": bool, "pdf_ok": bool}
+        """
+        checks: dict[str, bool] = {}
+
+        # DXF-файл
+        if result.output_dxf_path:
+            dxf_path = Path(result.output_dxf_path)
+            checks["dxf_ok"] = dxf_path.exists() and dxf_path.stat().st_size > 0
+        else:
+            checks["dxf_ok"] = False
+
+        # PDF-файл
+        if result.output_pdf_path:
+            pdf_path = Path(result.output_pdf_path)
+            checks["pdf_ok"] = pdf_path.exists() and pdf_path.stat().st_size > 0
+        else:
+            checks["pdf_ok"] = False
+
+        # Логируем
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            logger.warning(
+                f"verify_output: проблемы с выходными файлами: {failed}. "
+                f"DXF={result.output_dxf_path}, PDF={result.output_pdf_path}"
+            )
+        else:
+            logger.info("verify_output: все выходные файлы в порядке")
+
+        return checks

@@ -399,5 +399,11 @@ class DXFAnnotator:
             (LAYER_STAMP_TEXT, 7),
         ]
         for name, color in layer_data:
-            if doc.layers.get(name) is None:
-                doc.layers.add(name, dxfattribs={"color": color})
+            try:
+                doc.layers.get(name)
+            except Exception:
+                # Слой не существует — создаём
+                try:
+                    doc.layers.add(name, dxfattribs={"color": color})
+                except Exception:
+                    pass

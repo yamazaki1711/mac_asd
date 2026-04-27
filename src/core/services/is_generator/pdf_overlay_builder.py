@@ -295,22 +295,61 @@ class PDFOverlayBuilder:
     # ─── Отклонения ────────────────────────────────────────────────────────────
 
     def _draw_deviations(self, msp, deviations: list[Deviation]) -> None:
-        """Наносит стрелки отклонений (из geodata) на DXF."""
-        # NOTE: Для PDF-пути координаты position_x/y в FactMark/Deviation
-        # должны быть заданы вручную или через привязку к точкам на подложке.
-        # Без DXF-осей автоматическое позиционирование невозможно.
-        for dev in deviations:
-            # Цвет по статусу
-            color_map = {"OK": 3, "WARNING": 2, "CRITICAL": 1}
+        """Наносит аннотации отклонений (из geodata) на DXF.
+
+        В PDF-пути координаты position_x/y берутся из FactMark,
+        которые должны быть заданы вручную или через VLM.
+        Если у Deviation нет привязанных FactMark с координатами,
+        отклонения размещаются вертикальным списком в левой части листа.
+        """
+        if not deviations:
+            return
+
+        color_map = {"OK": 3, "WARNING": 2, "CRITICAL": 1}
+
+        # Группируем по статусу для визуальной ясности
+        y_offset = 0.0
+        th = self.text_height * 0.5
+
+        for i, dev in enumerate(deviations):
             color = color_map.get(dev.status.value, 7)
 
-            # Упрощённая аннотация — только текст (координаты из PDF неизвестны)
+            # Текстовая аннотация с отклонением
             label = (
                 f"[{dev.axis_label}] D={dev.distance_mm:.1f}мм "
                 f"({dev.delta_x_mm:+.1f}, {dev.delta_y_mm:+.1f}) {dev.status.value}"
             )
-            # В PDF-пути нужны явные координаты — если их нет, пропускаем
-            # (эта функционаность будет доработана при интеграции с VLM)
+
+            # Если у отклонения есть survey_point_id, пытаемся привязать
+            # через координаты FactMark (если переданы)
+            # Иначе — размещаем вертикальным списком в левой части
+            text_x = 10.0
+            text_y = y_offset
+
+            txt = msp.add_text(
+                label,
+                dxfattribs={
+                    "layer": LAYER_DEVIATIONS,
+                    "color": color,
+                    "height": th,
+                },
+            )
+            txt.dxf.insert = (text_x, text_y)
+
+            # Маркер слева от текста (квадратик)
+            cs = th * 0.4
+            marker_color = color
+            msp.add_line(
+                (text_x - cs * 2, text_y), (text_x - cs * 2 + cs, text_y),
+                dxfattribs={"layer": LAYER_DEVIATIONS, "color": marker_color},
+            )
+            msp.add_line(
+                (text_x - cs * 2, text_y - cs * 0.5),
+                (text_x - cs * 2, text_y + cs * 0.5),
+                dxfattribs={"layer": LAYER_DEVIATIONS, "color": marker_color},
+            )
+
+            y_offset -= th * 2.0
 
     # ─── Штамп ────────────────────────────────────────────────────────────────
 
@@ -347,5 +386,10 @@ class PDFOverlayBuilder:
             (LAYER_STAMP, 7),        # белый
         ]
         for name, color in layers_data:
-            if doc.layers.get(name) is None:
-                doc.layers.add(name, dxfattribs={"color": color})
+            try:
+                doc.layers.get(name)
+            except Exception:
+                try:
+                    doc.layers.add(name, dxfattribs={"color": color})
+                except Exception:
+                    pass

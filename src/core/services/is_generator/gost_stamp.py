@@ -418,5 +418,10 @@ class GOSTStampGenerator:
     def _ensure_layers(doc: "Drawing") -> None:
         """Создаёт слои штампа в документе."""
         for name in (STAMP_LAYER, STAMP_TEXT_LAYER):
-            if doc.layers.get(name) is None:
-                doc.layers.add(name, dxfattribs={"color": 7})
+            try:
+                doc.layers.get(name)
+            except Exception:
+                try:
+                    doc.layers.add(name, dxfattribs={"color": 7})
+                except Exception:
+                    pass
