@@ -18,7 +18,7 @@ import asyncio
 
 # Импорты ядра ASD
 from src.agents.workflow import asd_app
-from src.agents.state import AgentState
+from src.agents.state import AgentState, create_initial_state
 
 # Imports - 60+ Tools Implementation
 from mcp_servers.asd_core.tools.jurist_tools import (
@@ -183,15 +183,11 @@ async def run_tender_pipeline(project_id: int, task_description: str) -> Dict[st
     E2E ТЕСТ: Запускает полный цикл анализа тендера: Архив -> Закупки -> ПТО -> Логистика -> Сметчик -> Юрист -> Рефлексия.
     Будет использовать LangGraph для автоматизированного конвейера.
     """
-    initial_state = {
-        "messages": [{"role": "user", "content": task_description}],
-        "project_id": project_id,
-        "task_description": task_description,
-        "intermediate_data": {},
-        "findings": [],
-        "next_step": "start",
-        "is_complete": False
-    }
+    initial_state = create_initial_state(
+        project_id=project_id,
+        task_description=task_description,
+        workflow_mode="lot_search",
+    )
     
     # Запуск графа
     final_state = await asd_app.ainvoke(initial_state)

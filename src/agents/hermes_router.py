@@ -1,5 +1,5 @@
 """
-ASD v11.3 — Hermes Hybrid Decision Router.
+ASD v12.0 — Hermes Hybrid Decision Router.
 
 Гибридная модель принятия решений Hermes:
   Этап 1: Весовой скоринг (быстрый, детерминистичный)

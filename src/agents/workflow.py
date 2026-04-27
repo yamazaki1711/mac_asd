@@ -1,5 +1,5 @@
 """
-ASD v11.3 — LangGraph Workflow.
+ASD v12.0 — LangGraph Workflow.
 
 Построение DAG с поддержкой параллельного выполнения агентов.
 
@@ -27,7 +27,7 @@ from src.agents.nodes import (
 
 def create_asd_workflow():
     """
-    Создает и компилирует граф ASD v11.3.
+    Создает и компилирует граф ASD v12.0.
 
     DAG:
         Hermes → Archive → Procurement → PTO → [Smeta + Legal parallel] → Logistics → Hermes Verdict → Reflection

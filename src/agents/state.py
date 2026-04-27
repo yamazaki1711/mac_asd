@@ -1,7 +1,7 @@
 """
-ASD v11.3 — Agent State Schema (Versioned).
+ASD v12.0 — Agent State Schema (Versioned).
 
-Evolution from v11.3.0:
+Evolution from v11.3.0 to v12.0:
 - Versioned schema with migration path
 - Typed intermediate data (no more Dict[str, Any] bags)
 - Confidence scores per agent output
@@ -9,6 +9,7 @@ Evolution from v11.3.0:
 - Audit trail with step-level logging
 - Workflow mode discrimination (lot_search vs construction_support)
 - Hermes decision model support (weight + LLM hybrid)
+- Expanded to 20 work types (отделочные, инженерные_системы, электромонтаж, слаботочные)
 
 Migration: AgentStateV1 → AgentStateV2 via migrate_v1_to_v2()
 """

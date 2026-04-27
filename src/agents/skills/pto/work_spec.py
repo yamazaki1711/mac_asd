@@ -77,7 +77,7 @@ class WorkType(str, Enum):
 
 
 # Группировка видов работ по категориям
-WORK_TYPE_CATEGORIES: Dict[str, List[str]] = {
+WORK_TYPE_CATEGORIES: Dict[str, List[WorkType]] = {
     "earthwork": [WorkType.EARTHWORK_EXCAVATION, WorkType.EARTHWORK_BACKFILL],
     "foundation": [WorkType.FOUNDATION_MONOLITHIC, WorkType.FOUNDATION_PRECAST, WorkType.FOUNDATION_PILE],
     "concrete": [WorkType.CONCRETE],
