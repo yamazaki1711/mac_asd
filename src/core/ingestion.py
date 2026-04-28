@@ -640,8 +640,15 @@ class IngestionPipeline:
                 errors=["No text extracted"],
             )
 
-        # Шаг 2: Классификация
-        doc_type, confidence = self.classifier.classify(text)
+        # Шаг 2: Классификация (hybrid: keyword + optional LLM fallback)
+        try:
+            from src.core.hybrid_classifier import hybrid_classifier
+            result = await hybrid_classifier.classify(text) if hasattr(hybrid_classifier, 'classify') else None
+            if result and result.confidence > doc_type_confidence:
+                doc_type = DocumentType(result.doc_type) if result.doc_type in DocumentType._value2member_map_ else doc_type
+                confidence = result.confidence
+        except Exception:
+            pass  # Keyword classification wins
 
         # Шаг 3: Извлечение сущностей
         entities = self.extractor.extract(text, doc_type)
