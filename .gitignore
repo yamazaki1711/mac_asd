@@ -68,3 +68,6 @@ coverage.xml
 
 # Dockers
 .docker/
+
+# Нормативная библиотека и шаблоны (локальные, не в GitHub)
+library/
