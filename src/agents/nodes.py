@@ -32,6 +32,7 @@ from sqlalchemy.orm import sessionmaker
 from src.config import settings
 from src.utils.wiki_loader import load_wiki_page
 from src.core.lessons_service import lessons_service
+from src.core.rag_pipeline import rag_pipeline
 
 # Setup DB session for Audit Logging
 engine = create_engine(settings.database_url)
@@ -172,6 +173,35 @@ def _compute_legal_confidence(
 # =============================================================================
 # Уровень 2: RAG-инъекция уроков (Lessons Learned) в контекст агентов
 # =============================================================================
+
+async def _get_rag_context(
+    agent_name: str,
+    task_description: str,
+    project_id: Optional[int] = None,
+    include_traps: bool = False,
+) -> str:
+    """
+    Получить RAG-контекст для агента: документы проекта + граф знаний + БЛС.
+
+    Использует rag_pipeline для сборки полного контекста.
+    Возвращает пустую строку если RAG недоступен или нет результатов.
+    """
+    try:
+        context = await rag_pipeline.get_agent_context(
+            query=task_description,
+            agent=agent_name,
+            project_id=project_id,
+            top_k=5,
+            include_graph=True,
+            include_traps=include_traps,
+        )
+        if context:
+            logger.info("RAG context injected for %s: %d chars", agent_name, len(context))
+        return context
+    except Exception as e:
+        logger.warning("RAG context failed for %s: %s", agent_name, e)
+        return ""
+
 
 async def _get_lessons_context(
     agent_name: str, 
@@ -320,6 +350,57 @@ async def archive_node(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+async def archive_ingest_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Узел инвентаризации: парсинг + индексация документа.
+    Вызывается когда archive находит новый документ для обработки.
+
+    Использует RAG Pipeline для полного цикла: file → parse → index.
+    """
+    logger.info("Archive Ingest: parsing and indexing documents")
+    intermediate = state.get("intermediate_data", {})
+    file_path = intermediate.get("file_path") or intermediate.get("contract_path")
+
+    if not file_path or not os.path.exists(file_path):
+        logger.warning("Archive Ingest: no file_path found in state")
+        return {"next_step": "archive"}
+
+    project_id = state["project_id"]
+
+    # Полный цикл: парсинг + индексация через RAG Pipeline
+    try:
+        doc = await rag_pipeline.ingest(
+            file_path=file_path,
+            project_id=project_id,
+            doc_type="unknown",
+            embed=True,
+            auto_classify=True,
+        )
+        if doc:
+            logger.info(
+                "Archive Ingest: doc #%d created (%s), %d chunks indexed",
+                doc.id, doc.doc_type, len(doc.chunks),
+            )
+            return {
+                "archive_result": {
+                    "doc_id": str(doc.id),
+                    "status": "indexed",
+                    "pages_registered": len(doc.chunks),
+                    "confidence_score": 0.9,
+                },
+                "intermediate_data": {
+                    **intermediate,
+                    "ingested_doc_id": doc.id,
+                    "ingested_doc_type": doc.doc_type,
+                },
+                "next_step": "archive",
+            }
+    except Exception as e:
+        logger.error("Archive Ingest failed: %s", e)
+
+    return {"next_step": "archive"}
+
+
 async def procurement_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Узел Закупщика: Анализ тендера и НМЦК. (Gemma 4 31B)"""
     logger.info("Procurement Analysis Starting")
@@ -385,10 +466,14 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     # v12.0: RAG-инъекция уроков (Lessons Learned)
     lessons = await _get_lessons_context("ПТО", state['task_description'], work_type)
+    # v12.0: RAG-контекст из документов проекта
+    project_id = state.get("project_id")
+    rag_ctx = await _get_rag_context("pto", state['task_description'], project_id)
     
     prompt = (
         f"Инструкции:\n{rules}\n\n"
         f"{lessons}\n\n"
+        f"{rag_ctx}\n\n"
         f"Задача:\n{state['task_description']}\n\n"
         f"Контекст документа:\n{document_text[:10000]}\n\n"
         f"Извлеките ВОР в формате JSON (укажите только JSON)."
@@ -491,10 +576,14 @@ async def smeta_node(state: Dict[str, Any]) -> Dict[str, Any]:
     work_type = _extract_work_type(state)
     # v12.0: RAG-инъекция уроков (Lessons Learned)
     lessons = await _get_lessons_context("Сметчик", state['task_description'], work_type)
+    # v12.0: RAG-контекст
+    project_id = state.get("project_id")
+    rag_ctx = await _get_rag_context("smeta", state['task_description'], project_id)
 
     prompt = (
         f"Инструкции:\n{rules}\n\n"
         f"{lessons}\n\n"
+        f"{rag_ctx}\n\n"
         f"Доступные объемы:\n{json.dumps(vor, ensure_ascii=False)}\n\n"
         f"Оцените стоимость, верните валидный JSON."
     )
@@ -562,9 +651,14 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # v12.0: RAG-инъекция уроков (Lessons Learned)
     work_type = _extract_work_type(state)
     lessons = await _get_lessons_context("Юрист", state['task_description'], work_type)
-    # Уроки добавляются в intermediate_data для использования LegalService
+    # v12.0: RAG-контекст (документы проекта + граф знаний + БЛС)
+    project_id = state.get("project_id")
+    rag_ctx = await _get_rag_context("legal", state['task_description'], project_id, include_traps=True)
+    # Уроки + RAG добавляются в document_text для LegalService
     if lessons and document_text:
         document_text = f"{lessons}\n\n{document_text}"
+    if rag_ctx and document_text:
+        document_text = f"{rag_ctx}\n\n{document_text}"
 
     try:
         request = LegalAnalysisRequest(
