@@ -240,6 +240,10 @@ class AgentState(TypedDict):
     created_at: str                              # ISO 8601 — создание состояния
     updated_at: str                              # ISO 8601 — последнее обновление
 
+    # ── LLM Health ──
+    _llm_fallback_triggered: bool                # True если хотя бы один safe_chat ушёл в fallback
+    _llm_fallback_agents: List[str]              # Список агентов, у которых сработал fallback
+
 
 # =============================================================================
 # Default State Factory
@@ -290,6 +294,8 @@ def create_initial_state(
         rollback_point=None,
         created_at=now,
         updated_at=now,
+        _llm_fallback_triggered=False,
+        _llm_fallback_agents=[],
     )
 
 
@@ -386,6 +392,8 @@ def migrate_v1_to_v2(v1_state: Dict[str, Any]) -> AgentState:
         rollback_point=None,
         created_at=now,
         updated_at=now,
+        _llm_fallback_triggered=False,
+        _llm_fallback_agents=[],
     )
 
 

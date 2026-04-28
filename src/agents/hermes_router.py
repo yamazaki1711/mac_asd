@@ -590,6 +590,14 @@ class HermesRouter:
         lot_id = state.get("current_lot_id", "UNKNOWN")
         builder = VerdictReportBuilder(lot_id=lot_id, project_id=state.get("project_id"))
 
+        # ── LLM Fallback Warning ──
+        if state.get("_llm_fallback_triggered"):
+            fallback_agents = state.get("_llm_fallback_agents", [])
+            builder.add_warning(
+                f"LLM fallback triggered for agents: {', '.join(fallback_agents) or 'unknown'}. "
+                f"Verdict is based on fallback responses and may be unreliable."
+            )
+
         # ── Этап 1: Извлечь сигналы агентов ──
         signals = [
             extract_legal_signal(state),

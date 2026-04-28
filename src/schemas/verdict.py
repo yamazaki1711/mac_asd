@@ -235,6 +235,10 @@ class VerdictReport(BaseModel):
         default=None,
         description="Общее время конвейера (мс)"
     )
+    warnings: List[str] = Field(
+        default_factory=list,
+        description="Некритические предупреждения (LLM fallback, превышение лимитов и т.д.)"
+    )
     schema_version: str = Field(
         default="1.0",
         description="Версия схемы отчёта"
@@ -312,6 +316,7 @@ class VerdictReportBuilder:
         self._protocol_needed: bool = False
         self._protocol_items_count: int = 0
         self._veto_triggered: Optional[str] = None
+        self._warnings: List[str] = []
 
     def add_agent_signal(self, signal: AgentSignal) -> "VerdictReportBuilder":
         self._agent_signals.append(signal)
@@ -369,6 +374,11 @@ class VerdictReportBuilder:
         self._veto_triggered = rule_id
         return self
 
+    def add_warning(self, warning: str) -> "VerdictReportBuilder":
+        """Добавить некритическое предупреждение (LLM fallback и т.д.)."""
+        self._warnings.append(warning)
+        return self
+
     def build(self) -> VerdictReport:
         """Собирает и валидирует VerdictReport."""
         import uuid
@@ -395,4 +405,5 @@ class VerdictReportBuilder:
             recommended_actions=self._recommended_actions,
             protocol_needed=self._protocol_needed,
             protocol_items_count=self._protocol_items_count,
+            warnings=self._warnings,
         )

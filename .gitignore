@@ -1,18 +1,70 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
-.env
-data/
-*.db
-*.log
-*.gpickle
-.DS_Store
-infrastructure/postgres_data/
-infrastructure/neo4j_data/
-infrastructure/redis_data/
-.qwen/
+*.py[cod]
+*.pyo
+*.so
 *.egg-info/
 dist/
 build/
-.pytest_cache/
+*.egg
+.eggs/
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.qwen/
+
+# Environment and secrets
+.env
+credentials/*.json
+credentials/*.token
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.db
+*.sqlite3
+data/graphs/*.gpickle
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Artifacts (generated documents)
+data/artifacts/docs/*
+!data/artifacts/docs/.gitkeep
+
+# OS
+Thumbs.db
+
+# Mypy
 .mypy_cache/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Dockers
+.docker/
