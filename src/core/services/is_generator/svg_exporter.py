@@ -185,7 +185,12 @@ class SVGExporter:
     # ─── SVG → PDF ────────────────────────────────────────────────────────────
 
     def _svg_to_pdf(self, svg_content: str, output_pdf: Path) -> None:
-        """Конвертирует SVG в PDF (пытается несколькими способами)."""
+        """Конвертирует SVG в PDF (пытается несколькими способами).
+
+        v12.0: matplotlib raster fallback удалён — только векторные методы.
+        Если ни один векторный конвертер не доступен, сохраняем SVG
+        и логируем предупреждение.
+        """
 
         # Способ 1: cairosvg (Python, лучший вариант)
         if CAIROSVG_AVAILABLE:
@@ -203,15 +208,14 @@ class SVGExporter:
         if self._try_rsvg_convert(svg_content, output_pdf):
             return
 
-        # Способ 4: Сохраняем SVG как есть и логируем предупреждение
+        # Способ 4: Сохраняем SVG как есть — векторный формат сохранён
         svg_path = output_pdf.with_suffix(".svg")
         svg_path.write_text(svg_content, encoding="utf-8")
         logger.warning(
             f"cairosvg/Inkscape/rsvg-convert не найдены. "
-            f"Сохранён SVG: {svg_path}. Установите cairosvg: pip install cairosvg"
+            f"Сохранён SVG: {svg_path}. "
+            f"Установите cairosvg для векторного PDF: pip install cairosvg"
         )
-        # Попытка через matplotlib как последний fallback
-        self._svg_to_pdf_matplotlib(svg_content, output_pdf)
 
     @staticmethod
     def _try_inkscape(svg_content: str, output_pdf: Path) -> bool:
@@ -259,40 +263,4 @@ class SVGExporter:
             pass
         return False
 
-    @staticmethod
-    def _svg_to_pdf_matplotlib(svg_content: str, output_pdf: Path) -> None:
-        """Последний fallback: рендерит SVG в растровый PDF через matplotlib."""
-        try:
-            import matplotlib.pyplot as plt
-            import matplotlib.image as mpimg
-            import io
-            import base64
 
-            # Пробуем отрендерить SVG через cairosvg в PNG, затем в PDF
-            try:
-                import cairosvg
-                png_data = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"), dpi=200)
-                img_buf = io.BytesIO(png_data)
-                img = mpimg.imread(img_buf, format="png")
-
-                fig, ax = plt.subplots(figsize=(16.54, 11.69))
-                ax.axis("off")
-                ax.imshow(img, aspect="auto")
-                fig.savefig(str(output_pdf), dpi=200, bbox_inches="tight", pad_inches=0)
-                plt.close(fig)
-                logger.warning(f"PDF (растровый fallback через cairosvg→PNG→PDF): {output_pdf}")
-            except ImportError:
-                # cairosvg уже не сработал — рисуем пустой PDF с текстом
-                fig, ax = plt.subplots(figsize=(16.54, 11.69))
-                ax.axis("off")
-                ax.text(
-                    0.5, 0.5,
-                    "SVG export unavailable — install cairosvg",
-                    ha="center", va="center", fontsize=14,
-                    transform=ax.transAxes,
-                )
-                fig.savefig(str(output_pdf), dpi=72, bbox_inches="tight")
-                plt.close(fig)
-                logger.warning(f"Пустой PDF (cairosvg недоступен): {output_pdf}")
-        except Exception as e:
-            logger.error(f"Не удалось создать PDF (matplotlib fallback): {e}")

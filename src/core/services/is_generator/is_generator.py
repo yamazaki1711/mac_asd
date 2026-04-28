@@ -66,6 +66,13 @@ from src.core.services.is_generator.dxf_parser import DXFParser
 from src.core.services.is_generator.deviation_calculator import DeviationCalculator
 from src.core.services.is_generator.dxf_annotator import DXFAnnotator
 from src.core.services.is_generator.completeness_gate import CompletenessGate
+from src.core.services.is_generator.events import (
+    EventType,
+    ISEvent,
+    ISEventEmitter,
+    EventSeverity,
+    get_event_emitter,
+)
 
 
 class ISGenerator:
@@ -110,6 +117,7 @@ class ISGenerator:
             spatial_search_radius_m=spatial_search_radius_m,
         )
         self._annotator = DXFAnnotator(text_height=text_height)
+        self._emitter = get_event_emitter()
 
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -153,16 +161,40 @@ class ISGenerator:
         # Определяем пайплайн
         pipeline, dxf_source, pdf_source = self._resolve_pipeline(rd_sheet, design_dxf)
 
+        t0 = __import__("time").monotonic()
+
         logger.info(
             f"[ISGenerator] Старт run_id={run_id}, project={project_id}, "
             f"aosr={aosr_id}, pipeline={pipeline.value}"
         )
 
+        # Событие: пайплайн запущен
+        self._emitter.emit(ISEvent(
+            event_type=EventType.PIPELINE_STARTED,
+            run_id=run_id,
+            project_id=project_id,
+            aosr_id=aosr_id,
+            module="is_generator",
+            detail=f"Pipeline {pipeline.value} started",
+            extra={"pipeline": pipeline.value},
+        ))
+
         # ── Геодезия (если есть) ──────────────────────────────────────────
         survey_points: list[SurveyPoint] = []
         if survey_file:
+            t_geo = __import__("time").monotonic()
             survey_points = self._geodata_parser.parse(survey_file, fmt=survey_format)
+            geo_ms = (__import__("time").monotonic() - t_geo) * 1000
             logger.info(f"  → Точек геодезии: {len(survey_points)}")
+            self._emitter.emit(ISEvent(
+                event_type=EventType.GEODATA_PARSED,
+                run_id=run_id, project_id=project_id, aosr_id=aosr_id,
+                module="geodata_parser",
+                duration_ms=geo_ms,
+                count=len(survey_points),
+                status="OK",
+                detail=f"Parsed {len(survey_points)} survey points",
+            ))
 
         if pipeline == ISPipeline.DXF_FIRST:
             result = self._run_dxf_first(
@@ -195,6 +227,40 @@ class ISGenerator:
         # Пост-генерационная верификация выходных файлов
         output_check = CompletenessGate.verify_output(result)
         result.output_verified = all(output_check.values())
+
+        total_ms = (__import__("time").monotonic() - t0) * 1000
+
+        # Событие: верификация выходных файлов
+        self._emitter.emit(ISEvent(
+            event_type=EventType.OUTPUT_VERIFIED if result.output_verified else EventType.OUTPUT_FAILED,
+            run_id=run_id, project_id=project_id, aosr_id=aosr_id,
+            module="is_generator",
+            status="OK" if result.output_verified else "WARNING",
+            detail=f"Output verified: {output_check}",
+            extra=output_check,
+        ))
+
+        # Событие: пайплайн завершён
+        self._emitter.emit(ISEvent(
+            event_type=EventType.PIPELINE_COMPLETED,
+            run_id=run_id, project_id=project_id, aosr_id=aosr_id,
+            module="is_generator",
+            duration_ms=total_ms,
+            status="OK" if result.is_acceptable else "CRITICAL",
+            detail=(
+                f"Pipeline completed. Acceptable={result.is_acceptable} "
+                f"OK={result.ok_deviations} WARN={result.warning_deviations} "
+                f"CRIT={result.critical_deviations}"
+            ),
+            extra={
+                "pipeline": pipeline.value,
+                "is_acceptable": result.is_acceptable,
+                "ok": result.ok_deviations,
+                "warning": result.warning_deviations,
+                "critical": result.critical_deviations,
+                "output_verified": result.output_verified,
+            },
+        ))
 
         logger.info(
             f"[ISGenerator] Завершено. pipeline={pipeline.value} "

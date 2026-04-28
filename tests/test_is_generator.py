@@ -1267,3 +1267,334 @@ class TestISGenerator:
         # DXF должен быть создан, PDF может быть создан
         # Проверяем что поле output_verified заполнено
         assert isinstance(result.output_verified, bool)
+
+
+# ─── ISEvent / ISEventEmitter (events.py) ──────────────────────────────────────
+
+from src.core.services.is_generator.events import (
+    EventType,
+    EventSeverity,
+    ISEvent,
+    ISEventEmitter,
+    get_event_emitter,
+    set_event_emitter,
+)
+
+
+class TestISEvent:
+    """Тесты ISEvent."""
+
+    def test_create_event(self):
+        event = ISEvent(
+            event_type=EventType.PIPELINE_STARTED,
+            run_id="abc123",
+            project_id="P001",
+            aosr_id="АОСР-001",
+            module="is_generator",
+            detail="Pipeline started",
+        )
+        assert event.event_type == EventType.PIPELINE_STARTED
+        assert event.run_id == "abc123"
+        assert event.project_id == "P001"
+
+    def test_event_to_dict(self):
+        event = ISEvent(
+            event_type=EventType.GEODATA_PARSED,
+            run_id="test",
+            count=15,
+            duration_ms=120.5,
+            status="OK",
+            detail="Parsed",
+        )
+        d = event.to_dict()
+        assert d["event_type"] == "is_geodata.parsed"
+        assert d["count"] == 15
+        assert d["duration_ms"] == 120.5
+        assert "event_id" in d
+        assert "timestamp" in d
+
+    def test_event_to_json(self):
+        event = ISEvent(
+            event_type=EventType.DXF_PARSED,
+            run_id="test",
+            detail="Test JSON",
+        )
+        j = event.to_json()
+        assert isinstance(j, str)
+        assert "is_dxf.parsed" in j
+
+
+class TestISEventEmitter:
+    """Тесты ISEventEmitter."""
+
+    def test_emit_and_get_events(self):
+        emitter = ISEventEmitter(buffer_size=10)
+        emitter.emit(ISEvent(
+            event_type=EventType.PIPELINE_STARTED,
+            run_id="r1",
+            project_id="P001",
+            detail="Started",
+        ))
+        emitter.emit(ISEvent(
+            event_type=EventType.PIPELINE_COMPLETED,
+            run_id="r1",
+            project_id="P001",
+            detail="Completed",
+        ))
+        events = emitter.get_events()
+        assert len(events) == 2
+
+    def test_filter_by_run_id(self):
+        emitter = ISEventEmitter()
+        emitter.emit(ISEvent(event_type=EventType.PIPELINE_STARTED, run_id="r1"))
+        emitter.emit(ISEvent(event_type=EventType.PIPELINE_STARTED, run_id="r2"))
+        events = emitter.get_events(run_id="r1")
+        assert len(events) == 1
+        assert events[0]["run_id"] == "r1"
+
+    def test_filter_by_project_id(self):
+        emitter = ISEventEmitter()
+        emitter.emit(ISEvent(event_type=EventType.PIPELINE_STARTED, run_id="r1", project_id="P001"))
+        emitter.emit(ISEvent(event_type=EventType.PIPELINE_STARTED, run_id="r2", project_id="P002"))
+        events = emitter.get_events(project_id="P002")
+        assert len(events) == 1
+
+    def test_buffer_circular(self):
+        emitter = ISEventEmitter(buffer_size=3)
+        for i in range(5):
+            emitter.emit(ISEvent(
+                event_type=EventType.PIPELINE_STARTED,
+                run_id=f"r{i}",
+                detail=f"Run {i}",
+            ))
+        events = emitter.get_events()
+        assert len(events) == 3  # Only last 3
+
+    def test_clear_buffer(self):
+        emitter = ISEventEmitter()
+        emitter.emit(ISEvent(event_type=EventType.PIPELINE_STARTED, run_id="r1"))
+        emitter.clear_buffer()
+        events = emitter.get_events()
+        assert len(events) == 0
+
+    def test_json_log_file(self, tmp_path):
+        log_path = tmp_path / "events.jsonl"
+        emitter = ISEventEmitter(json_log_path=log_path)
+        emitter.emit(ISEvent(
+            event_type=EventType.PIPELINE_STARTED,
+            run_id="r1",
+            detail="Logged",
+        ))
+        assert log_path.exists()
+        content = log_path.read_text(encoding="utf-8")
+        assert "is_pipeline.started" in content
+
+    def test_global_emitter(self):
+        """Тест singleton get/set."""
+        original = get_event_emitter()
+        custom = ISEventEmitter(buffer_size=42)
+        set_event_emitter(custom)
+        assert get_event_emitter()._buffer_size == 42
+        set_event_emitter(original)  # Restore
+
+
+# ─── ToleranceProfiles ────────────────────────────────────────────────────────
+
+from src.core.services.is_generator.tolerance_profiles import (
+    ToleranceProfile,
+    SP126_PROFILES,
+    get_tolerance,
+    get_profile,
+    build_tolerance_map,
+    list_profiles,
+)
+
+
+class TestToleranceProfiles:
+    """Тесты tolerance_profiles."""
+
+    def test_get_tolerance_exact_key(self):
+        assert get_tolerance("СВАЯ_БУРОНАБИВНАЯ") == 50.0
+
+    def test_get_tolerance_km_axes(self):
+        assert get_tolerance("КМ_ОСИ") == 5.0
+
+    def test_get_tolerance_partial_match(self):
+        # "СВАЯ" contains in "СВАЯ_БУРОНАБИВНАЯ"
+        tol = get_tolerance("СВАЯ")
+        assert tol > 0
+
+    def test_get_tolerance_fallback(self):
+        tol = get_tolerance("НЕСУЩЕСТВУЮЩИЙ_КЛЮЧ_XXX")
+        assert tol == 20.0  # default
+
+    def test_get_profile(self):
+        profile = get_profile("РОСТВЕРК")
+        assert profile is not None
+        assert profile.tolerance_mm == 10.0
+        assert "СП" in profile.sp_reference
+
+    def test_get_profile_not_found(self):
+        profile = get_profile("НЕСУЩЕСТВУЮЩИЙ_КЛЮЧ")
+        assert profile is None
+
+    def test_build_tolerance_map(self):
+        tmap = build_tolerance_map()
+        assert isinstance(tmap, dict)
+        assert "СВАЯ_БУРОНАБИВНАЯ" in tmap
+        assert tmap["КМ_ОСИ"] == 5.0
+        # Sub-profiles included
+        assert any("В_ПЛАНЕ" in k for k in tmap.keys())
+
+    def test_list_profiles(self):
+        profiles = list_profiles()
+        assert isinstance(profiles, list)
+        assert len(profiles) > 10
+        assert profiles[0]["key"] is not None
+        assert profiles[0]["tolerance_mm"] > 0
+
+    def test_profiles_have_sp_reference(self):
+        for p in SP126_PROFILES:
+            assert p.sp_reference, f"Profile {p.key} missing SP reference"
+
+    def test_sub_profiles(self):
+        profile = get_profile("СВАЯ_БУРОНАБИВНАЯ")
+        assert profile is not None
+        assert "в плане" in profile.sub_profiles
+        assert profile.sub_profiles["в плане"] == 50.0
+
+
+# ─── Batch Generator ──────────────────────────────────────────────────────────
+
+from src.core.services.is_generator.batch_generator import (
+    ISBatchGenerator,
+    ISBatchTask,
+    ISBatchResult,
+)
+
+
+class TestISBatchResult:
+    """Тесты ISBatchResult."""
+
+    def test_default_values(self):
+        result = ISBatchResult()
+        assert result.total_tasks == 0
+        assert result.success_rate == 0.0
+        assert result.all_acceptable is True  # No tasks → acceptable
+
+    def test_with_results(self):
+        result = ISBatchResult(
+            total_tasks=3,
+            completed=2,
+            failed=1,
+            results=[
+                ISResult(project_id="P001", aosr_id="A1"),
+                ISResult(project_id="P001", aosr_id="A2"),
+            ],
+        )
+        assert result.success_rate == pytest.approx(2/3)
+        # failed=1 → all_acceptable is False even if all results are acceptable
+        assert result.all_acceptable is False
+
+    def test_with_critical(self):
+        result = ISBatchResult(
+            total_tasks=1,
+            completed=1,
+            results=[
+                ISResult(project_id="P001", aosr_id="A1", critical_deviations=1),
+            ],
+        )
+        assert result.all_acceptable is False
+        assert result.total_critical == 1
+
+    def test_summary(self):
+        result = ISBatchResult(
+            batch_id="test_batch",
+            project_id="P001",
+            total_tasks=2,
+            completed=2,
+        )
+        summary = result.summary()
+        assert "test_batch" in summary
+        assert "P001" in summary
+
+
+class TestISBatchGenerator:
+    """Тесты ISBatchGenerator."""
+
+    def test_batch_generate_sequential(self, tmp_path):
+        """Batch генерация с пустыми задачами (без РД — ValueError ожидается)."""
+        batch_gen = ISBatchGenerator(output_dir=tmp_path)
+        tasks = [
+            ISBatchTask(aosr_id="АОСР-001"),
+            ISBatchTask(aosr_id="АОСР-002"),
+        ]
+        # Без rd_sheet или design_dxf — ISGenerator.generate() бросит ValueError
+        result = batch_gen.generate_for_project(
+            project_id="P001",
+            tasks=tasks,
+        )
+        # Обе задачи должны упасть
+        assert result.failed == 2
+        assert result.completed == 0
+
+    def test_batch_with_dxf(self, tmp_path):
+        """Batch с реальным DXF."""
+        try:
+            import ezdxf
+        except ImportError:
+            pytest.skip("ezdxf не установлен")
+
+        # Создаём тестовый DXF
+        doc = ezdxf.new(dxfversion="R2013")
+        msp = doc.modelspace()
+        msp.add_line((0, 0), (10000, 0), dxfattribs={"layer": "ОСИ"})
+        dxf_path = tmp_path / "design.dxf"
+        doc.saveas(str(dxf_path))
+
+        batch_gen = ISBatchGenerator(output_dir=tmp_path / "batch_output")
+        tasks = [
+            ISBatchTask(
+                aosr_id="АОСР-001",
+                rd_sheet=RDSheetInfo(
+                    project_code="ПГС-2024-012",
+                    sheet_number="КМ-1",
+                    sheet_name="Тест",
+                    work_type="бетонные",
+                    format=RDFormat.DXF,
+                    file_path=str(dxf_path),
+                ),
+            ),
+        ]
+        result = batch_gen.generate_for_project(
+            project_id="P001",
+            tasks=tasks,
+        )
+        assert result.completed == 1
+        assert result.failed == 0
+
+
+# ─── Shared GOSTStamp ────────────────────────────────────────────────────────
+
+class TestSharedGOSTStamp:
+    """Тест что shared GOSTStampGenerator работает."""
+
+    def test_shared_import(self):
+        from src.core.services.shared.gost_stamp import GOSTStampGenerator as SharedGen
+        gen = SharedGen()
+        assert gen is not None
+
+    def test_shared_draws_stamp(self, tmp_path):
+        try:
+            import ezdxf
+        except ImportError:
+            pytest.skip("ezdxf не установлен")
+
+        from src.core.services.shared.gost_stamp import GOSTStampGenerator as SharedGen
+
+        doc = ezdxf.new(dxfversion="R2013")
+        stamp = ISStampData(object_name="Тест shared", scheme_name="Схема")
+        gen = SharedGen()
+        gen.draw_in_doc(doc, stamp)
+        entities = list(doc.modelspace())
+        assert len(entities) > 0

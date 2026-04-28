@@ -361,7 +361,7 @@ class PDFOverlayBuilder:
         page_height_mm: float,
     ) -> None:
         """Размещает штамп ГОСТ 21.101-2020 в правом нижнем углу."""
-        from src.core.services.is_generator.gost_stamp import GOSTStampGenerator
+        from src.core.services.shared.gost_stamp import GOSTStampGenerator
 
         # Позиция: правый нижний угол (штамп 185мм шириной, ~130мм высотой)
         stamp_x = page_width_mm - 195.0  # 185 мм + 10 мм отступ

@@ -306,7 +306,7 @@ class DXFAnnotator:
 
     def _draw_gost_stamp(self, msp, stamp_data: ISStampData) -> None:
         """Рисует штамп ГОСТ 21.101-2020 через GOSTStampGenerator."""
-        from src.core.services.is_generator.gost_stamp import GOSTStampGenerator
+        from src.core.services.shared.gost_stamp import GOSTStampGenerator
 
         generator = GOSTStampGenerator(
             origin_x=self.stamp_position[0],

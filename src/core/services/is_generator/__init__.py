@@ -60,9 +60,19 @@ from src.core.services.is_generator.deviation_calculator import DeviationCalcula
 from src.core.services.is_generator.dxf_annotator   import DXFAnnotator
 from src.core.services.is_generator.is_generator     import ISGenerator
 from src.core.services.is_generator.svg_exporter     import SVGExporter
+# GOSTStampGenerator — переиспользуемый модуль, живёт в shared/
+# Локальный gost_stamp.py — реэкспорт для backward compatibility
 from src.core.services.is_generator.gost_stamp       import GOSTStampGenerator
 from src.core.services.is_generator.pdf_overlay_builder import PDFOverlayBuilder
 from src.core.services.is_generator.rd_index         import RDIndex
+from src.core.services.is_generator.events import (
+    EventType,
+    ISEvent,
+    ISEventEmitter,
+    EventSeverity,
+    get_event_emitter,
+    set_event_emitter,
+)
 from src.core.services.is_generator.completeness_gate import (
     CompletenessGate,
     DocRequirement,
@@ -108,4 +118,11 @@ __all__ = [
     "GOSTStampGenerator",
     "PDFOverlayBuilder",
     "RDIndex",
+    # Event stream
+    "EventType",
+    "ISEvent",
+    "ISEventEmitter",
+    "EventSeverity",
+    "get_event_emitter",
+    "set_event_emitter",
 ]
