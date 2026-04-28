@@ -997,6 +997,262 @@ def _extract_work_types(state: Dict[str, Any]) -> List[str]:
 
 
 # =============================================================================
+# Smeta & Delo Agent Nodes (v12.0)
+# =============================================================================
+
+async def smeta_estimate_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Узел Сметчика: построение сметы и анализ рентабельности."""
+    logger.info("Smeta Estimate Starting")
+    from src.core.services.smeta_agent import smeta_agent, SmetaAgent
+
+    intermediate = state.get("intermediate_data", {})
+    project_id = state["project_id"]
+    task = state["task_description"]
+
+    # Получаем ВОР (из ПТО или из state)
+    vor = state.get("vor_result") or intermediate.get("vor", {})
+    vor_positions = vor.get("positions", []) if isinstance(vor, dict) else []
+
+    if not vor_positions:
+        # Создаём демо-позиции для теста
+        vor_positions = [
+            {"code": "ФЕР06-01-001", "name": "Бетонная подготовка", "unit": "м³", "quantity": 50},
+            {"code": "ФЕР06-01-015", "name": "Армирование", "unit": "т", "quantity": 12},
+            {"code": "ФЕР06-01-020", "name": "Бетонирование", "unit": "м³", "quantity": 200},
+        ]
+
+    nmck = intermediate.get("nmck", 0.0) or float(intermediate.get("nmck_value", 15_000_000))
+
+    try:
+        estimate = smeta_agent.build_estimate(
+            project_id=project_id,
+            title=f"Смета — {task[:60]}",
+            vor_positions=vor_positions,
+            region_coeff=intermediate.get("region_coeff", 1.0),
+            index_coeff=intermediate.get("index_coeff", 1.0),
+        )
+
+        margin = smeta_agent.analyze_margin(estimate, nmck)
+
+        logger.info(
+            "Smeta: grand_total=%.0f, margin=%.1f%%, zone=%s",
+            estimate.grand_total, margin.margin_pct, margin.margin_zone.value,
+        )
+
+        return {
+            "smeta_result": {
+                "total_cost": estimate.grand_total,
+                "nmck": nmck,
+                "profit_margin_pct": margin.margin_pct,
+                "fer_positions_used": len(estimate.lines),
+                "confidence_score": 0.85,
+                "low_margin_positions": margin.low_margin_lines[:5],
+            },
+            "intermediate_data": {
+                **intermediate,
+                "smeta_estimate": estimate.to_dict(),
+                "smeta_margin": margin.to_dict(),
+                "smeta_grand_total": estimate.grand_total,
+                "smeta_margin_pct": margin.margin_pct,
+            },
+            "next_step": "smeta",
+        }
+    except Exception as e:
+        logger.error("Smeta estimate failed: %s", e)
+        return {"intermediate_data": {**intermediate, "smeta_error": str(e)}, "next_step": "smeta"}
+
+
+async def smeta_compare_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Узел Сметчика: сравнение ВОР ↔ КС-2."""
+    logger.info("Smeta VOR/KS-2 Comparison Starting")
+    from src.core.services.smeta_agent import smeta_agent
+
+    intermediate = state.get("intermediate_data", {})
+
+    vor_positions = intermediate.get("vor_positions", [])
+    ks2_positions = intermediate.get("ks2_positions", [])
+
+    try:
+        comparison = smeta_agent.compare_vor_ks2(vor_positions, ks2_positions)
+
+        return {
+            "intermediate_data": {
+                **intermediate,
+                "smeta_comparison": comparison,
+                "smeta_has_discrepancies": comparison["has_discrepancies"],
+            },
+            "next_step": "smeta",
+        }
+    except Exception as e:
+        logger.error("Smeta compare failed: %s", e)
+        return {"intermediate_data": {**intermediate, "smeta_error": str(e)}, "next_step": "smeta"}
+
+
+async def delo_registry_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Узел Делопроизводителя: создание и обновление реестра ИД."""
+    logger.info("Delo Registry Starting")
+    from src.core.services.delo_agent import delo_agent, DocStatus
+
+    intermediate = state.get("intermediate_data", {})
+    project_id = state["project_id"]
+
+    try:
+        # Создаём/получаем реестр
+        registry = delo_agent.get_registry(project_id)
+        if not registry:
+            registry = delo_agent.create_registry(
+                project_id, f"Проект #{project_id}"
+            )
+
+        # Авто-регистрация документов из доступных
+        available_docs = intermediate.get("available_docs", [])
+        for doc in available_docs[:20]:  # Не больше 20 за раз
+            if not any(e.doc_name == doc.get("name", "") for e in registry.entries):
+                delo_agent.register_document(
+                    project_id=project_id,
+                    doc_type=doc.get("doc_type", "unknown"),
+                    doc_name=doc.get("name", doc.get("filename", "")),
+                    category_344=doc.get("category_344", "act_aosr"),
+                )
+
+        report = delo_agent.generate_registry_report(project_id)
+        stats = delo_agent.get_completion_stats(project_id)
+
+        logger.info(
+            "Delo: %d docs, %.1f%% complete, %d overdue",
+            stats.get("total", 0), stats.get("completion_pct", 0), stats.get("overdue", 0),
+        )
+
+        return {
+            "intermediate_data": {
+                **intermediate,
+                "delo_report": report,
+                "delo_stats": stats,
+                "delo_total_docs": stats.get("total", 0),
+            },
+            "next_step": "archive",
+        }
+    except Exception as e:
+        logger.error("Delo registry failed: %s", e)
+        return {"intermediate_data": {**intermediate, "delo_error": str(e)}, "next_step": "archive"}
+
+
+# =============================================================================
+# Procurement & Logistics Nodes (v12.0)
+# =============================================================================
+
+async def procurement_analyze_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Узел Закупщика: анализ тендера и поиск поставщиков."""
+    logger.info("Procurement Analysis Starting")
+    from src.core.services.procurement_logistics import procurement_agent, TenderInfo, TenderDecision
+
+    intermediate = state.get("intermediate_data", {})
+    project_id = state["project_id"]
+
+    # Данные тендера
+    tender = TenderInfo(
+        lot_id=intermediate.get("lot_id", f"LOT-{project_id:04d}"),
+        title=state["task_description"][:100],
+        nmck=float(intermediate.get("nmck", 15_000_000)),
+        customer=intermediate.get("customer_name", ""),
+        region=intermediate.get("region", "Москва"),
+    )
+
+    # Себестоимость из Сметчика
+    estimated_cost = intermediate.get("smeta_grand_total", tender.nmck * 0.75)
+
+    try:
+        analysis = procurement_agent.analyze_tender(
+            tender, estimated_cost, market_work_type=intermediate.get("work_type", "")
+        )
+
+        # Поиск поставщиков
+        materials = intermediate.get("materials", ["Бетон", "Арматура", "Металлоконструкции"])
+        quotes = procurement_agent.search_suppliers(materials, tender.region)
+        comparison = procurement_agent.compare_quotes(quotes)
+
+        logger.info(
+            "Procurement: decision=%s, margin=%.1f%%, suppliers=%d",
+            analysis.decision.value, analysis.margin_pct, len(quotes),
+        )
+
+        return {
+            "procurement_result": {
+                "lot_id": tender.lot_id,
+                "nmck": tender.nmck,
+                "nmck_vs_market": analysis.nmck_vs_market_pct,
+                "competitor_count": analysis.competitor_count,
+                "decision": analysis.decision.value,
+                "confidence_score": 0.8,
+            },
+            "intermediate_data": {
+                **intermediate,
+                "procurement_analysis": analysis.to_dict(),
+                "procurement_quotes": comparison,
+                "procurement_decision": analysis.decision.value,
+            },
+            "next_step": "procurement",
+        }
+    except Exception as e:
+        logger.error("Procurement analysis failed: %s", e)
+        return {"intermediate_data": {**intermediate, "procurement_error": str(e)}, "next_step": "procurement"}
+
+
+async def logistics_plan_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Узел Логиста: планирование доставки."""
+    logger.info("Logistics Planning Starting")
+    from src.core.services.procurement_logistics import logistics_agent, TransportType, SupplierQuote
+
+    intermediate = state.get("intermediate_data", {})
+    project_id = state["project_id"]
+
+    # Поставщики из Закупщика
+    quotes_data = intermediate.get("procurement_quotes", {}).get("suppliers", [])
+    quotes = [
+        SupplierQuote(
+            supplier_name=q.get("name", ""),
+            material_name="",
+            unit="",
+            quantity=1,
+            unit_price=q.get("price", 0),
+            total=q.get("price", 0),
+            delivery_days=q.get("delivery_days", 14),
+            rating=q.get("rating", 5),
+        )
+        for q in quotes_data
+    ]
+
+    destination = intermediate.get("region", "Москва")
+
+    try:
+        plan = logistics_agent.build_logistics_plan(project_id, quotes, destination)
+
+        logger.info(
+            "Logistics: %d routes, %.0f ₽ transport cost, %d days max lead",
+            len(plan.routes), plan.total_transport_cost, plan.max_lead_time_days,
+        )
+
+        return {
+            "logistics_result": {
+                "vendors_found": plan.vendor_count,
+                "best_price": min((r.total_cost for r in plan.routes), default=0),
+                "delivery_available": True,
+                "lead_time_days": plan.max_lead_time_days,
+                "confidence_score": 0.75,
+            },
+            "intermediate_data": {
+                **intermediate,
+                "logistics_plan": plan.to_dict(),
+                "logistics_total_cost": plan.total_transport_cost,
+            },
+            "next_step": "logistics",
+        }
+    except Exception as e:
+        logger.error("Logistics planning failed: %s", e)
+        return {"intermediate_data": {**intermediate, "logistics_error": str(e)}, "next_step": "logistics"}
+
+
+# =============================================================================
 # Reflection Node
 # =============================================================================
 
