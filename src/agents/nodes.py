@@ -845,6 +845,158 @@ async def legal_lawsuit_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # =============================================================================
+# PTO Agent Nodes (v12.0) — Инвентаризация и верификация ИД
+# =============================================================================
+
+async def pto_inventory_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Узел инвентаризации ПТО: классификация документов по матрице 344/пр.
+
+    Принимает список документов проекта, классифицирует каждый по 13 позициям,
+    строит матрицу полноты и возвращает дельту.
+    """
+    logger.info("PTO Inventory Starting")
+    from src.core.services.pto_agent import pto_agent, CompReport, CompletenessGap
+
+    intermediate = state.get("intermediate_data", {})
+    project_id = state["project_id"]
+
+    # Получаем список видов работ из контекста
+    work_types = intermediate.get("work_types", []) or _extract_work_types(state)
+
+    # Получаем список документов проекта (из БД или из state)
+    available_docs = intermediate.get("available_docs", [])
+    if not available_docs:
+        try:
+            from src.core.document_repository import document_repo
+            db_docs = document_repo.list_by_project(project_id)
+            available_docs = [
+                {"doc_type": d.doc_type, "doc_id": str(d.id), "name": d.filename}
+                for d in db_docs
+            ]
+        except Exception as e:
+            logger.warning("PTO: cannot load docs from DB: %s", e)
+
+    # Генерируем отчёт
+    try:
+        report = await pto_agent.generate_completeness_report(
+            project_id=project_id,
+            work_types=work_types,
+            available_docs=available_docs,
+        )
+
+        report_text = pto_agent.format_report(report)
+
+        logger.info(
+            "PTO inventory: %.1f%% complete, %d critical gaps, %d AOSR trails",
+            report.completeness_pct, len(report.critical_gaps), len(report.aosr_trails),
+        )
+
+        return {
+            "intermediate_data": {
+                **intermediate,
+                "pto_report": report_text,
+                "pto_completeness_pct": report.completeness_pct,
+                "pto_critical_gaps": len(report.critical_gaps),
+                "pto_total_gaps": len(report.gaps),
+                "pto_aosr_count": len(report.aosr_trails),
+                "work_types": work_types,
+            },
+            "compliance_delta": {
+                "completeness_pct": str(report.completeness_pct),
+                "critical_gaps": str(len(report.critical_gaps)),
+                "total_gaps": str(len(report.gaps)),
+            },
+            "next_step": "pto",
+        }
+    except Exception as e:
+        logger.error("PTO inventory failed: %s", e)
+        return {
+            "intermediate_data": {**intermediate, "pto_error": str(e)},
+            "next_step": "pto",
+        }
+
+
+async def pto_verify_trail_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Узел верификации шлейфа АОСР: проверка полного комплекта документов к акту.
+
+    Для каждого АОСР проверяет: ВОР, ИГС, ИС, документы качества, протоколы, уведомление.
+    """
+    logger.info("PTO Trail Verification Starting")
+    from src.core.services.pto_agent import pto_agent
+
+    intermediate = state.get("intermediate_data", {})
+    work_types = intermediate.get("work_types", []) or _extract_work_types(state)
+
+    # Строим все шлейфы
+    all_trails = []
+    for wt in work_types:
+        aosr_list = pto_agent.get_required_aosr_list(wt)
+        for aosr in aosr_list:
+            if aosr.get("mandatory", True):
+                trail = pto_agent.build_aosr_trail(aosr["name"], wt)
+                all_trails.append(trail)
+
+    # Проверяем каждый шлейф (без БД — эвристически)
+    incomplete_trails = []
+    for trail in all_trails:
+        if not trail.is_complete:
+            incomplete_trails.append({
+                "aosr_name": trail.aosr_name,
+                "work_type": trail.work_type,
+                "missing": [
+                    {"type": i.item_type, "name": i.name}
+                    for i in trail.missing_mandatory
+                ],
+            })
+
+    logger.info(
+        "PTO trail verify: %d trails, %d incomplete",
+        len(all_trails), len(incomplete_trails),
+    )
+
+    return {
+        "intermediate_data": {
+            **intermediate,
+            "pto_trails_total": len(all_trails),
+            "pto_trails_incomplete": len(incomplete_trails),
+            "pto_incomplete_trails": incomplete_trails,
+        },
+        "next_step": "pto",
+    }
+
+
+def _extract_work_types(state: Dict[str, Any]) -> List[str]:
+    """Извлечь список видов работ из описания задачи или контекста."""
+    task = state.get("task_description", "").lower()
+    intermediate = state.get("intermediate_data", {})
+
+    work_types = []
+    # Простые эвристики
+    kw_to_wt = {
+        "фундамент": "фундаменты_монолитные",
+        "сваи": "фундаменты_свайные",
+        "котлован": "земляные_выемки",
+        "бетон": "бетонные",
+        "металлоконструкц": "металлоконструкции",
+        "кладка": "каменная_кладка",
+        "отделк": "отделка_стены_потолки",
+        "пол": "отделка_полы",
+        "электромонтаж": "электромонтаж_внутренние",
+        "отоплен": "отопление",
+        "вентиляц": "вентиляция",
+        "водоснабжен": "водоснабжение",
+        "канализац": "канализация",
+    }
+    for kw, wt in kw_to_wt.items():
+        if kw in task:
+            work_types.append(wt)
+
+    return work_types if work_types else ["бетонные", "фундаменты_монолитные"]
+
+
+# =============================================================================
 # Reflection Node
 # =============================================================================
 
