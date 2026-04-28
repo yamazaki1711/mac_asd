@@ -30,7 +30,8 @@ from mcp_servers.asd_core.tools.pto_tools import (
     asd_vor_check, asd_pd_analysis, asd_generate_act, asd_id_completeness,
     # WorkSpec tools
     asd_get_work_type_info, asd_list_work_types, asd_get_tech_sequence,
-    asd_get_date_rules, asd_get_input_control, asd_id_search, asd_id_download
+    asd_get_date_rules, asd_get_input_control, asd_id_search, asd_id_download,
+    asd_enrich_geo_context,
 )
 from mcp_servers.asd_core.tools.smeta_tools import (
     asd_estimate_compare, asd_create_lsr, asd_supplement_estimate,
@@ -100,6 +101,7 @@ mcp.add_tool(asd_get_date_rules)
 mcp.add_tool(asd_get_input_control)
 mcp.add_tool(asd_id_search)
 mcp.add_tool(asd_id_download)
+mcp.add_tool(asd_enrich_geo_context)
 
 # Группа 3: Инженер-сметчик (5 инструментов)
 mcp.add_tool(asd_estimate_compare)

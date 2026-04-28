@@ -113,6 +113,11 @@ class Settings(BaseSettings):
     ID_PROSTO_COOKIES: str = os.getenv("ID_PROSTO_COOKIES", "")  # JSON string
     TWOCAPTCHA_API_KEY: str = os.getenv("TWOCAPTCHA_API_KEY", "")
 
+    # --- Yandex Geocoder ---
+    YANDEX_GEOCODER_KEY: str = os.getenv("YANDEX_GEOCODER_KEY", "")
+    # Бесплатный ключ: https://developer.tech.yandex.ru/
+    # Лимит: 1000 запросов/день
+
     # -------------------------------------------------------------------------
     # Computed properties
     # -------------------------------------------------------------------------

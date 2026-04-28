@@ -381,6 +381,104 @@ async def asd_id_download(
         }
 
 
+# ─── Гео-контекст (адрес → координаты, погода, климат) ────
+
+async def asd_enrich_geo_context(
+    address: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Обогатить объект гео-контекстом: координаты, погода, климатический район.
+
+    Использует Яндекс.Геокодер (бесплатно) и Open-Meteo (бесплатно).
+
+    Args:
+        address: Адрес объекта (например, «г. Новосибирск, ул. Станционная, 30а»)
+        start_date: Дата начала строительства (ISO: «2026-05-01»)
+        end_date: Дата окончания строительства (ISO: «2026-12-31»)
+
+    Returns:
+        Полный гео-контекст с:
+        - Координатами (lat, lon)
+        - Яндекс.Карты URL
+        - Погодой за период (температура, осадки, ветер, дни для зимнего бетонирования)
+        - Климатическим районом по СП 131.13330
+        - Часовым поясом
+        - Восход/заход (для ОЖР)
+    """
+    from datetime import date
+
+    logger.info("asd_enrich_geo_context: address=%s", address)
+
+    try:
+        from src.core.services.geo_context import GeoContextService
+        from src.config import settings
+
+        start = date.fromisoformat(start_date) if start_date else None
+        end = date.fromisoformat(end_date) if end_date else None
+
+        svc = GeoContextService(yandex_api_key=settings.YANDEX_GEOCODER_KEY or None)
+        ctx = await svc.enrich(address, start, end)
+
+        return {
+            "status": "success",
+            "address": address,
+            "location": {
+                "lat": ctx.location.lat,
+                "lon": ctx.location.lon,
+                "precision": ctx.location.precision,
+                "region": ctx.location.region,
+                "city": ctx.location.city,
+                "street": ctx.location.street,
+                "house": ctx.location.house,
+            },
+            "map_url": ctx.yandex_map_url,
+            "climate_zone": {
+                "code": ctx.climate_zone_code,
+                "description": ctx.climate_zone_desc,
+            },
+            "timezone": ctx.timezone,
+            "sunrise_sunset": ctx.sunrise_sunset_note,
+            "weather": {
+                "summary": ctx.weather.summary_text if ctx.weather else "Даты не заданы",
+                "days_total": ctx.weather.days_total if ctx.weather else 0,
+                "temp_range_c": (
+                    f"{ctx.weather.temp_min:.0f}..{ctx.weather.temp_max:.0f}"
+                    if ctx.weather and ctx.weather.days_total > 0 else "N/A"
+                ),
+                "precipitation_total_mm": (
+                    round(ctx.weather.total_precipitation_mm, 1)
+                    if ctx.weather else 0
+                ),
+                "days_strong_wind": ctx.weather.days_strong_wind if ctx.weather else 0,
+                "days_below_minus_5": ctx.weather.days_below_minus_5 if ctx.weather else 0,
+                "days_above_25": ctx.weather.days_above_25 if ctx.weather else 0,
+                "max_wind_ms": (
+                    round(ctx.weather.max_wind_ms, 1) if ctx.weather else 0
+                ),
+                "daily": [
+                    {
+                        "date": str(d.date),
+                        "t_min": d.temp_min_c,
+                        "t_max": d.temp_max_c,
+                        "precip_mm": d.precipitation_mm,
+                        "wind_ms": d.wind_speed_max_ms,
+                    }
+                    for d in (ctx.weather.daily[:10] if ctx.weather else [])
+                ],
+            },
+        }
+
+    except Exception as e:
+        logger.error("Geo context enrichment failed: %s", e)
+        return {
+            "status": "error",
+            "message": str(e),
+            "address": address,
+        }
+
+
 # ─── Заглушки (будущие инструменты) ────────────────────
 
 async def asd_vor_check(vor_data: Dict[str, Any], pd_id: str) -> Dict[str, Any]:
