@@ -603,3 +603,7 @@ def _transport_solutions(inp: PPRInput, ttks: List[TTKResult]) -> str:
 def _estimate_pages(content: str) -> int:
     """Грубая оценка количества страниц: ~2500 знаков на страницу."""
     return max(1, (len(content) + 2499) // 2500)
+
+
+# Alias for backward compatibility with tests
+generate_work_organization = generate_org

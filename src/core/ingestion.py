@@ -207,7 +207,9 @@ EXTRACTION_PATTERNS: List[ExtractionPattern] = [
     ], [DocumentType.CERTIFICATE, DocumentType.TTN]),
 
     ExtractionPattern("batch_size", [
-        r"(?:парти[яи]|в количестве)\D+(\d+[\s,.]*\d*)\s*(?:шт|тн|тонн)",
+        r"Количество:\s*(\d+[\s,.]*\d*)\s*(?:шт|штук)",
+        r"Партия\s+№\s*[\w/-]+\s*\n\s*Количество:\s*(\d+[\s,.]*\d*)\s*(?:шт|штук)",
+        r"(?:(?:парти[яи]|в количестве)\D*?)(\d+[\s,.]*\d*)\s*(?:шт|штук|тн|тонн)",
         r"(\d+)\s*шпунтин",
     ], [DocumentType.CERTIFICATE, DocumentType.TTN], transform="float"),
 
@@ -640,13 +642,17 @@ class IngestionPipeline:
                 errors=["No text extracted"],
             )
 
-        # Шаг 2: Классификация (hybrid: keyword + optional LLM fallback)
+        # Шаг 2: Классификация (keyword, затем опциональный LLM fallback)
+        doc_type, confidence = self.classifier.classify(text)
+
         try:
+            import asyncio
             from src.core.hybrid_classifier import hybrid_classifier
-            result = await hybrid_classifier.classify(text) if hasattr(hybrid_classifier, 'classify') else None
-            if result and result.confidence > doc_type_confidence:
-                doc_type = DocumentType(result.doc_type) if result.doc_type in DocumentType._value2member_map_ else doc_type
-                confidence = result.confidence
+            if hasattr(hybrid_classifier, 'classify'):
+                result = asyncio.run(hybrid_classifier.classify(text, enable_llm=False))
+                if result and result.confidence > confidence:
+                    doc_type = DocumentType(result.doc_type) if result.doc_type in DocumentType.__members__ else doc_type
+                    confidence = result.confidence
         except Exception:
             pass  # Keyword classification wins
 
@@ -661,6 +667,21 @@ class IngestionPipeline:
             entities=entities,
             page_count=page_count,
         )
+
+    def _first_str(self, value, default: str = "") -> str:
+        """Извлечь первую строку из значения (может быть list или str)."""
+        if isinstance(value, list):
+            return str(value[0]) if value else default
+        return str(value) if value else default
+
+    def _first_float(self, value, default: float = 0.0) -> float:
+        """Извлечь первое число из значения."""
+        if isinstance(value, list):
+            for v in value:
+                if isinstance(v, (int, float)):
+                    return float(v)
+            return default
+        return float(value) if value else default
 
     def ingest_to_graph(self, project_id: str = "") -> int:
         """
@@ -683,15 +704,15 @@ class IngestionPipeline:
                 if doc.doc_type == DocumentType.AOSR:
                     graph_service.add_aosr(
                         aosr_id=doc_id,
-                        work_type=entities.get("work_type", ""),
+                        work_type=self._first_str(entities.get("work_type", "")),
                         description=f"Извлечено из: {doc.file_path.name}",
-                        date=entities.get("date", ""),
+                        date=self._first_str(entities.get("date", "")),
                         project_id=project_id,
                     )
                     nodes_added += 1
 
                     # Если указан материал — связываем
-                    mat_name = entities.get("material_name", "")
+                    mat_name = self._first_str(entities.get("material_name", ""))
                     if mat_name:
                         mat_id = f"mat_{mat_name.replace(' ', '_')}"
                         if not graph_service.graph.has_node(mat_id):
@@ -701,28 +722,29 @@ class IngestionPipeline:
                 elif doc.doc_type == DocumentType.CERTIFICATE:
                     graph_service.add_certificate(
                         cert_id=doc_id,
-                        material_name=entities.get("material_name", ""),
-                        batch_number=entities.get("batch_number", ""),
-                        batch_size=entities.get("batch_size", 0.0),
-                        unit=entities.get("unit", ""),
-                        supplier=entities.get("supplier_name", ""),
-                        issue_date=entities.get("date_issue", ""),
-                        gost=entities.get("gost", ""),
+                        material_name=self._first_str(entities.get("material_name", "")),
+                        batch_number=self._first_str(entities.get("batch_number", "")),
+                        batch_size=self._first_float(entities.get("batch_size", 0.0)),
+                        unit=self._first_str(entities.get("unit", "")),
+                        supplier=self._first_str(entities.get("supplier_name", "")),
+                        issue_date=self._first_str(entities.get("date_issue", "")),
+                        gost=self._first_str(entities.get("gost", "")),
                     )
                     nodes_added += 1
 
                     # Связь сертификат → партия
-                    if entities.get("batch_number"):
-                        batch_id = f"batch_{entities['batch_number']}"
+                    batch_num = self._first_str(entities.get("batch_number", ""))
+                    if batch_num:
+                        batch_id = f"batch_{batch_num}"
                         if graph_service.graph.has_node(batch_id):
                             graph_service.link_certificate_to_batch(doc_id, batch_id)
 
                 elif doc.doc_type == DocumentType.TTN:
                     graph_service.add_ttn(
                         ttn_id=doc_id,
-                        supplier=entities.get("supplier_name", ""),
-                        date=entities.get("date", ""),
-                        material_list=entities.get("material_name", ""),
+                        supplier=self._first_str(entities.get("supplier_name", "")),
+                        date=self._first_str(entities.get("date", "")),
+                        material_list=self._first_str(entities.get("material_name", "")),
                     )
                     nodes_added += 1
 
