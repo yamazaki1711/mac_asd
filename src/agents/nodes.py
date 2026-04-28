@@ -621,11 +621,11 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     Узел Юриста: Полный юридический анализ через LegalService. (Gemma 4 31B, 128K контекст)
 
     Поддерживает два режима:
-    - Если в intermediate_data есть document_text/file_path — полный анализ (до 300K символов в 128K контексте)
+    - Если в intermediate_data есть document_text/file_path — полный анализ
     - Иначе — быстрый обзор по task_description (Quick Review)
 
-    v12.0: RAG-инъекция уроков (Lessons Learned) для учёта предыдущего опыта.
-    БЛС: 58 ловушек в 10 категориях.
+    v12.0: RAG-инъекция уроков + БЛС.
+    v12.0: Сохраняет результат для последующей генерации протокола/претензии/иска.
     """
     logger.info("Legal Review Starting")
 
@@ -638,7 +638,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     file_path = intermediate.get("contract_path") or intermediate.get("file_path")
     document_id = intermediate.get("document_id")
 
-    # v12.0: Извлечение текста из файла контракта (.docx/.pdf)
+    # v12.0: Извлечение текста из файла
     if file_path and os.path.exists(file_path):
         logger.info("Legal reading file: %s", os.path.basename(file_path))
         if file_path.endswith(".docx"):
@@ -648,13 +648,11 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
             with fitz.open(file_path) as doc:
                 document_text = "\n".join([page.get_text() for page in doc])
 
-    # v12.0: RAG-инъекция уроков (Lessons Learned)
+    # v12.0: RAG + Lessons инъекция
     work_type = _extract_work_type(state)
     lessons = await _get_lessons_context("Юрист", state['task_description'], work_type)
-    # v12.0: RAG-контекст (документы проекта + граф знаний + БЛС)
     project_id = state.get("project_id")
     rag_ctx = await _get_rag_context("legal", state['task_description'], project_id, include_traps=True)
-    # Уроки + RAG добавляются в document_text для LegalService
     if lessons and document_text:
         document_text = f"{lessons}\n\n{document_text}"
     if rag_ctx and document_text:
@@ -664,18 +662,15 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
         request = LegalAnalysisRequest(
             document_id=document_id,
             document_text=document_text,
-            file_path=None, # Передаем извлеченный текст вместо пути
+            file_path=None,
             review_type=ReviewType.CONTRACT,
         )
 
         result = await legal_service.analyze(request)
-
-        # Convert Pydantic model to dict for LangGraph state
         findings_dicts = [f.model_dump() for f in result.findings]
-
-        # Compute confidence from actual analysis quality
         legal_confidence = _compute_legal_confidence(state, result)
 
+        # Сохраняем полный результат в intermediate_data для генераторов документов
         return {
             "findings": findings_dicts,
             "legal_result": {
@@ -684,7 +679,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "critical_count": result.critical_count,
                 "high_count": result.high_count,
                 "summary": result.summary,
-                "protocol_items_count": 0,
+                "protocol_items_count": len(result.protocol_items),
                 "confidence_score": legal_confidence,
                 "blc_matches": [],
             },
@@ -695,6 +690,7 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "legal_summary": result.summary,
                 "legal_critical_count": result.critical_count,
                 "legal_high_count": result.high_count,
+                "_legal_analysis_result": result.model_dump(),  # Полный результат для генераторов
             },
             "is_complete": True,
             "next_step": "legal",
@@ -707,6 +703,145 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "is_complete": True,
             "next_step": "legal",
         }
+
+
+# =============================================================================
+# Legal Document Generation Nodes (v12.0)
+# =============================================================================
+
+async def legal_protocol_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Узел генерации протокола разногласий.
+
+    Берёт результат legal_node из _legal_analysis_result,
+    генерирует DOCX протокола разногласий (3 колонки).
+    """
+    logger.info("Legal Protocol Generation Starting")
+    intermediate = state.get("intermediate_data", {})
+
+    # Достаём сохранённый результат анализа
+    analysis_data = intermediate.get("_legal_analysis_result")
+    if not analysis_data:
+        logger.warning("No _legal_analysis_result in state — running legal_node first")
+        legal_state = await legal_node(state)
+        analysis_data = legal_state.get("intermediate_data", {}).get("_legal_analysis_result")
+
+    if not analysis_data:
+        return {
+            "intermediate_data": {**intermediate, "protocol_error": "No analysis result available"},
+            "next_step": "legal",
+        }
+
+    try:
+        from src.schemas.legal import LegalAnalysisResult
+        from src.core.services.legal_documents import legal_doc_gen
+
+        result = LegalAnalysisResult(**analysis_data)
+
+        docx_path = await legal_doc_gen.generate_protocol(
+            analysis_result=result,
+            contract_number=intermediate.get("contract_number", ""),
+            contract_date=intermediate.get("contract_date", ""),
+            output_dir="/tmp/asd_docs",
+        )
+
+        logger.info("Protocol generated: %s", docx_path)
+        return {
+            "intermediate_data": {
+                **intermediate,
+                "protocol_docx_path": docx_path,
+                "protocol_items_count": len(result.protocol_items),
+            },
+            "next_step": "legal",
+        }
+    except Exception as e:
+        logger.error("Protocol generation failed: %s", e)
+        return {
+            "intermediate_data": {**intermediate, "protocol_error": str(e)},
+            "next_step": "legal",
+        }
+
+
+async def legal_claim_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Узел генерации досудебной претензии.
+    """
+    logger.info("Legal Claim Generation Starting")
+    intermediate = state.get("intermediate_data", {})
+
+    analysis_data = intermediate.get("_legal_analysis_result")
+    if not analysis_data:
+        logger.warning("No analysis result for claim generation")
+        return {"intermediate_data": {**intermediate, "claim_error": "No analysis"}, "next_step": "legal"}
+
+    try:
+        from src.schemas.legal import LegalAnalysisResult
+        from src.core.services.legal_documents import legal_doc_gen
+
+        result = LegalAnalysisResult(**analysis_data)
+
+        claim_path = await legal_doc_gen.generate_claim(
+            analysis_result=result,
+            contract_number=intermediate.get("contract_number", ""),
+            contract_date=intermediate.get("contract_date", ""),
+            contract_subject=intermediate.get("contract_subject", ""),
+            customer_name=intermediate.get("customer_name", ""),
+            customer_inn=intermediate.get("customer_inn", ""),
+            contractor_name=intermediate.get("contractor_name", ""),
+            contractor_inn=intermediate.get("contractor_inn", ""),
+            claim_amount=intermediate.get("claim_amount", 0.0),
+            output_dir="/tmp/asd_docs",
+        )
+
+        logger.info("Claim generated: %s", claim_path)
+        return {
+            "intermediate_data": {**intermediate, "claim_path": claim_path},
+            "next_step": "legal",
+        }
+    except Exception as e:
+        logger.error("Claim generation failed: %s", e)
+        return {"intermediate_data": {**intermediate, "claim_error": str(e)}, "next_step": "legal"}
+
+
+async def legal_lawsuit_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Узел генерации искового заявления в арбитражный суд.
+    """
+    logger.info("Legal Lawsuit Generation Starting")
+    intermediate = state.get("intermediate_data", {})
+
+    analysis_data = intermediate.get("_legal_analysis_result")
+    if not analysis_data:
+        return {"intermediate_data": {**intermediate, "lawsuit_error": "No analysis"}, "next_step": "legal"}
+
+    try:
+        from src.schemas.legal import LegalAnalysisResult
+        from src.core.services.legal_documents import legal_doc_gen
+
+        result = LegalAnalysisResult(**analysis_data)
+
+        lawsuit_path = await legal_doc_gen.generate_lawsuit(
+            analysis_result=result,
+            case_facts=intermediate.get("case_facts", ""),
+            contract_number=intermediate.get("contract_number", ""),
+            contract_date=intermediate.get("contract_date", ""),
+            contractor_name=intermediate.get("contractor_name", ""),
+            contractor_inn=intermediate.get("contractor_inn", ""),
+            contractor_ogrn=intermediate.get("contractor_ogrn", ""),
+            customer_name=intermediate.get("customer_name", ""),
+            customer_inn=intermediate.get("customer_inn", ""),
+            claim_amount=intermediate.get("claim_amount", 0.0),
+            output_dir="/tmp/asd_docs",
+        )
+
+        logger.info("Lawsuit generated: %s", lawsuit_path)
+        return {
+            "intermediate_data": {**intermediate, "lawsuit_path": lawsuit_path},
+            "next_step": "legal",
+        }
+    except Exception as e:
+        logger.error("Lawsuit generation failed: %s", e)
+        return {"intermediate_data": {**intermediate, "lawsuit_error": str(e)}, "next_step": "legal"}
 
 
 # =============================================================================
