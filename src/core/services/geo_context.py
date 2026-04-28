@@ -2,20 +2,19 @@
 ASD v12.0 — Geo Context Service.
 
 Контекстное обогащение строительного объекта:
-  1. Геокодинг адреса → координаты (Яндекс.Геокодер, бесплатно до 1000 запр/день)
+  1. Геокодинг адреса → координаты (Nominatim / OpenStreetMap, полностью бесплатно)
   2. Погода на период строительства (Open-Meteo, полностью бесплатно)
   3. Часовой пояс (расчётный по координатам)
   4. Климатический район по СП 131.13330.2020
-  5. Карта объекта (URL Яндекс.Карт)
+  5. Карта объекта (URL OpenStreetMap / Nominatim)
 
 API keys:
-  - Yandex Geocoder: бесплатный ключ на https://developer.tech.yandex.ru/
-  - Open-Meteo: не требует ключа (open data)
+  - Ни одного! Всё работает на открытых данных.
 
 Usage:
     from src.core.services.geo_context import GeoContextService
 
-    svc = GeoContextService(yandex_api_key="...")
+    svc = GeoContextService()
     ctx = await svc.enrich("г. Новосибирск, ул. Станционная, 30а")
     # ctx.lat, ctx.lon, ctx.weather_summary, ctx.timezone, ctx.climate_zone
 """
