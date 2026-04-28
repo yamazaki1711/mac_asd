@@ -325,6 +325,13 @@ def pm_dispatch_router(state: AgentState) -> str:
     if next_step == "__end__" or state.get("is_complete"):
         return "__end__"
 
+    # RAM safety gate: проверяем статус памяти перед диспетчеризацией
+    ram_status = state.get("ram_status", "normal")
+    if ram_status in ("oom_danger",):
+        logger.error("PM dispatch BLOCKED: RAM %s", ram_status)
+        state["is_complete"] = True
+        return "__end__"
+
     # Если уже указан агент
     current_agent = state.get("current_agent")
     if current_agent and current_agent in AGENT_NODE_MAP:
@@ -338,6 +345,15 @@ def pm_dispatch_router(state: AgentState) -> str:
     result = _pm.dispatch(plan)
     if result is None:
         logger.info("PM: plan %s completed or blocked", plan.plan_id)
+        # Log revision history summary at pipeline end
+        rev_history = state.get("revision_history", [])
+        if rev_history:
+            logger.info("Revision history: %d entries", len(rev_history))
+            for entry in rev_history[-5:]:  # Last 5 entries
+                logger.debug("  %s: %s → %s", 
+                           entry.get("revision_id", "?"),
+                           entry.get("agent", "?"), 
+                           entry.get("changes_summary", "?")[:80])
         state["is_complete"] = True
         state["work_plan"] = plan.to_dict()
         return "__end__"
