@@ -89,7 +89,8 @@ class PPRDocxExporter:
         doc.save(output_path)
         logger.info(f"DOCX compiled: {output_path}")
         return output_path
-def _compile_placeholder(self, input: PPRInput) -> str:
+
+    def _compile_placeholder(self, input: PPRInput) -> str:
         """Fallback: save as text when python-docx is unavailable."""
         import os
         safe_code = input.project_code.replace("/", "-")

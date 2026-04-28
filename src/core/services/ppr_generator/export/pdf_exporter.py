@@ -15,7 +15,7 @@ from ..schemas import PPRInput, SectionResult, TTKResult, GraphicResult
 logger = logging.getLogger(__name__)
 
 
-class PPDFExporter:
+class PPRPDFExporter:
     """Экспортёр ППР в PDF."""
 
     def compile(

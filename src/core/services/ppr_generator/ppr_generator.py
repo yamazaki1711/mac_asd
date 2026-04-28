@@ -71,8 +71,8 @@ class PPRGenerator:
 
         # ── Stage 4: Compile ──
         self._emit(PPRStage.COMPILING, 90, "Сборка документа...")
-        from .export.pdf_exporter import PPDFExporter
-        pdf_exporter = PPDFExporter()
+        from .export.pdf_exporter import PPRPDFExporter
+        pdf_exporter = PPRPDFExporter()
         pdf_path = pdf_exporter.compile(input, sections, ttks, graphics)
 
         docx_path = None
