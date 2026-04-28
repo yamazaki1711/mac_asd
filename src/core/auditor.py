@@ -306,6 +306,17 @@ class AuditorAgent:
             if not findings:
                 checks_passed += 1
 
+        # ── Проверка 5–8: Forensic Document Checks (rule-based, no LLM) ──
+        forensic_findings = await self._run_forensic_checks(state)
+        if forensic_findings:
+            checks_run += 1
+            audit_findings = self._forensic_to_audit(forensic_findings)
+            all_findings.extend(audit_findings)
+            # Forensic-проверка считается пройденной только если нет CRITICAL
+            critically = [f for f in audit_findings if f.severity == ConflictSeverity.CRITICAL]
+            if not critically:
+                checks_passed += 1
+
         # ── Определение вердикта ──
         criticals = [f for f in all_findings if f.severity == ConflictSeverity.CRITICAL]
         highs = [f for f in all_findings if f.severity == ConflictSeverity.HIGH]
@@ -377,6 +388,89 @@ class AuditorAgent:
         except Exception as e:
             logger.error(f"Auditor check {check_name} failed: {e}")
             return []
+
+    # =========================================================================
+    # Forensic Document Checks (rule-based, no LLM)
+    # =========================================================================
+
+    async def _run_forensic_checks(self, state: Dict[str, Any]) -> List[Any]:
+        """
+        Запустить rule-based forensic-проверки по графу документов.
+
+        Проверки:
+          5. Batch coverage — Σ АОСР ≤ размер партии сертификата
+          6. Certificate reuse — сертификаты без входного контроля в >1 АОСР
+          7. Orphan certificates — сертификаты без цепочки Batch → InputControl
+          8. Material spec validation — проверка проблемных материалов через OBSOLETE_MATERIALS
+
+        Returns:
+            Список ForensicFinding из graph_service
+        """
+        from src.core.graph_service import graph_service
+
+        findings = []
+
+        try:
+            # ── Проверка 5: Batch Coverage ──
+            for node_id, data in graph_service.graph.nodes(data=True):
+                if data.get("type") == "Certificate":
+                    findings.extend(graph_service.check_batch_coverage(node_id))
+
+            # ── Проверка 6: Certificate Reuse ──
+            findings.extend(graph_service.check_certificate_reuse())
+
+            # ── Проверка 7: Orphan Certificates ──
+            findings.extend(graph_service.check_orphan_certificates())
+
+            # ── Проверка 8: Material Spec Validation ──
+            materials_spec = state.get("materials_spec", []) or state.get("materials", [])
+            if not materials_spec:
+                # Пробуем извлечь из данных ПТО
+                pto_data = state.get("vor_result") or {}
+                materials_spec = pto_data.get("materials", [])
+
+            for mat in materials_spec:
+                mat_name = mat if isinstance(mat, str) else mat.get("name", "")
+                if mat_name:
+                    findings.extend(graph_service.validate_material_spec(mat_name))
+
+        except Exception as e:
+            logger.error("Forensic checks error: %s", e)
+
+        return findings
+
+    def _forensic_to_audit(self, forensic_findings: List[Any]) -> List[AuditFinding]:
+        """
+        Конвертировать ForensicFinding → AuditFinding.
+
+        Маппинг severity:
+          ForensicSeverity.CRITICAL → ConflictSeverity.CRITICAL
+          ForensicSeverity.HIGH      → ConflictSeverity.HIGH
+          ForensicSeverity.MEDIUM    → ConflictSeverity.MEDIUM
+          ForensicSeverity.INFO      → ConflictSeverity.LOW
+        """
+        import uuid
+
+        severity_map = {
+            "critical": ConflictSeverity.CRITICAL,
+            "high": ConflictSeverity.HIGH,
+            "medium": ConflictSeverity.MEDIUM,
+            "info": ConflictSeverity.LOW,
+        }
+
+        audit_findings = []
+        for ff in forensic_findings:
+            audit_findings.append(AuditFinding(
+                finding_id=str(uuid.uuid4())[:6],
+                target_agent="forensic",
+                category="norm_violation",
+                description=ff.description,
+                severity=severity_map.get(ff.severity.value, ConflictSeverity.MEDIUM),
+                source_docs=["ГОСТ Р 53629-2009", "ПП РФ №2425", "Приказ 344/пр"],
+                recommendation=ff.recommendation,
+            ))
+
+        return audit_findings
 
 
 # =============================================================================
