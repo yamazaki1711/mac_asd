@@ -171,7 +171,7 @@ class TTKQuality(BaseModel):
     incoming_control: List[str] = Field(default_factory=list)
     operational_control: List[TTKQualityCheck] = Field(default_factory=list)
     acceptance_control: List[str] = Field(default_factory=list)
-    隐蔽_works_certification: List[str] = Field(default_factory=list, description="Оформление скрытых работ")
+    hidden_works_certification: List[str] = Field(default_factory=list, description="Оформление скрытых работ")
 
 
 class TTKResource(BaseModel):

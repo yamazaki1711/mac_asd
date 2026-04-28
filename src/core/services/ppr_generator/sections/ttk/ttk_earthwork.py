@@ -357,7 +357,7 @@ class TTKEarthwork(BaseTTKGenerator):
             ],
         )
         # Field uses Chinese characters — set via attribute
-        quality.隐蔽_works_certification = [
+        quality.hidden_works_certification = [
             "Акт освидетельствования скрытых работ на основание (дно котлована/траншеи)",
             "Акт освидетельствования скрытых работ на обратную засыпку с послойным уплотнением",
             "Журнал производства земляных работ",

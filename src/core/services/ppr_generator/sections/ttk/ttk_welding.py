@@ -177,7 +177,7 @@ class TTKWelding(BaseTTKGenerator):
             ],
             operational_control=[
                 self._make_qc(
-                    parameter="Зазор в стыке",
+                    param="Зазор в стыке",
                     tolerance="±1 мм от проектного",
                     method="Измерение штангенциркулем ЩЦ-1",
                     instrument="Штангенциркуль ЩЦ-1, щуп № 4",
@@ -185,7 +185,7 @@ class TTKWelding(BaseTTKGenerator):
                     gost="ГОСТ 23118",
                 ),
                 self._make_qc(
-                    parameter="Смещение кромок",
+                    param="Смещение кромок",
                     tolerance="≤ 1 мм (до 4 мм толщины), ≤ 10 % толщины (св. 4 мм)",
                     method="Измерение штангенциркулем, шаблоном УШС",
                     instrument="Штангенциркуль, шаблон УШС-3",
@@ -193,7 +193,7 @@ class TTKWelding(BaseTTKGenerator):
                     gost="ГОСТ 23118",
                 ),
                 self._make_qc(
-                    parameter="Катет углового шва",
+                    param="Катет углового шва",
                     tolerance="+2 мм от проектного",
                     method="Измерение шаблоном сварщика УШС",
                     instrument="Универсальный шаблон сварщика УШС-3",
@@ -201,7 +201,7 @@ class TTKWelding(BaseTTKGenerator):
                     gost="ГОСТ 23118, СП 70.13330",
                 ),
                 self._make_qc(
-                    parameter="Усиление шва (выпуклость)",
+                    param="Усиление шва (выпуклость)",
                     tolerance="1–3 мм",
                     method="Измерение шаблоном УШС, штангенциркулем",
                     instrument="Шаблон УШС-3, штангенциркуль ЩЦ-1",
@@ -209,7 +209,7 @@ class TTKWelding(BaseTTKGenerator):
                     gost="ГОСТ 23118, ВСН 012-88",
                 ),
                 self._make_qc(
-                    parameter="Подрезы основного металла",
+                    param="Подрезы основного металла",
                     tolerance="≤ 0.5 мм (глубина)",
                     method="Визуальный осмотр + измерение шаблоном",
                     instrument="Лупа 4×, шаблон УШС-3",
@@ -217,7 +217,7 @@ class TTKWelding(BaseTTKGenerator):
                     gost="ГОСТ 23118, ВСН 012-88",
                 ),
                 self._make_qc(
-                    parameter="Поры, шлаковые включения",
+                    param="Поры, шлаковые включения",
                     tolerance="Не допускаются на поверхности",
                     method="Визуальный осмотр с лупой",
                     instrument="Лупа измерительная 4×–10×",
@@ -225,7 +225,7 @@ class TTKWelding(BaseTTKGenerator):
                     gost="ГОСТ 23118, СП 70.13330",
                 ),
                 self._make_qc(
-                    parameter="Трещины любых видов",
+                    param="Трещины любых видов",
                     tolerance="Не допускаются",
                     method="Визуальный осмотр + цветная дефектоскопия",
                     instrument="Лупа 4×, набор для ЦД (очиститель, пенетрант, проявитель)",
@@ -244,7 +244,7 @@ class TTKWelding(BaseTTKGenerator):
                 "конструкции проекту после сварки — "
                 "геодезическая исполнительная съёмка",
             ],
-            隐蔽_works_certification=[
+            hidden_works_certification=[
                 "Акт освидетельствования скрытых работ "
                 "на подготовку кромок под сварку",
                 "Акт освидетельствования скрытых работ "

@@ -154,7 +154,7 @@ class TestSectionGenerators:
     def ttks(self, sample_input):
         from src.core.services.ppr_generator.sections.ttk_base import TTKRegistry
         codes = [wt.code for wt in sample_input.work_types]
-        return [gen().generate(sample_input) for gen in TTKRegistry.select_for_project(codes)]
+        return [gen.generate(sample_input) for gen in TTKRegistry.select_for_project(codes)]
 
     def test_general_data(self, sample_input, ttks):
         from src.core.services.ppr_generator.sections import generate_general_data

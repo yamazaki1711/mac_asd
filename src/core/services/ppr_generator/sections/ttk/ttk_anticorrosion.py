@@ -360,7 +360,7 @@ class TTKAnticorrosion(BaseTTKGenerator):
             ],
         )
         # Field uses Chinese characters — set via attribute
-        quality.隐蔽_works_certification = [
+        quality.hidden_works_certification = [
             "Акт освидетельствования скрытых работ на очистку поверхности",
             "Акт освидетельствования скрытых работ на грунтование",
             "Акт освидетельствования скрытых работ на промежуточный слой",

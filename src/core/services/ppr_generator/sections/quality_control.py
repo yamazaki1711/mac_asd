@@ -44,7 +44,7 @@ def generate_quality_control(input: PPRInput, ttks: List[TTKResult]) -> SectionR
     # ── Сбор скрытых работ из ТТК ──
     hidden_works: List[str] = []
     for ttk in ttks:
-        for hw in ttk.quality.隐蔽_works_certification:
+        for hw in ttk.quality.hidden_works_certification:
             if hw not in hidden_works:
                 hidden_works.append(hw)
 

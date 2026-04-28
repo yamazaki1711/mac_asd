@@ -10,6 +10,9 @@ from .attestation import generate_attestation
 from .title_page import generate_title_page
 from .approval_sheet import generate_approval_sheet
 
+# Trigger TTK generator auto-registration
+from . import ttk  # noqa: F401
+
 __all__ = [
     "generate_general_data",
     "generate_work_organization",

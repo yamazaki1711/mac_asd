@@ -34,6 +34,8 @@ class PPRDocxExporter:
         Returns:
             Путь к созданному DOCX-файлу
         """
+        safe_code = input.project_code.replace("/", "-")
+
         try:
             from docx import Document
             from docx.shared import Pt, Cm, RGBColor
@@ -42,7 +44,7 @@ class PPRDocxExporter:
             logger.warning("python-docx not installed — using placeholder")
             return self._compile_placeholder(input)
 
-        output_path = tempfile.mktemp(suffix=".docx", prefix=f"ppr_{input.project_code}_")
+        output_path = tempfile.mktemp(suffix=".docx", prefix=f"ppr_{safe_code}_")
         doc = Document()
 
         # Default style
@@ -87,12 +89,13 @@ class PPRDocxExporter:
         doc.save(output_path)
         logger.info(f"DOCX compiled: {output_path}")
         return output_path
-
-    def _compile_placeholder(self, input: PPRInput) -> str:
+def _compile_placeholder(self, input: PPRInput) -> str:
+        """Fallback: save as text when python-docx is unavailable."""
         import os
+        safe_code = input.project_code.replace("/", "-")
         output_path = os.path.join(
             tempfile.gettempdir(),
-            f"ppr_{input.project_code}_export.txt"
+            f"ppr_{safe_code}_export.txt"
         )
         logger.warning(f"DOCX exporter using plain text fallback: {output_path}")
         return output_path

@@ -37,6 +37,8 @@ class PPDFExporter:
         Returns:
             Путь к созданному PDF-файлу
         """
+        safe_code = input.project_code.replace("/", "-")
+
         try:
             from reportlab.lib.pagesizes import A4
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -56,7 +58,7 @@ class PPDFExporter:
         except Exception:
             font_name = "Helvetica"
 
-        output_path = tempfile.mktemp(suffix=".pdf", prefix=f"ppr_{input.project_code}_")
+        output_path = tempfile.mktemp(suffix=".pdf", prefix=f"ppr_{safe_code}_")
 
         doc = SimpleDocTemplate(output_path, pagesize=A4,
                                 leftMargin=20*mm, rightMargin=15*mm,
@@ -106,9 +108,10 @@ class PPDFExporter:
     def _compile_placeholder(self, input: PPRInput) -> str:
         """Fallback: save as text when reportlab is unavailable."""
         import os
+        safe_code = input.project_code.replace("/", "-")
         output_path = os.path.join(
             tempfile.gettempdir(),
-            f"ppr_{input.project_code}_export.txt"
+            f"ppr_{safe_code}_export.txt"
         )
         logger.warning(f"PDF exporter using plain text fallback: {output_path}")
         return output_path
