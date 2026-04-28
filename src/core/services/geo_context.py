@@ -35,9 +35,17 @@ logger = logging.getLogger(__name__)
 # Constants
 # ══════════════════════════════════════════════════════════════════
 
-YANDEX_GEOCODER_URL = "https://geocode-maps.yandex.ru/1.x/"
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+# Nominatim требует User-Agent (политика использования)
+NOMINATIM_HEADERS = {
+    "User-Agent": "MAC_ASD/12.0 (construction document automation; oleg@asd.local)",
+}
+
+# Rate limit: Nominatim просит не больше 1 запроса в секунду
+_LAST_NOMINATIM_CALL = 0.0
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -120,7 +128,7 @@ class GeoContext:
     timezone: str = "Asia/Novosibirsk"
     climate_zone_code: str = ""
     climate_zone_desc: str = ""
-    yandex_map_url: str = ""
+    osm_map_url: str = ""
     sunrise_sunset_note: str = ""    # для заполнения ОЖР
 
 
@@ -132,13 +140,13 @@ class GeoContextService:
     """
     Сервис гео-контекстного обогащения строительного объекта.
 
-    Бесплатные источники:
-      - Яндекс.Геокодер: адрес → координаты (бесплатно до 1000 запр/день)
-      - Open-Meteo: погода историческая + прогноз (полностью бесплатно)
+    Полностью бесплатные источники (ни одного API-ключа):
+      - Nominatim / OpenStreetMap: адрес → координаты
+      - Open-Meteo: погода историческая + прогноз
     """
 
-    def __init__(self, yandex_api_key: Optional[str] = None):
-        self._yandex_key = yandex_api_key
+    def __init__(self):
+        pass
 
     # ── Public API ───────────────────────────────────────────
 
@@ -169,7 +177,7 @@ class GeoContextService:
         zone_code, zone_desc = self._climate_zone(location.lat, location.lon)
 
         # 4. Карта
-        map_url = f"https://yandex.ru/maps/?ll={location.lon},{location.lat}&z=15&pt={location.lon},{location.lat},pm2rdl"
+        map_url = f"https://www.openstreetmap.org/?mlat={location.lat}&mlon={location.lon}&zoom=16&layers=M"
 
         # 5. Погода (если заданы даты)
         weather = None
@@ -188,7 +196,7 @@ class GeoContextService:
             timezone=timezone,
             climate_zone_code=zone_code,
             climate_zone_desc=zone_desc,
-            yandex_map_url=map_url,
+            osm_map_url=map_url,
             sunrise_sunset_note=sunrise_note,
         )
 
@@ -196,78 +204,72 @@ class GeoContextService:
 
     async def geocode(self, address: str) -> GeoLocation:
         """
-        Геокодировать адрес через Яндекс.Геокодер.
+        Геокодировать адрес через Nominatim (OpenStreetMap).
 
-        Бесплатный лимит: 1000 запросов/день.
-        API key: https://developer.tech.yandex.ru/ (кнопка «Получить ключ»)
+        Полностью бесплатно, без API-ключа.
+        Политика использования: макс 1 запрос/сек, обязательный User-Agent.
+
+        Точность для РФ: отличная — города, улицы, дома.
         """
-        if not self._yandex_key:
-            logger.warning("Yandex Geocoder API key not set — returning empty location")
-            return GeoLocation(address=address, lat=0, lon=0, precision="no_api_key")
+        # Rate limiting — не чаще 1 запроса в секунду
+        global _LAST_NOMINATIM_CALL
+        elapsed = time.time() - _LAST_NOMINATIM_CALL
+        if elapsed < 1.0:
+            time.sleep(1.0 - elapsed)
+        _LAST_NOMINATIM_CALL = time.time()
 
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx.AsyncClient(timeout=10, headers=NOMINATIM_HEADERS) as client:
                 resp = await client.get(
-                    YANDEX_GEOCODER_URL,
+                    NOMINATIM_URL,
                     params={
-                        "apikey": self._yandex_key,
-                        "geocode": address,
+                        "q": address,
                         "format": "json",
-                        "results": 1,
-                        "lang": "ru_RU",
+                        "limit": 1,
+                        "accept-language": "ru",
+                        "addressdetails": 1,
                     },
                 )
 
             if resp.status_code != 200:
-                logger.error("Yandex Geocoder error: %d", resp.status_code)
+                logger.error("Nominatim error: %d — %s", resp.status_code, resp.text[:200])
                 return GeoLocation(address=address, lat=0, lon=0, precision="api_error")
 
             data = resp.json()
-            geo_objects = (
-                data.get("response", {})
-                .get("GeoObjectCollection", {})
-                .get("featureMember", [])
-            )
-
-            if not geo_objects:
+            if not data:
+                logger.warning("Nominatim: address not found — %s", address)
                 return GeoLocation(address=address, lat=0, lon=0, precision="not_found")
 
-            obj = geo_objects[0]["GeoObject"]
-            point = obj.get("Point", {}).get("pos", "0 0")
-            lon_str, lat_str = point.split(" ")
-            lat, lon = float(lat_str), float(lon_str)
+            item = data[0]
+            lat = round(float(item["lat"]), 6)
+            lon = round(float(item["lon"]), 6)
 
-            # Parse address components
-            meta = obj.get("metaDataProperty", {}).get("GeocoderMetaData", {})
-            precision = meta.get("precision", "unknown")
-            address_details = meta.get("Address", {})
+            # Parse address components from Nominatim
+            addr = item.get("address", {})
+            precision = item.get("type", "unknown")  # house, street, city, etc.
 
-            components = {}
-            for comp in address_details.get("Components", []):
-                components[comp.get("kind", "")] = comp.get("name", "")
-
-            country_name = (
-                meta.get("AddressDetails", {})
-                .get("Country", {})
-                .get("CountryName", "")
-            )
+            # Map Nominatim keys to our fields
+            region = addr.get("state", "") or addr.get("region", "")
+            city = addr.get("city", "") or addr.get("town", "") or addr.get("village", "")
+            street = addr.get("road", "") or addr.get("street", "")
+            house = addr.get("house_number", "")
 
             loc = GeoLocation(
                 address=address,
-                lat=round(lat, 6),
-                lon=round(lon, 6),
+                lat=lat,
+                lon=lon,
                 precision=precision,
-                country=country_name or components.get("country", ""),
-                region=components.get("province", ""),
-                city=components.get("locality", ""),
-                street=components.get("street", ""),
-                house=components.get("house", ""),
-                postal_code=components.get("postal_code", ""),
-                raw_response=data,
+                country=addr.get("country", ""),
+                region=region,
+                city=city,
+                street=street,
+                house=house,
+                postal_code=addr.get("postcode", ""),
+                raw_response=item,
             )
 
             logger.info(
-                "Geocoded: %s → %.4f, %.4f (%s)",
+                "Geocoded (OSM): %s → %.4f, %.4f (%s)",
                 address, loc.lat, loc.lon, precision,
             )
             return loc

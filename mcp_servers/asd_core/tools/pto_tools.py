@@ -413,12 +413,11 @@ async def asd_enrich_geo_context(
 
     try:
         from src.core.services.geo_context import GeoContextService
-        from src.config import settings
 
         start = date.fromisoformat(start_date) if start_date else None
         end = date.fromisoformat(end_date) if end_date else None
 
-        svc = GeoContextService(yandex_api_key=settings.YANDEX_GEOCODER_KEY or None)
+        svc = GeoContextService()
         ctx = await svc.enrich(address, start, end)
 
         return {
@@ -433,7 +432,7 @@ async def asd_enrich_geo_context(
                 "street": ctx.location.street,
                 "house": ctx.location.house,
             },
-            "map_url": ctx.yandex_map_url,
+            "map_url": ctx.osm_map_url,
             "climate_zone": {
                 "code": ctx.climate_zone_code,
                 "description": ctx.climate_zone_desc,
