@@ -240,6 +240,19 @@ class AgentState(TypedDict):
     created_at: str                              # ISO 8601 — создание состояния
     updated_at: str                              # ISO 8601 — последнее обновление
 
+    # ── PM Orchestration (v12.0) ──
+    work_plan: Optional[Dict[str, Any]]          # WorkPlan.to_dict() — план PM
+    compliance_delta: Dict[str, str]             # Дельта относительно эталона ИД
+    pm_decision: Optional[str]                   # Последнее решение PM (accept/retry/skip/abort)
+    pm_reasoning: Optional[str]                  # Обоснование решения PM
+    current_agent: Optional[str]                 # Текущий исполняющий агент
+    current_task_id: Optional[str]               # Текущая задача из WorkPlan
+    completed_task_ids: List[str]                # ID выполненных задач
+
+    # ── RAM Management ──
+    ram_status: Optional[str]                    # normal/warning/critical/oom_danger
+    ram_snapshot: Optional[Dict[str, Any]]       # RamSnapshot.to_dict()
+
     # ── LLM Health ──
     _llm_fallback_triggered: bool                # True если хотя бы один safe_chat ушёл в fallback
     _llm_fallback_agents: List[str]              # Список агентов, у которых сработал fallback
@@ -294,6 +307,18 @@ def create_initial_state(
         rollback_point=None,
         created_at=now,
         updated_at=now,
+        # PM Orchestration
+        work_plan=None,
+        compliance_delta={},
+        pm_decision=None,
+        pm_reasoning=None,
+        current_agent=None,
+        current_task_id=None,
+        completed_task_ids=[],
+        # RAM Management
+        ram_status=None,
+        ram_snapshot=None,
+        # LLM Health
         _llm_fallback_triggered=False,
         _llm_fallback_agents=[],
     )
@@ -392,6 +417,18 @@ def migrate_v1_to_v2(v1_state: Dict[str, Any]) -> AgentState:
         rollback_point=None,
         created_at=now,
         updated_at=now,
+        # PM Orchestration
+        work_plan=None,
+        compliance_delta={},
+        pm_decision=None,
+        pm_reasoning=None,
+        current_agent=None,
+        current_task_id=None,
+        completed_task_ids=[],
+        # RAM Management
+        ram_status=None,
+        ram_snapshot=None,
+        # LLM Health
         _llm_fallback_triggered=False,
         _llm_fallback_agents=[],
     )
