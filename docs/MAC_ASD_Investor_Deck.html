@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAC ASD v12.0 — Investor Deck</title>
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #13161d;
+  --border: #1e2430;
+  --ink: #e8ecf1;
+  --muted: #8b95a5;
+  --accent: #f0a030;
+  --accent-dim: #f0a03033;
+  --critical: #e5484d;
+  --high: #f0a030;
+  --medium: #5bb98c;
+  --green: #5bb98c;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:var(--font); }
+#stage { width:1920px; height:1080px; transform-origin:0 0; position:absolute; top:0; left:0; }
+.slide { 
+  width:1920px; height:1080px; display:none; position:absolute; top:0; left:0;
+  background:var(--bg); color:var(--ink); padding:100px 140px;
+  flex-direction:column; justify-content:center;
+}
+.slide.active { display:flex; }
+h1 { font-size:72px; font-weight:700; line-height:1.1; letter-spacing:-0.02em; }
+h2 { font-size:48px; font-weight:700; line-height:1.2; letter-spacing:-0.01em; margin-bottom:48px; }
+h3 { font-size:28px; font-weight:600; color:var(--accent); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.08em; }
+p { font-size:26px; line-height:1.5; color:var(--muted); max-width:1200px; }
+.label { font-size:16px; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:12px; }
+.accent { color:var(--accent); }
+.critical { color:var(--critical); }
+.high-c { color:var(--high); }
+.green { color:var(--green); }
+.mono { font-family:var(--mono); font-size:22px; color:var(--muted); }
+.big-num { font-size:120px; font-weight:800; line-height:1; letter-spacing:-0.03em; }
+.stat { display:flex; flex-direction:column; align-items:flex-start; }
+.stat .big-num { margin-bottom:8px; }
+.stat p { font-size:20px; color:var(--muted); }
+
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:48px; width:100%; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:40px; width:100%; }
+.grid4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:32px; width:100%; }
+.grid5 { display:grid; grid-template-columns:repeat(5,1fr); gap:24px; width:100%; }
+
+.card { 
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; 
+  padding:36px; display:flex; flex-direction:column; gap:16px;
+}
+.card h3 { margin-bottom:0; }
+.card p { font-size:20px; }
+
+.step-row {
+  display:flex; align-items:center; gap:24px; width:100%; margin:32px 0;
+}
+.step {
+  flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:28px 24px; text-align:center; position:relative;
+}
+.step .step-num {
+  font-size:14px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;
+}
+.step .step-title { font-size:22px; font-weight:600; color:var(--ink); }
+.step .step-desc { font-size:16px; color:var(--muted); margin-top:6px; }
+.arrow { font-size:28px; color:var(--accent); flex-shrink:0; }
+
+.tag { display:inline-block; padding:4px 12px; border-radius:6px; font-size:14px; font-weight:600; }
+.tag-crit { background:var(--critical); color:#fff; }
+.tag-high { background:var(--high); color:#0a0c10; }
+.tag-med { background:var(--green); color:#0a0c10; }
+
+.agent-row {
+  display:flex; gap:16px; flex-wrap:wrap; width:100%;
+}
+.agent-chip {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:20px 24px; flex:1; min-width:200px;
+}
+.agent-chip .aname { font-size:22px; font-weight:700; color:var(--ink); }
+.agent-chip .arole { font-size:16px; color:var(--accent); margin-top:4px; }
+.agent-chip .amodel { font-size:14px; color:var(--muted); margin-top:8px; }
+
+#controls {
+  position:fixed; bottom:32px; left:50%; transform:translateX(-50%); z-index:100;
+  display:flex; align-items:center; gap:16px; background:var(--surface); 
+  border:1px solid var(--border); border-radius:12px; padding:12px 24px;
+}
+#controls button {
+  background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer;
+  padding:6px 12px; border-radius:6px; transition:color 0.2s;
+}
+#controls button:hover { color:var(--accent); }
+#slide-indicator { font-size:16px; color:var(--muted); min-width:80px; text-align:center; font-family:var(--mono); }
+
+.pipeline-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:16px;
+  padding:48px 56px; width:100%;
+}
+.pipeline-steps { display:flex; gap:12px; align-items:stretch; margin-top:24px; }
+.pipeline-step {
+  flex:1; padding:20px 18px; border-radius:8px; text-align:center;
+  border:1px solid var(--border); background:var(--bg);
+}
+.pipeline-step .ps-icon { font-size:32px; margin-bottom:10px; }
+.pipeline-step .ps-name { font-size:18px; font-weight:600; color:var(--ink); }
+.pipeline-step .ps-time { font-size:14px; color:var(--muted); margin-top:4px; }
+
+.check-row { display:flex; gap:20px; width:100%; }
+.check-card {
+  flex:1; background:var(--surface); border-radius:12px; padding:28px;
+  border-left:4px solid var(--border);
+}
+.check-card.critical { border-left-color:var(--critical); }
+.check-card.high { border-left-color:var(--high); }
+.check-card .cname { font-size:20px; font-weight:700; color:var(--ink); margin-bottom:8px; }
+.check-card .cdesc { font-size:16px; color:var(--muted); line-height:1.4; }
+
+/* Print */
+@media print {
+  html, body { width:1920px; height:auto; overflow:visible; }
+  #stage { position:static; transform:none; }
+  .slide { position:relative; display:flex !important; page-break-after:always; }
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+<!-- ═══════════ SLIDE 1: Title ═══════════ -->
+<div class="slide" style="align-items:center; text-align:center;">
+  <div class="label">MAC ASD v12.0</div>
+  <h1 style="max-width:1400px; margin-top:16px;">
+    Искусственный интеллект<br>для строительного субподряда
+  </h1>
+  <p style="font-size:32px; margin-top:40px; max-width:1000px;">
+    Полностью локальная мультиагентная система —<br>
+    от хаоса в документации до полного комплекта ИД за 2–3 недели
+  </p>
+  <div style="margin-top:64px; display:flex; gap:32px;">
+    <div class="mono">yamazaki1711/mac_asd</div>
+    <div class="mono">~40 000 строк Python</div>
+    <div class="mono">7+1 агентов на MLX</div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 2: Problem ═══════════ -->
+<div class="slide">
+  <h2>Проблема</h2>
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:28px;">
+      <div>
+        <div class="big-num critical">60%</div>
+        <p>объектов капстроительства имеют проблемы с исполнительной документацией</p>
+      </div>
+      <div>
+        <div class="big-num accent">₽ млрд</div>
+        <p>зависших оплат подрядчикам из-за некомплекта или ошибок в ИД</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px;justify-content:center;">
+      <div class="card"><p>Сертификат на 55 единиц использован в двух АОСР по 30 — превышение на 9%</p></div>
+      <div class="card"><p>Материал снят с производства в СССР, но фигурирует в спецификации</p></div>
+      <div class="card"><p>Сертификат без записи в журнале входного контроля — ксерокопия от другой партии</p></div>
+      <div class="card"><p>15–20 человек выездной команды × 2–3 месяца = огромные накладные расходы</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 3: Solution ═══════════ -->
+<div class="slide">
+  <h2>Решение: Forensic-восстановление ИД</h2>
+  <div class="grid3">
+    <div class="stat"><div class="big-num accent">→</div><p>Сканы документов</p></div>
+    <div class="stat"><div class="big-num accent">→</div><p>ИИ-анализ и forensic-проверки</p></div>
+    <div class="stat"><div class="big-num accent">→</div><p>Готовый комплект ИД</p></div>
+  </div>
+  <div class="pipeline-box" style="margin-top:40px;">
+    <div class="label">КОНВЕЙЕР</div>
+    <div class="pipeline-steps">
+      <div class="pipeline-step"><div class="ps-icon">📄</div><div class="ps-name">Сканы</div><div class="ps-time">PDF/JPEG</div></div>
+      <div class="pipeline-step"><div class="ps-icon">🔍</div><div class="ps-name">OCR</div><div class="ps-time">PaddleOCR</div></div>
+      <div class="pipeline-step"><div class="ps-icon">🏷️</div><div class="ps-name">Classify</div><div class="ps-time">18 типов</div></div>
+      <div class="pipeline-step"><div class="ps-icon">📊</div><div class="ps-name">Knowledge Graph</div><div class="ps-time">NetworkX</div></div>
+      <div class="pipeline-step"><div class="ps-icon">🔬</div><div class="ps-name">Forensic</div><div class="ps-time">4 проверки</div></div>
+      <div class="pipeline-step"><div class="ps-icon">📋</div><div class="ps-name">Guidance</div><div class="ps-time">Задачи</div></div>
+      <div class="pipeline-step"><div class="ps-icon">📠</div><div class="ps-name">Output</div><div class="ps-time">DOCX/PDF</div></div>
+    </div>
+  </div>
+  <p style="margin-top:32px; font-size:24px;">
+    <span class="accent">4 оператора + Mac Studio + сканер</span> заменяют выездную команду из 15–20 человек
+  </p>
+</div>
+
+<!-- ═══════════ SLIDE 4: Architecture ═══════════ -->
+<div class="slide">
+  <h2>7+1 специализированных агентов</h2>
+  <div class="agent-row">
+    <div class="agent-chip"><div class="aname">Hermes</div><div class="arole">Руководитель проекта</div><div class="amodel">Llama 3.3 70B</div></div>
+    <div class="agent-chip"><div class="aname">ПТО</div><div class="arole">Инженер ПТО + Vision</div><div class="amodel">Gemma 4 31B VLM</div></div>
+    <div class="agent-chip"><div class="aname">Юрист</div><div class="arole">Правовая экспертиза</div><div class="amodel">Gemma 4 31B</div></div>
+    <div class="agent-chip"><div class="aname">Сметчик</div><div class="arole">Сметные расчёты</div><div class="amodel">Gemma 4 31B</div></div>
+  </div>
+  <div class="agent-row" style="margin-top:12px;">
+    <div class="agent-chip"><div class="aname">Закупщик</div><div class="arole">Тендеры и закупки</div><div class="amodel">Gemma 4 31B</div></div>
+    <div class="agent-chip"><div class="aname">Логист</div><div class="arole">Снабжение</div><div class="amodel">Gemma 4 31B</div></div>
+    <div class="agent-chip"><div class="aname">Делопроизводитель</div><div class="arole">Архив и документооборот</div><div class="amodel">Gemma 4 E4B</div></div>
+    <div class="agent-chip" style="border-color:var(--accent);"><div class="aname">Auditor</div><div class="arole">Forensic RedTeam</div><div class="amodel">Llama 3.3 70B</div></div>
+  </div>
+  <div style="margin-top:48px; display:flex; gap:48px; align-items:center;">
+    <div class="stat"><div class="big-num" style="font-size:80px;">~66 GB</div><p>RAM — 3 модели на Mac Studio</p></div>
+    <div class="stat"><div class="big-num" style="font-size:80px;">128K</div><p>контекст Gemma 4 31B</p></div>
+    <div class="stat"><div class="big-num" style="font-size:80px;">100%</div><p>оффлайн, полностью локально</p></div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 5: Forensic checks ═══════════ -->
+<div class="slide">
+  <h2>Forensic-проверки — ядро системы</h2>
+  <p style="margin-bottom:40px;">Автоматическое выявление подлогов, ошибок и несоответствий в документах</p>
+  <div class="check-row">
+    <div class="check-card critical">
+      <div class="tag tag-crit" style="margin-bottom:12px;">CRITICAL</div>
+      <div class="cname">Покрытие партии</div>
+      <div class="cdesc">Σ материалов в АОСР > размер партии в сертификате → подлог или ксерокопия</div>
+    </div>
+    <div class="check-card critical">
+      <div class="tag tag-crit" style="margin-bottom:12px;">CRITICAL</div>
+      <div class="cname">Спецификация материала</div>
+      <div class="cdesc">Материал снят с производства, не соответствует ГОСТ, или отсутствует на рынке РФ</div>
+    </div>
+    <div class="check-card high">
+      <div class="tag tag-high" style="margin-bottom:12px;">HIGH</div>
+      <div class="cname">Повтор сертификата</div>
+      <div class="cdesc">Один сертификат использован в нескольких АОСР без журнала входного контроля</div>
+    </div>
+    <div class="check-card" style="border-left-color:var(--green);">
+      <div class="tag tag-med" style="margin-bottom:12px;">MEDIUM</div>
+      <div class="cname">Сертификаты-сироты</div>
+      <div class="cdesc">Сертификат без цепочки поставки: нет ТТН, нет входного контроля</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 6: Business Model ═══════════ -->
+<div class="slide">
+  <h2>Бизнес-модель</h2>
+  <div class="grid3">
+    <div class="card" style="align-items:center;text-align:center;">
+      <div class="big-num" style="font-size:64px;">15–20</div>
+      <p>человек в традиционной выездной команде</p>
+    </div>
+    <div class="card" style="align-items:center;text-align:center;border-color:var(--accent);">
+      <div class="big-num accent" style="font-size:64px;">4</div>
+      <p>оператора + Mac Studio со сканером</p>
+    </div>
+    <div class="card" style="align-items:center;text-align:center;">
+      <div class="big-num" style="font-size:64px;">2–3</div>
+      <p>недели до полного комплекта ИД</p>
+    </div>
+  </div>
+  <div style="margin-top:56px; display:flex; gap:32px;">
+    <div class="card" style="flex:1;">
+      <h3>Услуга</h3>
+      <p style="font-size:24px;">Forensic-восстановление ИД под ключ на проблемных ОКС. Заказчик получает готовый к сдаче комплект документов по 344/пр.</p>
+    </div>
+    <div class="card" style="flex:1;">
+      <h3>Рынок</h3>
+      <p style="font-size:24px;">Объекты где зависли оплаты из-за хаоса в документации. Каждый такой объект — миллиардные риски для субподрядчика.</p>
+    </div>
+    <div class="card" style="flex:1;">
+      <h3>Конкурентное преимущество</h3>
+      <p style="font-size:24px;">7+1 агентов с forensic-проверками. Полный оффлайн. Ни один конкурент не имеет ИИ-аудита документов.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 7: Status ═══════════ -->
+<div class="slide">
+  <h2>Текущее состояние</h2>
+  <div class="grid4">
+    <div class="card" style="align-items:center;text-align:center;">
+      <div class="big-num accent">~40K</div>
+      <p>строк Python</p>
+    </div>
+    <div class="card" style="align-items:center;text-align:center;">
+      <div class="big-num green">244</div>
+      <p>теста (88.7% pass)</p>
+    </div>
+    <div class="card" style="align-items:center;text-align:center;">
+      <div class="big-num accent">E2E</div>
+      <p>forensic pipeline — PASS</p>
+    </div>
+    <div class="card" style="align-items:center;text-align:center;">
+      <div class="big-num">7+1</div>
+      <p>агентов реализовано</p>
+    </div>
+  </div>
+  <div style="margin-top:48px;">
+    <div class="label">ГОТОВО</div>
+    <div class="grid2" style="margin-top:16px;">
+      <div class="card">
+        <p style="font-size:20px;">✅ Ingestion Pipeline — сканы → OCR → классификация</p>
+        <p style="font-size:20px;">✅ Forensic KAG — NetworkX граф с 4 типами проверок</p>
+        <p style="font-size:20px;">✅ Guidance System — генерация задач операторам</p>
+        <p style="font-size:20px;">✅ PaddleOCR — PP-OCRv5, 109 языков</p>
+      </div>
+      <div class="card">
+        <p style="font-size:20px;">✅ Output Pipeline — генерация DOCX по 344/пр</p>
+        <p style="font-size:20px;">✅ HermesRouter — 3-стадийные решения</p>
+        <p style="font-size:20px;">✅ ИС-генератор — векторные чертежи с допусками</p>
+        <p style="font-size:20px;">✅ Lessons Learned — институциональная память</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 8: Roadmap ═══════════ -->
+<div class="slide">
+  <h2>Дорожная карта</h2>
+  <div class="grid3">
+    <div class="card" style="border-top:4px solid var(--accent);">
+      <div class="label accent">СЕЙЧАС</div>
+      <p style="font-size:20px;">E2E forensic pipeline</p>
+      <p style="font-size:20px;">7+1 агентов, 244 теста</p>
+      <p style="font-size:20px;">ИС + ППР + АОСР генераторы</p>
+    </div>
+    <div class="card" style="border-top:4px solid var(--high);">
+      <div class="label high-c">Q2 2026</div>
+      <p style="font-size:20px;">Telegram-интерфейс для 4 операторов</p>
+      <p style="font-size:20px;">Реальный PDF/JPEG ingestion</p>
+      <p style="font-size:20px;">Полный Output Pipeline (13 позиций по 344/пр)</p>
+    </div>
+    <div class="card" style="border-top:4px solid var(--green);">
+      <div class="label green">Q3 2026</div>
+      <p style="font-size:20px;">Mac Studio M5 Ultra — продакшен</p>
+      <p style="font-size:20px;">Первый пилотный объект</p>
+      <p style="font-size:20px;">Единый конвейер ИД (ИС + ППР + АОСР)</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SLIDE 9: Contact ═══════════ -->
+<div class="slide" style="align-items:center;text-align:center;">
+  <div class="label">MAC ASD v12.0</div>
+  <h1 style="margin-top:16px;">Готовы к<br>пилотному проекту</h1>
+  <p style="font-size:28px; margin-top:40px;">
+    Ищем проблемный ОКС для первого боевого развёртывания.<br>
+    Показываем forensic-конвейер на ваших документах.
+  </p>
+  <div style="margin-top:64px; display:flex; gap:64px;">
+    <div>
+      <div class="label">GitHub</div>
+      <div class="mono" style="font-size:26px;">yamazaki1711/mac_asd</div>
+    </div>
+    <div>
+      <div class="label">Стек</div>
+      <div class="mono" style="font-size:26px;">LangGraph · MLX · Ollama · PostgreSQL · NetworkX</div>
+    </div>
+  </div>
+</div>
+</div><!-- /stage -->
+
+<div id="controls">
+  <button onclick="prevSlide()" title="Previous">←</button>
+  <span id="slide-indicator">1 / 9</span>
+  <button onclick="nextSlide()" title="Next">→</button>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let current = parseInt(localStorage.getItem('deckSlide') || '0');
+function show(n) {
+  slides.forEach(s => s.classList.remove('active'));
+  slides[n].classList.add('active');
+  document.getElementById('slide-indicator').textContent = `${n+1} / ${total}`;
+  localStorage.setItem('deckSlide', n);
+}
+function nextSlide() { if (current < total-1) show(++current); }
+function prevSlide() { if (current > 0) show(--current); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); prevSlide(); }
+});
+function resize() {
+  const stage = document.getElementById('stage');
+  const scale = Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  stage.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', resize);
+show(current);
+resize();
+</script>
+</body>
+</html>
