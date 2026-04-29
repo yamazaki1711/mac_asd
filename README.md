@@ -16,7 +16,7 @@ export ASD_PROFILE=dev_linux    # или mac_studio
 
 # Тесты
 pip install -e ".[dev]"
-pytest tests/ -v                           # 244 passed, 88.7%
+pytest tests/ -v                           # 244 passed, 16 failed, 15 skipped
 
 # E2E forensic
 PYTHONPATH=. python tests/test_e2e_forensic.py
@@ -29,7 +29,7 @@ python -m mcp_servers.asd_core.server
 
 ### Агенты
 
-7 агентов на LangGraph StateGraph + Auditor (RedTeam). Все на Gemma 4 31B (одна копия в памяти на 5 агентов, 128K контекст). Оркестратор — Llama 3.3 70B.
+7 агентов на LangGraph StateGraph + Auditor (RedTeam). Продакшен-таргет: Gemma 4 31B (одна копия на 5 агентов, 128K контекст), оркестратор — Llama 3.3 70B. Разработка на Ollama с моделями, помещающимися в 8GB VRAM.
 
 | Агент | Модель | Задачи |
 |-------|--------|--------|
@@ -48,7 +48,7 @@ python -m mcp_servers.asd_core.server
 |--------|------|------------|
 | Ingestion Pipeline | `src/core/ingestion.py` | Сканы → OCR → классификация (18 типов) → извлечение сущностей |
 | Forensic KAG | `src/core/graph_service.py` | NetworkX-граф: документы → партии → сертификаты → АОСР |
-| Auditor | `src/core/auditor.py` | 4 forensic-проверки (batch coverage, certificate reuse, orphan certs, material spec) |
+| Auditor | `src/core/auditor.py` | Адверсариальный аудит: LLM ищет противоречия ГОСТ/СП в выводах агентов → APPROVED / NOTES / REJECT |
 | Output Pipeline | `src/core/output_pipeline.py` | Генерация DOCX по 344/пр (АОСР, Times New Roman 12pt, нумерация) |
 | Hybrid Classifier | `src/core/hybrid_classifier.py` | Классификация документов: keyword + LLM fallback + Guidance System |
 | PPR Generator | `src/core/services/ppr_generator/` | Генерация ППР: 6 ТТК + разделы ПЗ + графика + экспорт |
