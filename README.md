@@ -13,7 +13,7 @@
 
 ### 🔍 Forensic-конвейер (E2E: PASS ✅)
 ```
-Сканы (PDF/JPEG) → PaddleOCR → Classify (18 типов) → Extract (даты/партии/ГОСТ) 
+Сканы (PDF/JPEG) → OCR (PyMuPDF/rapidocr) → Classify (18 типов) → Extract (даты/партии/ГОСТ) 
 → NetworkX Knowledge Graph → Forensic Checks (4 типа) → Guidance (задачи оператору) 
 → Output Pipeline (DOCX по 344/пр)
 ```
@@ -43,15 +43,12 @@
 
 | Компонент | Файл | Назначение |
 |-----------|------|------------|
-| **Ingestion Pipeline** | `src/core/ingestion.py` | Сканы → OCR → Classify (18 типов) → Extract (regex) → Graph |
-| **PaddleOCR Adapter** | `src/core/paddle_ocr.py` | PP-OCRv5 (109 языков, +13% точность на русском) → rapidocr → tesseract |
+| **Ingestion Pipeline** | `src/core/ingestion.py` | Сканы → OCR (PyMuPDF/rapidocr) → Classify (18 типов) → Extract (regex) → Graph |
 | **Forensic KAG** | `src/core/graph_service.py` | NetworkX DiGraph: AOSR/Certificate/Batch/Supplier/TTN. 4 forensic checks |
 | **Auditor** | `src/core/auditor.py` | Batch coverage, certificate reuse, orphan certificates, material spec |
 | **Hybrid Classifier** | `src/core/hybrid_classifier.py` | Keyword-based (<1ms) + LLM fallback (90%+) для спорных документов |
 | **Guidance System** | `src/core/hybrid_classifier.py` | Задачи оператору из forensic-находок и inventory-пробелов |
 | **Output Pipeline** | `src/core/output_pipeline.py` | DOCX-генерация: АОСР по 344/пр, нумерация, Times New Roman 12pt |
-| **Context Manager** | `src/core/context_manager.py` | Per-agent 128K budget, auto-summarization |
-| **Agent Mailbox** | `src/core/agent_mailbox.py` | Gmail API: RFQ, incoming classification |
 | **HermesRouter** | `src/agents/hermes_router.py` | Гибридная 3-стадийная модель: scoring → LLM reasoning → veto |
 | **WorkTypeRegistry** | `src/agents/skills/common/` | SSOT: 20 видов работ → сметные/юридические/ФЕР маппинги |
 | **БЛС** | `traps/default_traps.yaml` | 58 ловушек в 10 категориях + pgvector RAG |
@@ -86,11 +83,8 @@ python -m mcp_servers.asd_core.server
 ✅ E2E Forensic Pipeline — PASS (2 CRITICAL findings)
 ✅ Ingestion Pipeline — OCR → Classify → Extract → Graph
 ✅ Hybrid Classifier — keyword + LLM fallback
-✅ PaddleOCR Adapter — PP-OCRv5 ready
 ✅ Output Pipeline — DOCX generation
 ✅ Guidance System — operator task generation
-✅ Context Manager — per-agent token budget
-✅ Agent Mailbox — Gmail RFQ builder
 ✅ Auditor — 4 forensic check types
 ✅ Юрист — БЛС, претензии, иски
 ✅ Сметчик — ФЕР/ТЕР, рентабельность
@@ -101,7 +95,7 @@ python -m mcp_servers.asd_core.server
 🔧 Закупщик/Логист — базовые workflow, требуют доработки
 🔲 Multi-user Telegram — Guidance → операторы (запланировано)
 🔲 Полный Output Pipeline — все 13 позиций по 344/пр (сейчас АОСР)
-🔲 Real PDF/JPEG ingestion — PaddleOCR интегрирован, ждёт боевых сканов
+🔲 Real PDF/JPEG ingestion — PaddleOCR PP-OCRv5 (запланировано)
 ```
 
 ---
@@ -241,10 +235,7 @@ mac_asd/
 │   │   ├── output_pipeline.py # Output Pipeline (DOCX генерация)
 │   │   ├── graph_service.py # NetworkX Forensic KAG
 │   │   ├── auditor.py       # Forensic-проверки (4 типа)
-│   │   ├── paddle_ocr.py    # PaddleOCR PP-OCRv5 адаптер
 │   │   ├── hybrid_classifier.py # HybridClassifier + GuidanceSystem
-│   │   ├── context_manager.py   # Per-agent 128K token budget
-│   │   ├── agent_mailbox.py     # Gmail RFQ builder
 │   │   ├── llm_engine.py        # MLX/Ollama интерфейс
 │   │   ├── backends/            # MLXBackend, OllamaBackend
 │   │   ├── services/            # pto_agent, smeta_agent, legal_documents...

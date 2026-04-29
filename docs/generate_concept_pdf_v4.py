@@ -449,7 +449,7 @@ def build_content():
         [Paragraph('SK_CONTEXT_SWITCH', TABLE_CELL_STYLE),
          Paragraph('Переключение между режимами: переход от поиска лотов к сопровождению строительства при подписании контракта. Сохраняет состояние для возможного отката.', TABLE_CELL_STYLE),
          Paragraph('Событие contract_signed / ks11_signed', TABLE_CELL_STYLE),
-         Paragraph('Переключение режима EventManager', TABLE_CELL_STYLE)],
+         Paragraph('Переключение режима StateGraph', TABLE_CELL_STYLE)],
         [Paragraph('SK_REFLECTION_TRIGGER', TABLE_CELL_STYLE),
          Paragraph('Инициация цикла рефлексии: по завершении пайплайна запускает reflection_node для анализа логов и оптимизации wiki-правил.', TABLE_CELL_STYLE),
          Paragraph('is_complete=True', TABLE_CELL_STYLE),
@@ -593,9 +593,9 @@ def build_content():
          Paragraph('Пустая страница PDF (scan)', TABLE_CELL_STYLE),
          Paragraph('Распознанный текст + структура + confidence + manual_review_flag', TABLE_CELL_STYLE)],
         [Paragraph('SK_VOLUME_COMPARE', TABLE_CELL_STYLE),
-         Paragraph('Сверка объемов: сравнение ВОР из тендера с фактическими объемами по актам КС-2. При критических расхождениях > 10% генерирует флаг для EventManager.', TABLE_CELL_STYLE),
+         Paragraph('Сверка объемов: сравнение ВОР из тендера с фактическими объемами по актам КС-2. При критических расхождениях > 10% генерирует флаг для StateGraph.', TABLE_CELL_STYLE),
          Paragraph('ВОР (из тендера) + КС-2 (факт)', TABLE_CELL_STYLE),
-         Paragraph('Отчет о расхождениях + flag для EventManager при >10%', TABLE_CELL_STYLE)],
+         Paragraph('Отчет о расхождениях + flag для StateGraph при >10%', TABLE_CELL_STYLE)],
         [Paragraph('SK_PHOTO_VERIFY', TABLE_CELL_STYLE),
          Paragraph('Сверка фотофиксации с актами выполненных работ: сравнение фотоотчёта с позициями КС-2, проверка соответствия заявленных и визуально подтверждённых объёмов.', TABLE_CELL_STYLE),
          Paragraph('Фотоотчёт (base64) + КС-2 данные', TABLE_CELL_STYLE),
@@ -1006,7 +1006,7 @@ def build_content():
     story.append(p(
         'Режим сопровождения строительства активируется после подписания контракта и охватывает '
         'все этапы реализации проекта: от контроля выполнения объемов работ до генерации '
-        'исполнительной документации и претензионной работы. Данный режим управляется EventManager, '
+        'исполнительной документации и претензионной работы. Данный режим управляется StateGraph, '
         'который отслеживает события (подписание актов, наступление сроков оплаты, выявление '
         'дефектов) и инициирует соответствующие действия агентов. Строительный процесс следует '
         'установленному порядку: от получения разрешения на строительство до ввода объекта в '
@@ -1023,7 +1023,7 @@ def build_content():
          Paragraph('<b>Участники</b>', TABLE_HEADER_STYLE),
          Paragraph('<b>Выход</b>', TABLE_HEADER_STYLE)],
         [Paragraph('Контроль объемов', TABLE_CELL_STYLE),
-         Paragraph('EventManager (событие КС-2)', TABLE_CELL_STYLE),
+         Paragraph('StateGraph (событие КС-2)', TABLE_CELL_STYLE),
          Paragraph('ПТО, Сметчик', TABLE_CELL_STYLE),
          Paragraph('Отчет о расхождениях ВОР/КС-2 + flag при >10%', TABLE_CELL_STYLE)],
         [Paragraph('Формирование КС-2/КС-3', TABLE_CELL_STYLE),
@@ -1031,7 +1031,7 @@ def build_content():
          Paragraph('Сметчик, Делопроизводитель', TABLE_CELL_STYLE),
          Paragraph('Акты КС-2/КС-3 (DOCX/PDF)', TABLE_CELL_STYLE)],
         [Paragraph('Контроль оплаты', TABLE_CELL_STYLE),
-         Paragraph('EventManager (срок оплаты)', TABLE_CELL_STYLE),
+         Paragraph('StateGraph (срок оплаты)', TABLE_CELL_STYLE),
          Paragraph('Hermes, Юрист', TABLE_CELL_STYLE),
          Paragraph('Эскалационная лестница: напоминание -> претензия -> арбитраж', TABLE_CELL_STYLE)],
         [Paragraph('Претензионная работа', TABLE_CELL_STYLE),
@@ -1051,7 +1051,7 @@ def build_content():
          Paragraph('Юрист', TABLE_CELL_STYLE),
          Paragraph('Протокол (DOCX) + расчёт последствий отклонения', TABLE_CELL_STYLE)],
         [Paragraph('Авансовые платежи', TABLE_CELL_STYLE),
-         Paragraph('EventManager (условие контракта)', TABLE_CELL_STYLE),
+         Paragraph('StateGraph (условие контракта)', TABLE_CELL_STYLE),
          Paragraph('Сметчик, Делопроизводитель', TABLE_CELL_STYLE),
          Paragraph('Счёт на аванс + контроль поступления', TABLE_CELL_STYLE)],
         [Paragraph('Сбор сертификатов', TABLE_CELL_STYLE),
@@ -1069,7 +1069,7 @@ def build_content():
 
     story.append(p(
         'Эскалационная лестница для неоплаченных счетов работает автоматически: при наступлении '
-        'срока оплаты EventManager фиксирует событие и инициирует первое напоминание через '
+        'срока оплаты StateGraph фиксирует событие и инициирует первое напоминание через '
         'Делопроизводителя. Если оплата не поступает в течение 7 рабочих дней, отправляется '
         'второе напоминание с указанием сроков ответа. Третье напоминание сопровождается '
         'уведомлением о возможном применении штрафных санкций. Если после трёх напоминаний '
@@ -1077,7 +1077,7 @@ def build_content():
         'неустойки. При отклонении претензии или отсутствии ответа в течение 30 дней система '
         'рекомендует подачу иска в арбитражный суд через SK_ARBITRAGE_SEARCH для поиска '
         'аналогичных дел. Авансовые платежи обрабатываются аналогично: Сметчик рассчитывает '
-        'сумму аванса, Делопроизводитель формирует счёт, а EventManager отслеживает поступление.'
+        'сумму аванса, Делопроизводитель формирует счёт, а StateGraph отслеживает поступление.'
     ))
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -1456,7 +1456,7 @@ def build_content():
          Paragraph('Все', TABLE_CELL_STYLE),
          Paragraph('Планируется', TABLE_CELL_STYLE)],
         [Paragraph('P10', TABLE_CELL_CENTER),
-         Paragraph('Workflow сопровождения: EventManager, эскалационная лестница, авансовые платежи, сертификаты', TABLE_CELL_STYLE),
+         Paragraph('Workflow сопровождения: StateGraph, эскалационная лестница, авансовые платежи, сертификаты', TABLE_CELL_STYLE),
          Paragraph('Все', TABLE_CELL_STYLE),
          Paragraph('Планируется', TABLE_CELL_STYLE)],
         [Paragraph('P11', TABLE_CELL_CENTER),

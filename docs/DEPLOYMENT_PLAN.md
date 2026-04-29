@@ -320,13 +320,13 @@ MLX обеспечивает нативную производительност
 
   ```bash
   sudo -u $(whoami) createuser --createdb asd_user
-  sudo -u $(whoami) createdb -O asd_user asd_v11
+  sudo -u $(whoami) createdb -O asd_user asd_v12
   ```
 
 - [ ] Подключиться
 
   ```bash
-  psql -U asd_user -d asd_v11
+  psql -U asd_user -d asd_v12
   ```
 
 - [ ] Включить расширения
@@ -347,7 +347,7 @@ MLX обеспечивает нативную производительност
 - [ ] Создать таблицы (по DATA_SCHEMA.md)
 
   ```bash
-  psql -U asd_user -d asd_v11 -f scripts/create_schema.sql
+  psql -U asd_user -d asd_v12 -f scripts/create_schema.sql
   ```
 
   Или через Alembic:
@@ -368,7 +368,7 @@ MLX обеспечивает нативную производительност
 
 - [ ] Сидинг данных для Логиста (Поставщики, Каталог ТМЦ)
   ```bash
-  python src/db/seed_logistics.py
+  # seed_logistics удалён — данные загружаются через Procurement Agent
   ```
 
 ---
@@ -427,7 +427,7 @@ MLX обеспечивает нативную производительност
   # Database
   DB_HOST = "localhost"
   DB_PORT = 5432
-  DB_NAME = "asd_v11"
+  DB_NAME = "asd_v12"
   DB_USER = "asd_user"
   DB_PASSWORD = ""
 
@@ -491,7 +491,7 @@ MLX обеспечивает нативную производительност
   ```bash
   python -c "
   import sqlalchemy as sa
-  engine = sa.create_engine('postgresql://asd_user@localhost/asd_v11')
+  engine = sa.create_engine('postgresql://asd_user@localhost/asd_v12')
   with engine.connect() as conn:
       result = conn.execute(sa.text('SELECT 1'))
       print('PostgreSQL подключён:', result.scalar())
@@ -571,7 +571,7 @@ MLX обеспечивает нативную производительност
       env:
         ASD_OLLAMA_URL: "http://localhost:11434"
         ASD_DB_HOST: "localhost"
-        ASD_DB_NAME: "asd_v11"
+        ASD_DB_NAME: "asd_v12"
         ASD_PROFILE: "mac_studio"
         ASD_PRIMARY_MODEL: "gemma4-31b"
         ASD_PM_MODEL: "llama-3.3-70b"
@@ -642,7 +642,7 @@ MLX обеспечивает нативную производительност
 - [ ] Настроить параллелизм Map-Reduce (количество чанков, concurrent map)
 - [ ] Настроить батчинг embeddings (bge-m3 batch size)
 - [ ] Проверить время ответа каждого инструмента
-- [ ] Оптимизировать on-demand загрузку minicpm-v (время холодного старта)
+- [ ] Оптимизировать on-demand загрузку Gemma 4 31B VLM (время холодного старта)
 
 ### 9.2. Память
 
@@ -672,7 +672,7 @@ MLX обеспечивает нативную производительност
 - [ ] Настроить бэкап PostgreSQL
 
   ```bash
-  pg_dump -U asd_user asd_v11 > backup_$(date +%Y%m%d).sql
+  pg_dump -U asd_user asd_v12 > backup_$(date +%Y%m%d).sql
   ```
 
 - [ ] Настроить бэкап файловой системы
@@ -756,7 +756,7 @@ brew services restart postgresql@16
 
 ```bash
 brew reinstall pgvector
-psql -d asd_v11 -c "CREATE EXTENSION vector;"
+psql -d asd_v12 -c "CREATE EXTENSION vector;"
 ```
 
 ### Модели MLX не загружаются (медленный интернет)

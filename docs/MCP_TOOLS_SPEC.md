@@ -841,7 +841,7 @@
     "database": {
       "status": "connected",
       "host": "localhost",
-      "name": "asd_v11",
+      "name": "asd_v12",
       "documents": 156,
       "chunks": 5928,
       "traps": 58
@@ -928,7 +928,7 @@
 
 ### 8.2. asd_add_price_list
 
-**Описание:** Загрузка и парсинг прайс-листа поставщика. Поддерживает PDF, Excel, DOCX форматы. Для сканов автоматически вызывается OCR-конвейер (pytesseract → minicpm-v).
+**Описание:** Загрузка и парсинг прайс-листа поставщика. Поддерживает PDF, Excel, DOCX форматы. Для сканов автоматически вызывается OCR-конвейер (pytesseract → Gemma 4 31B VLM).
 
 ---
 
@@ -978,7 +978,7 @@
 | Закупщик | Gemma 4 31B 4-bit | `default_profile` |
 | Логист | Gemma 4 31B 4-bit | `default_profile` |
 | Делопроизводитель | Gemma 4 31B 4-bit | `default_profile` |
-| Vision (on-demand) | minicpm-v | `vision_profile` |
+| Vision (on-demand) | Gemma 4 31B VLM | `vision_profile` |
 | Embeddings | bge-m3 | `embed_profile` |
 
 LLMEngine обеспечивает поддержку профилей (dev_linux/mac_studio), разделяемую память для Gemma 4 31B и автоматический fallback при недоступности модели.
@@ -1074,4 +1074,4 @@ LLMEngine обеспечивает поддержку профилей (dev_linu
 
 ---
 
-Документ актуализирован для АСД v12.0 (20 апреля 2026). Спецификации инструментов используются при реализации MCP-тулов в Packages 2-10. Все агенты используют Gemma 4 31B через разделяемую память LLMEngine; Руководитель проекта использует Llama 3.3 70B. Визионный анализ выполняется minicpm-v по требованию.
+Документ актуализирован для АСД v12.0 (20 апреля 2026). Спецификации инструментов используются при реализации MCP-тулов в Packages 2-10. Все агенты используют Gemma 4 31B через разделяемую память LLMEngine; Руководитель проекта использует Llama 3.3 70B. Визионный анализ выполняется Gemma 4 31B VLM по требованию.

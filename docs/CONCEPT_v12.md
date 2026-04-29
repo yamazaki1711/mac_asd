@@ -22,7 +22,7 @@
 | **ИС-чертежи** | IS Generator: 2 пути (DWG→DXF→SVG→PDF + PDF-overlay), ezdxf + cairosvg + ODA File Converter |
 | **Кэш** | In-process cache (cachetools) — Redis удалён |
 | **Миграции БД** | Alembic (вместо create_all) |
-| **MCP** | v12.0.0 (69+ инструментов) |
+| **MCP** | v12.0.0 (66+ инструментов) |
 | **Философия** | Полностью локальная, оффлайн, автономная — мобильный офис антикризисного управления ИД |
 
 ---
@@ -149,7 +149,7 @@
 
 | # | Инструмент | Описание | Статус |
 |---|-----------|----------|--------|
-| 1 | `asd_upload_document` | Загрузка + парсинг документа (PDF → текст через PyMuPDF или pytesseract/minicpm-v для сканов) | ✅ Реализован |
+| 1 | `asd_upload_document` | Загрузка + парсинг документа (PDF → текст через PyMuPDF или pytesseract/Gemma 4 31B VLM для сканов) | ✅ Реализован |
 | 2 | `asd_analyze_contract` | Юридическая экспертиза договора (БЛС 58 ловушек в 10 категориях + полный анализ в 128K контексте + Quick Review для коротких + RAG) | ✅ Реализован |
 | 3 | `asd_normative_search` | Поиск по нормативной базе (Graph+Vector через LightRAG — pgvector + NetworkX + RRF) | 🔲 В очереди |
 | 4 | `asd_generate_protocol` | Протокол разногласий в формате DOCX с полными реквизитами сторон через ProtocolPartyInfo | ✅ Реализован |
@@ -945,7 +945,7 @@ bge-m3-mlx-4bit embeddings (MLX, 1024 dim)
 
 ### Фаза 3: Парсинг и данные (Package 3 — в очереди)
 
-- [ ] ParserEngine (PDF → текст через PyMuPDF, OCR через pytesseract/minicpm-v)
+- [ ] ParserEngine (PDF → текст через PyMuPDF, OCR через pytesseract/Gemma 4 31B VLM)
 - [ ] Настройка PostgreSQL 16 (pgvector, pg_trgm, схемы таблиц)
 - [ ] RAG (Vector+Graph) адаптация (bge-m3-mlx-4bit embeddings через MLX)
 - [ ] NetworkX граф нормативных связей (ГК РФ, 344/пр, СНиП/СП)

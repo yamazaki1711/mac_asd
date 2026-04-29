@@ -428,7 +428,7 @@ def build_content():
         [Paragraph('SK_CONTEXT_SWITCH', TABLE_CELL_STYLE),
          Paragraph('Переключение между режимами: переход от поиска лотов к сопровождению строительства при подписании контракта.', TABLE_CELL_STYLE),
          Paragraph('Событие contract_signed / ks11_signed', TABLE_CELL_STYLE),
-         Paragraph('Переключение режима EventManager', TABLE_CELL_STYLE)],
+         Paragraph('Переключение режима StateGraph', TABLE_CELL_STYLE)],
         [Paragraph('SK_REFLECTION_TRIGGER', TABLE_CELL_STYLE),
          Paragraph('Инициация цикла рефлексии: по завершении пайплайна запускает reflection_node для анализа логов и оптимизации wiki-правил.', TABLE_CELL_STYLE),
          Paragraph('is_complete=True', TABLE_CELL_STYLE),
@@ -845,7 +845,7 @@ def build_content():
     story.append(p(
         'Режим сопровождения строительства активируется после подписания контракта и охватывает '
         'все этапы реализации проекта: от контроля выполнения объемов работ до генерации '
-        'исполнительной документации и претензионной работы. Данный режим управляется EventManager, '
+        'исполнительной документации и претензионной работы. Данный режим управляется StateGraph, '
         'который отслеживает события (подписание актов, наступление сроков оплаты, выявление '
         'дефектов) и инициирует соответствующие действия агентов. Строительный процесс следует '
         'установленному порядку: от получения разрешения на строительство до ввода объекта в '
@@ -860,7 +860,7 @@ def build_content():
          Paragraph('<b>Участники</b>', TABLE_HEADER_STYLE),
          Paragraph('<b>Выход</b>', TABLE_HEADER_STYLE)],
         [Paragraph('Контроль объемов', TABLE_CELL_STYLE),
-         Paragraph('EventManager (событие КС-2)', TABLE_CELL_STYLE),
+         Paragraph('StateGraph (событие КС-2)', TABLE_CELL_STYLE),
          Paragraph('ПТО, Сметчик', TABLE_CELL_STYLE),
          Paragraph('Отчет о расхождениях ВОР/КС-2', TABLE_CELL_STYLE)],
         [Paragraph('Формирование КС-2/КС-3', TABLE_CELL_STYLE),
@@ -868,7 +868,7 @@ def build_content():
          Paragraph('Сметчик, Делопроизводитель', TABLE_CELL_STYLE),
          Paragraph('Акты КС-2/КС-3 (DOCX/PDF)', TABLE_CELL_STYLE)],
         [Paragraph('Контроль оплаты', TABLE_CELL_STYLE),
-         Paragraph('EventManager (срок оплаты)', TABLE_CELL_STYLE),
+         Paragraph('StateGraph (срок оплаты)', TABLE_CELL_STYLE),
          Paragraph('Hermes, Юрист', TABLE_CELL_STYLE),
          Paragraph('Напоминание / претензия', TABLE_CELL_STYLE)],
         [Paragraph('Претензионная работа', TABLE_CELL_STYLE),
@@ -997,7 +997,7 @@ def build_content():
          Paragraph('Все', TABLE_CELL_STYLE),
          Paragraph('Планируется', TABLE_CELL_STYLE)],
         [Paragraph('P9', TABLE_CELL_CENTER),
-         Paragraph('Workflow сопровождения: EventManager, претензии, ИД', TABLE_CELL_STYLE),
+         Paragraph('Workflow сопровождения: StateGraph, претензии, ИД', TABLE_CELL_STYLE),
          Paragraph('Все', TABLE_CELL_STYLE),
          Paragraph('Планируется', TABLE_CELL_STYLE)],
         [Paragraph('P10', TABLE_CELL_CENTER),
