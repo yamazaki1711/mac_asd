@@ -1190,12 +1190,15 @@ class ProjectManager:
             for tid, changes in modified.items():
                 for task in plan.tasks:
                     if task.task_id == tid:
-                        if "depends_on" in changes:
-                            task.depends_on = changes["depends_on"]
-                        if "priority" in changes:
-                            task.priority = changes["priority"]
-                        if "agent" in changes:
-                            task.agent = changes["agent"]
+                        if isinstance(changes, dict):
+                            if "depends_on" in changes:
+                                task.depends_on = changes["depends_on"]
+                            if "priority" in changes:
+                                task.priority = changes["priority"]
+                            if "agent" in changes:
+                                task.agent = changes["agent"]
+                        elif isinstance(changes, (int, float)):
+                            task.priority = int(changes)
                         if task.status == TaskStatus.FAILED.value:
                             task.status = TaskStatus.PENDING.value
                             task.retry_count = 0

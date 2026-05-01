@@ -34,6 +34,9 @@ from src.agents.nodes import (
     delo_registry_node,
     procurement_analyze_node,
     logistics_plan_node,
+    legal_protocol_node,
+    legal_claim_node,
+    legal_lawsuit_node,
     _safe_agent_chat,
     _compute_agent_confidence,
     _get_lessons_context,
@@ -91,6 +94,9 @@ AGENT_NODE_MAP = {
     "procurement_analyze": procurement_analyze_node,
     "logistics_plan": logistics_plan_node,
     "legal": legal_node,
+    "legal_protocol": legal_protocol_node,
+    "legal_claim": legal_claim_node,
+    "legal_lawsuit": legal_lawsuit_node,
     "logistics": logistics_node,
 }
 

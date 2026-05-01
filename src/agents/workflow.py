@@ -40,6 +40,7 @@ ALL_AGENT_KEYS = [
     "archive", "procurement", "pto", "pto_inventory", "pto_verify_trail",
     "smeta", "smeta_estimate", "smeta_compare", "delo",
     "procurement_analyze", "logistics_plan", "legal", "logistics",
+    "legal_protocol", "legal_claim", "legal_lawsuit",
 ]
 
 # Conditional edge map for sequential dispatch

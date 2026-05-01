@@ -1316,17 +1316,3 @@ async def logistics_plan_node(state: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         logger.error("Logistics planning failed: %s", e)
         return {"intermediate_data": {**intermediate, "logistics_error": str(e)}, "next_step": "logistics"}
-
-
-# =============================================================================
-# Reflection Node
-# =============================================================================
-
-from src.agents.reflection_node import run_reflection_cycle
-
-
-async def reflection_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Узел Рефлексии (Обучения). Срабатывает в конце конвейера."""
-    logger.info("Self-Optimization Loop Starting")
-    await run_reflection_cycle()
-    return {"is_complete": True}
