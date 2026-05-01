@@ -19,6 +19,12 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from src.core.llm_engine import llm_engine
+from src.core.exceptions import (
+    LLMUnavailableError,
+    LLMResponseError,
+    NetworkError,
+    DocumentParseError,
+)
 from src.core.pm_agent import (
     compute_weighted_score,
     check_veto_rules,
@@ -58,8 +64,8 @@ Session = sessionmaker(bind=engine)
 async def _safe_agent_chat(
     agent: str,
     messages: List,
-    fallback_response: str,
     state: Dict[str, Any],
+    fallback_response: str = "{}",
     **kwargs,
 ) -> str:
     """
@@ -71,9 +77,19 @@ async def _safe_agent_chat(
     try:
         response = await llm_engine.chat(agent, messages, **kwargs)
         return response
-    except Exception as e:
+    except (LLMUnavailableError, NetworkError) as e:
         logger.warning(
-            "LLM fallback triggered for agent %s: %s. Using fallback response.", 
+            "LLM unavailable for agent %s: %s. Using fallback response.",
+            agent, str(e)
+        )
+        state["_llm_fallback_triggered"] = True
+        fallback_agents = state.setdefault("_llm_fallback_agents", [])
+        if agent not in fallback_agents:
+            fallback_agents.append(agent)
+        return fallback_response
+    except Exception as e:
+        logger.error(
+            "Unexpected error in agent %s: %s. Using fallback response.",
             agent, str(e)
         )
         state["_llm_fallback_triggered"] = True
@@ -206,6 +222,9 @@ async def _get_rag_context(
         if context:
             logger.info("RAG context injected for %s: %d chars", agent_name, len(context))
         return context
+    except (LLMUnavailableError, NetworkError) as e:
+        logger.warning("RAG context unavailable for %s: %s", agent_name, e)
+        return ""
     except Exception as e:
         logger.warning("RAG context failed for %s: %s", agent_name, e)
         return ""
@@ -240,6 +259,9 @@ async def _get_lessons_context(
         if context:
             logger.info(f"Lessons injected for {agent_name}: {len(context)} chars")
         return context
+    except (LLMUnavailableError, NetworkError) as e:
+        logger.warning(f"Lessons unavailable for {agent_name}: {e}")
+        return ""
     except Exception as e:
         logger.warning(f"Failed to inject lessons context for {agent_name}: {e}")
         return ""
@@ -258,7 +280,12 @@ def _extract_work_type(state: Dict[str, Any]) -> str:
 
 async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    PM orchestrator node — routes pipeline and computes verdict.
+    [DEPRECATED] Legacy static router — superseded by PM-driven nodes_v2.
+
+    This node uses a static routing map (archive→procurement→pto→smeta→legal→logistics)
+    instead of the dynamic WorkPlan/TaskNode dispatch in pm_dispatch_router.
+
+    Use pm_planning_node + pm_fan_out_router from nodes_v2.py instead.
 
     v12.0: Uses PM Agent logic (merged from HermesRouter):
       1. Weighted scoring (agent weights: Legal 0.35, Smeta 0.25, PTO 0.20, Procurement 0.12, Logistics 0.08)
@@ -268,7 +295,12 @@ async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
     Pipeline flow:
       start -> archive -> procurement -> pto -> smeta -> legal -> logistics -> verdict
     """
-    logger.info("PM Orchestrator Router (v12.0)")
+    import warnings
+    warnings.warn(
+        "hermes_node is deprecated. Use pm_planning_node + pm_fan_out_router from nodes_v2.py",
+        DeprecationWarning, stacklevel=2,
+    )
+    logger.info("PM Orchestrator Router (v12.0) — DEPRECATED")
     next_step = state.get("next_step", "start")
 
     # Simple routing map for pipeline flow
@@ -333,7 +365,7 @@ async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 "current_step": "verdict",
                 "hermes_decision": verdict,
             }
-        except Exception as e:
+        except (LLMUnavailableError, ValueError, KeyError) as e:
             logger.error(f"PM verdict computation failed: {e}")
             return {
                 "next_step": "complete",
@@ -429,7 +461,7 @@ async def archive_ingest_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 },
                 "next_step": "archive",
             }
-    except Exception as e:
+    except (DocumentParseError, OSError, ValueError) as e:
         logger.error("Archive Ingest failed: %s", e)
 
     return {"next_step": "archive"}

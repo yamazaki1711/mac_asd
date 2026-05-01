@@ -39,6 +39,11 @@ from src.agents.nodes import (
     _get_lessons_context,
     _extract_work_type,
 )
+from src.core.exceptions import (
+    LLMUnavailableError,
+    LLMResponseError,
+    NetworkError,
+)
 from src.agents.state import (
     AgentState,
     StepLog,
@@ -199,6 +204,18 @@ async def agent_executor_node(state: AgentState) -> Dict[str, Any]:
 
     try:
         result = await node_func(state)
+    except (LLMUnavailableError, NetworkError) as e:
+        logger.error("Agent %s unavailable: %s", agent_name, e)
+        ram_manager.register_task_end(agent_name)
+        state["task_description"] = original_task
+        fail_step(state, step_id, str(e))
+        return {
+            "next_step": "pm_evaluate",
+            "intermediate_data": {
+                **state.get("intermediate_data", {}),
+                f"{agent_name}_error": str(e),
+            },
+        }
     except Exception as e:
         logger.error("Agent %s failed: %s", agent_name, e)
         ram_manager.register_task_end(agent_name)
@@ -539,6 +556,19 @@ async def agent_worker_node(state: AgentState) -> Dict[str, Any]:
 
     try:
         result = await node_func(state)
+    except (LLMUnavailableError, NetworkError) as e:
+        logger.error("Worker %s unavailable: %s", agent_name, e)
+        ram_manager.register_task_end(agent_name)
+        fail_step(state, step_id, str(e))
+        return {
+            "parallel_results": [{
+                "agent": agent_name,
+                "task_id": task_id,
+                "task_type": state.get("task_type", ""),
+                "error": str(e),
+                "parallel_index": parallel_index,
+            }]
+        }
     except Exception as e:
         logger.error("Worker %s failed: %s", agent_name, e)
         ram_manager.register_task_end(agent_name)

@@ -88,7 +88,10 @@ def create_parallel_workflow():
 
 def create_sequential_workflow():
     """
-    Create legacy PM-driven graph (one agent at a time).
+    [DEPRECATED] Legacy PM-driven graph (one agent at a time).
+
+    Superseded by create_parallel_workflow() with Send() fan-out.
+    Kept for backward-compatible testing and debugging.
 
     Used when:
     - RAM is under pressure (CRITICAL → sequential forced)
@@ -122,4 +125,5 @@ def create_sequential_workflow():
 
 # Compiled graph instances
 asd_app = create_parallel_workflow()
+# [DEPRECATED] Legacy sequential graph — use asd_app (parallel) instead
 asd_app_sequential = create_sequential_workflow()
