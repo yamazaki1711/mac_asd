@@ -19,8 +19,17 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from src.core.llm_engine import llm_engine
-from src.agents.hermes_router import HermesRouter
-from src.schemas.verdict import TenderVerdict
+from src.core.pm_agent import (
+    compute_weighted_score,
+    check_veto_rules,
+    extract_legal_signal,
+    extract_smeta_signal,
+    extract_pto_signal,
+    extract_procurement_signal,
+    extract_logistics_signal,
+    calculate_risk_level,
+    DEFAULT_VETO_RULES,
+)
 import docx
 import fitz  # PyMuPDF
 import os
@@ -38,9 +47,8 @@ from src.core.rag_pipeline import rag_pipeline
 engine = create_engine(settings.database_url)
 Session = sessionmaker(bind=engine)
 
-# Module-level HermesRouter instance (weighted scoring + veto rules)
-# v12.0: llm_engine передан для LLM-рассуждения в серой зоне (0.3–0.7)
-_hermes_router = HermesRouter(llm_engine=llm_engine)
+# Orchestrator logic merged into pm_agent.py — ProjectManager handles
+# weighted scoring + veto rules + LLM reasoning via PM Agent.
 
 
 # =============================================================================
@@ -245,22 +253,22 @@ def _extract_work_type(state: Dict[str, Any]) -> str:
 
 
 # =============================================================================
-# Hermes — Orchestrator Router (v12.0: HermesRouter integration)
+# PM Orchestrator Node — routing + verdict (v12.0: merged from HermesRouter)
 # =============================================================================
 
 async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Hermes orchestrator node — routes pipeline and computes verdict.
+    PM orchestrator node — routes pipeline and computes verdict.
 
-    v12.0: Uses HermesRouter with hybrid 3-stage decision model:
+    v12.0: Uses PM Agent logic (merged from HermesRouter):
       1. Weighted scoring (agent weights: Legal 0.35, Smeta 0.25, PTO 0.20, Procurement 0.12, Logistics 0.08)
       2. LLM reasoning for grey zone (0.3–0.7)
-      3. Veto rules (legal DANGEROUS, margin<10%, critical_traps≥3, НМЦК<70%)
+      3. Veto rules (legal DANGEROUS, margin<10%, critical_traps>=3, НМЦК<70%)
 
     Pipeline flow:
-      start → archive → procurement → pto → smeta → legal → logistics → verdict
+      start -> archive -> procurement -> pto -> smeta -> legal -> logistics -> verdict
     """
-    logger.info("Hermes Orchestrator Router (v12.0)")
+    logger.info("PM Orchestrator Router (v12.0)")
     next_step = state.get("next_step", "start")
 
     # Simple routing map for pipeline flow
@@ -274,38 +282,64 @@ async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     if next_step in routing_map:
-        # Normal pipeline flow
         return {
             "next_step": routing_map[next_step],
             "current_step": next_step,
         }
     elif next_step == "logistics":
-        # All agents done → compute verdict via HermesRouter
-        
-        # Check if any LLM fallbacks occurred during the pipeline
+        # All agents done -> compute verdict via weighted scoring + veto rules
+
         if state.get("_llm_fallback_triggered"):
             fallback_agents = state.get("_llm_fallback_agents", [])
             logger.warning(
                 "LLM fallback detected for agents: %s. Verdict may be unreliable.",
                 ", ".join(fallback_agents),
             )
-        
+
         try:
-            decision = await _hermes_router.decide(state)
+            # Collect signals from all agents
+            signals = [
+                extract_legal_signal(state),
+                extract_smeta_signal(state),
+                extract_pto_signal(state),
+                extract_procurement_signal(state),
+                extract_logistics_signal(state),
+            ]
+            scoring = compute_weighted_score(signals)
+            veto_id, veto_rules = check_veto_rules(state, DEFAULT_VETO_RULES)
+            risk_level = calculate_risk_level(state, scoring)
+
+            verdict = {
+                "weighted_score": scoring.normalized_score,
+                "zone": scoring.zone,
+                "risk_level": risk_level.value if risk_level else "unknown",
+                "veto_triggered": veto_id,
+                "agent_signals": {s.agent_name: s.signal for s in signals},
+                "agent_contributions": scoring.agent_contributions,
+            }
+
+            if veto_id:
+                logger.warning("VETO triggered: %s — forcing no_go", veto_id)
+                verdict["verdict"] = "no_go"
+            elif scoring.zone == "go_zone":
+                verdict["verdict"] = "go"
+            elif scoring.zone == "no_go_zone":
+                verdict["verdict"] = "no_go"
+            else:
+                verdict["verdict"] = "grey_zone"
+
             return {
                 "next_step": "complete",
                 "current_step": "verdict",
-                "hermes_decision": decision,
+                "hermes_decision": verdict,
             }
         except Exception as e:
-            logger.error(f"HermesRouter.decide() failed: {e}")
-            # Fallback: if HermesRouter fails, continue without verdict
+            logger.error(f"PM verdict computation failed: {e}")
             return {
                 "next_step": "complete",
                 "current_step": "verdict_fallback",
             }
     else:
-        # Unknown step → complete
         return {"next_step": "complete", "is_complete": True}
 
 
@@ -468,7 +502,7 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
     lessons = await _get_lessons_context("ПТО", state['task_description'], work_type)
     # v12.0: RAG-контекст из документов проекта
     project_id = state.get("project_id")
-    rag_ctx = await _get_rag_context("pto", state['task_description'], project_id)
+    rag_ctx = await _get_rag_context("pto", state['task_description'], project_id, include_traps=True)
     
     prompt = (
         f"Инструкции:\n{rules}\n\n"
@@ -578,7 +612,7 @@ async def smeta_node(state: Dict[str, Any]) -> Dict[str, Any]:
     lessons = await _get_lessons_context("Сметчик", state['task_description'], work_type)
     # v12.0: RAG-контекст
     project_id = state.get("project_id")
-    rag_ctx = await _get_rag_context("smeta", state['task_description'], project_id)
+    rag_ctx = await _get_rag_context("smeta", state['task_description'], project_id, include_traps=True)
 
     prompt = (
         f"Инструкции:\n{rules}\n\n"

@@ -33,7 +33,7 @@ python -m mcp_servers.asd_core.server
 
 | Агент | Модель | Задачи |
 |-------|--------|--------|
-| Руководитель проекта | Llama 3.3 70B | Оркестрация, HermesRouter (weighted scoring → LLM reasoning → veto) |
+| Руководитель проекта | Llama 3.3 70B | Оркестрация, PM Agent (weighted scoring → LLM reasoning → veto) |
 | ПТО | Gemma 4 31B VLM | ВОР, чертежи, спецификации, OCR, 20 видов работ |
 | Юрист | Gemma 4 31B | БЛС (58 ловушек), контракты, претензии, иски |
 | Сметчик | Gemma 4 31B | ФЕР/ТЕР, НМЦК, рентабельность, КС-2/КС-3 |
@@ -53,7 +53,7 @@ python -m mcp_servers.asd_core.server
 | Hybrid Classifier | `src/core/hybrid_classifier.py` | Классификация документов: keyword + LLM fallback + Guidance System |
 | PPR Generator | `src/core/services/ppr_generator/` | Генерация ППР: 6 ТТК + разделы ПЗ + графика + экспорт |
 | ИС Generator | `src/core/services/is_generator/` | Исполнительные схемы: DXF-аннотации, допуски СП 126, SVG/PDF |
-| HermesRouter | `src/agents/hermes_router.py` | Принятие решений: scoring → reasoning → veto |
+| PM Agent | `src/core/pm_agent.py` | Принятие решений: weighted scoring → LLM reasoning → veto, оркестрация агентов |
 | AgentState v2.0 | `src/agents/state.py` | Состояние конвейера: audit trail, confidence, rollback |
 | LLMEngine | `src/core/llm_engine.py` | Единый интерфейс к MLX/Ollama |
 | WorkTypeRegistry | `src/agents/skills/common/` | SSOT: 20 видов работ → маппинги (сметные, юридические, ФЕР) |
@@ -96,7 +96,6 @@ python -m mcp_servers.asd_core.server
 ```
 src/
 ├── agents/          # LangGraph: граф (workflow.py), узлы (nodes.py), состояние (state.py)
-│   ├── hermes_router.py
 │   └── skills/      # WorkTypeRegistry, work_spec, contract_risks, rate_lookup
 ├── core/
 │   ├── ingestion.py, output_pipeline.py    # Пайплайны

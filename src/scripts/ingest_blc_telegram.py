@@ -27,7 +27,7 @@ from typing import Dict, Any, Optional, List
 import yaml
 from sqlalchemy.orm import Session
 from src.db.init_db import SessionLocal
-from src.db.models import LegalTrap
+from src.db.models import DomainTrap, LegalTrap
 from src.core.llm_engine import llm_engine
 
 logging.basicConfig(level=logging.INFO)
@@ -111,6 +111,49 @@ class ChannelCatalog:
             cat_info = self.categories.get(cat, {})
             return cat_info.get("default_weight", 0.5)
         return 0.3
+
+    def get_domain(self, channel_name: str) -> str:
+        """Возвращает домен канала (из поля domain, по категории, или из categories)."""
+        info = self.lookup(channel_name)
+        if info:
+            domain = info.get("domain")
+            if domain:
+                return domain
+            # Fallback 1: derive from category prefix
+            cat = info.get("category", "")
+            for prefix in ("legal", "pto", "smeta", "logistics", "procurement"):
+                if cat.startswith(prefix):
+                    return prefix
+            # Fallback 2: use category metadata from config
+            cat_info = self.categories.get(cat, {})
+            domain = cat_info.get("domain")
+            if domain:
+                return domain
+        return self.parsing_config.get("default_domain", "legal")
+
+    def get_channels_by_domain(self, domain: str) -> List[Dict[str, Any]]:
+        """Возвращает список каналов для указанного домена."""
+        result = []
+        seen = set()
+        for key, ch in self.channels.items():
+            username = ch.get("username", "")
+            if username in seen:
+                continue
+            seen.add(username)
+
+            ch_domain = ch.get("domain")
+            if not ch_domain:
+                cat = ch.get("category", "")
+                for prefix in ("legal", "pto", "smeta", "logistics", "procurement"):
+                    if cat.startswith(prefix):
+                        ch_domain = prefix
+                        break
+                if not ch_domain:
+                    cat_info = self.categories.get(cat, {})
+                    ch_domain = cat_info.get("domain", "legal")
+            if ch_domain == domain:
+                result.append(ch)
+        return result
 
     def get_focus_areas(self, channel_name: str) -> List[str]:
         """Возвращает фокус-области канала для промпта."""
@@ -199,11 +242,12 @@ async def process_telegram_post(
     text: str,
     source_name: str,
     catalog: ChannelCatalog,
+    domain: str = "legal",
     category: str = "unknown",
     weight: float = 0.5,
 ) -> bool:
     """
-    Sends the text to LLM to extract BLC trap, inserts if valid.
+    Sends the text to LLM to extract domain trap, inserts if valid.
     Returns True if a trap was saved.
     """
     min_length = catalog.parsing_config.get("min_text_length", 50)
@@ -252,13 +296,14 @@ async def process_telegram_post(
     embedding = await llm_engine.embed(description) if description else None
 
     # 4. Create ORM Model & Save
-    trap = LegalTrap(
+    trap = DomainTrap(
+        domain=domain,
         title=data.get("title", "Untitled Trap"),
         description=description,
         source=source_name,
-        channel=source_name,  # v12.0.0: explicit channel field
-        category=category,    # v12.0.0: category from catalog
-        weight=weight,        # v12.0.0: weight for RAG scoring
+        channel=source_name,
+        category=category,
+        weight=int(weight * 100),  # Convert 0-1 catalog weight to 0-100 DB weight
         court_cases=data.get("court_cases", []),
         mitigation=data.get("mitigation", ""),
         embedding=embedding,
@@ -293,13 +338,14 @@ async def parse_telegram_export(
 
     # Lookup channel in catalog
     channel_info = catalog.lookup(chat_name)
+    domain = catalog.get_domain(chat_name)
     category = catalog.get_category(chat_name)
     weight = catalog.get_weight(chat_name)
     priority = catalog.get_priority(chat_name)
 
     logger.info(
         f"Loaded {len(messages)} messages from '{chat_name}' "
-        f"(category={category}, priority={priority}, weight={weight})"
+        f"(domain={domain}, category={category}, priority={priority}, weight={weight})"
     )
 
     if channel_info:
@@ -324,6 +370,7 @@ async def parse_telegram_export(
             try:
                 is_saved = await process_telegram_post(
                     db, text, chat_name, catalog,
+                    domain=domain,
                     category=category,
                     weight=weight,
                 )

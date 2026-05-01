@@ -1,38 +1,27 @@
 """
-ASD v12.0 — PM-driven LangGraph Workflow.
+ASD v12.0 — PM-driven LangGraph Workflow with Send() Parallel Execution.
 
-Вместо статического pipeline (archive → procurement → pto → smeta → legal → logistics),
-PM (Руководитель проекта) динамически строит WorkPlan и диспетчеризует агентов.
+Two graph variants:
+  1. asd_app (parallel) — uses Send() to execute independent tasks concurrently
+  2. asd_app_sequential (legacy) — one agent at a time, backward compatible
 
-Граф:
-  START → pm_node → pm_dispatch → [agent_node] → pm_evaluate → pm_dispatch → ... → END
+Parallel Graph:
+  START → pm_planning → pm_fan_out_router
+                              ↓
+              [Send("agent_worker")] × N  ← parallel fan-out
+                              ↓ (all complete)
+                        pm_evaluate
+                              ↓
+                     pm_fan_out_router (cycle until all done)
+                              ↓ or END
 
-pm_node:
-  - Первый вход: строит WorkPlan через LLM (Llama 3.3 70B)
-  - Последующие входы: оценивает результат агента → решает, что дальше
-
-pm_dispatch (conditional edge):
-  - Выбирает следующего агента из WorkPlan
-  - Если план завершён → END
-  - RAM Manager проверяет, можно ли принять задачу
-
-agent_node:
-  - Выполняет задачу (archive/procurement/pto/smeta/legal/logistics)
-  - Возвращает результат в PM через pm_evaluate
-
-pm_evaluate:
-  - PM оценивает результат агента
-  - Принимает/отклоняет/перестраивает план
-  - Возвращает управление в pm_dispatch
+Sequential Graph:
+  START → pm_planning → agent_executor → pm_evaluate → [cycle] → END
 
 Model Lineup (mac_studio):
-  PM:     Llama 3.3 70B 4-bit
-  ПТО:    Gemma 4 31B 4-bit (VLM, shared)
-  Юрист:  Gemma 4 31B 4-bit (shared)
-  Сметчик:Gemma 4 31B 4-bit (shared)
-  Закупщик:Gemma 4 31B 4-bit (shared)
-  Логист: Gemma 4 31B 4-bit (shared)
-  Дело:   Gemma 4 E4B 4-bit
+  PM:     Llama 3.3 70B 4-bit (dedicated, ~40GB)
+  Agents: Gemma 4 31B 4-bit (shared, 5 agents, ~23GB)
+  Archive: Gemma 4 E4B 4-bit (separate, ~3GB)
 """
 
 from langgraph.graph import StateGraph, END
@@ -41,76 +30,92 @@ from src.agents.nodes_v2 import (
     pm_planning_node,
     pm_evaluate_node,
     pm_dispatch_router,
+    pm_fan_out_router,
     agent_executor_node,
+    agent_worker_node,
 )
 
+# All agent names that map to agent_executor (sequential mode)
+ALL_AGENT_KEYS = [
+    "archive", "procurement", "pto", "pto_inventory", "pto_verify_trail",
+    "smeta", "smeta_estimate", "smeta_compare", "delo",
+    "procurement_analyze", "logistics_plan", "legal", "logistics",
+]
 
-def create_asd_workflow():
+# Conditional edge map for sequential dispatch
+AGENT_EDGE_MAP = {k: "agent_executor" for k in ALL_AGENT_KEYS}
+AGENT_EDGE_MAP["__end__"] = END
+
+
+def create_parallel_workflow():
     """
-    Создать и скомпилировать PM-driven граф ASD v12.0.
+    Create PM-driven graph with Send() parallel execution.
 
-    Flow:
-      START → pm_planning → agent_executor → pm_evaluate → [цикл] → END
+    Agents with satisfied dependencies are dispatched simultaneously.
+    Archive (E4B) can execute in true parallel with shared-model agents.
     """
     workflow = StateGraph(AgentState)
 
-    # Регистрируем узлы
     workflow.add_node("pm_planning", pm_planning_node)
-    workflow.add_node("agent_executor", agent_executor_node)
+    workflow.add_node("agent_worker", agent_worker_node)
     workflow.add_node("pm_evaluate", pm_evaluate_node)
 
-    # Точка входа — PM планирование
     workflow.set_entry_point("pm_planning")
 
-    # PM планирует → диспетчеризует агента
+    # PM planning → fan-out to parallel workers
     workflow.add_conditional_edges(
         "pm_planning",
-        pm_dispatch_router,
-        {
-            "archive": "agent_executor",
-            "procurement": "agent_executor",
-            "pto": "agent_executor",
-            "pto_inventory": "agent_executor",
-            "pto_verify_trail": "agent_executor",
-            "smeta": "agent_executor",
-            "smeta_estimate": "agent_executor",
-            "smeta_compare": "agent_executor",
-            "delo": "agent_executor",
-            "procurement_analyze": "agent_executor",
-            "logistics_plan": "agent_executor",
-            "legal": "agent_executor",
-            "logistics": "agent_executor",
-            "__end__": END,
-        },
+        pm_fan_out_router,
+        AGENT_EDGE_MAP,  # For str returns (sequential fallback)
     )
 
-    # Агент выполнил → PM оценивает
-    workflow.add_edge("agent_executor", "pm_evaluate")
+    # Parallel workers → PM evaluate
+    workflow.add_edge("agent_worker", "pm_evaluate")
 
-    # PM оценил → диспетчеризует следующего или завершает
+    # PM evaluate → fan-out again or END
     workflow.add_conditional_edges(
         "pm_evaluate",
-        pm_dispatch_router,
-        {
-            "archive": "agent_executor",
-            "procurement": "agent_executor",
-            "pto": "agent_executor",
-            "pto_inventory": "agent_executor",
-            "pto_verify_trail": "agent_executor",
-            "smeta": "agent_executor",
-            "smeta_estimate": "agent_executor",
-            "smeta_compare": "agent_executor",
-            "delo": "agent_executor",
-            "procurement_analyze": "agent_executor",
-            "logistics_plan": "agent_executor",
-            "legal": "agent_executor",
-            "logistics": "agent_executor",
-            "__end__": END,
-        },
+        pm_fan_out_router,
+        AGENT_EDGE_MAP,
     )
 
     return workflow.compile()
 
 
-# Итоговый объект графа
-asd_app = create_asd_workflow()
+def create_sequential_workflow():
+    """
+    Create legacy PM-driven graph (one agent at a time).
+
+    Used when:
+    - RAM is under pressure (CRITICAL → sequential forced)
+    - Debugging
+    - Backward compatibility testing
+    """
+    workflow = StateGraph(AgentState)
+
+    workflow.add_node("pm_planning", pm_planning_node)
+    workflow.add_node("agent_executor", agent_executor_node)
+    workflow.add_node("pm_evaluate", pm_evaluate_node)
+
+    workflow.set_entry_point("pm_planning")
+
+    workflow.add_conditional_edges(
+        "pm_planning",
+        pm_dispatch_router,
+        AGENT_EDGE_MAP,
+    )
+
+    workflow.add_edge("agent_executor", "pm_evaluate")
+
+    workflow.add_conditional_edges(
+        "pm_evaluate",
+        pm_dispatch_router,
+        AGENT_EDGE_MAP,
+    )
+
+    return workflow.compile()
+
+
+# Compiled graph instances
+asd_app = create_parallel_workflow()
+asd_app_sequential = create_sequential_workflow()

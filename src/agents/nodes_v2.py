@@ -18,6 +18,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from langgraph.types import Send
+
 from src.agents.nodes import (
     archive_node,
     procurement_node,
@@ -45,6 +47,7 @@ from src.agents.state import (
     start_step,
     complete_step,
     fail_step,
+    create_initial_state,
 )
 from src.core.llm_engine import llm_engine
 from src.core.pm_agent import (
@@ -385,6 +388,348 @@ def pm_dispatch_router(state: AgentState) -> str:
     )
 
     return agent_name
+
+
+# =============================================================================
+# PM Fan-Out Router (Send() parallel dispatch)
+# =============================================================================
+
+# Predecessor context keys to propagate to parallel workers
+_PREDECESSOR_KEYS = [
+    "vor_result", "legal_result", "smeta_result",
+    "procurement_result", "logistics_result", "archive_result",
+    "intermediate_data", "findings", "confidence_scores",
+    "compliance_delta", "ram_status", "ram_snapshot",
+]
+
+
+def pm_fan_out_router(state: AgentState):
+    """
+    Conditional edge: return list[Send] for parallel tasks, or str for sequential.
+
+    When multiple tasks are ready (dependencies satisfied), dispatches them
+    as parallel Send() calls. When only one, or RAM is under pressure,
+    dispatches sequentially.
+
+    Returns:
+        list[Send] — parallel dispatch to agent_worker nodes
+        or str — "__end__" or "agent_executor" for sequential mode
+    """
+    from src.core.ram_manager import RamStatus
+
+    plan = _get_plan(state)
+    if not plan:
+        return "__end__"
+
+    if state.get("is_complete"):
+        return "__end__"
+
+    ram_status = state.get("ram_status", "normal")
+
+    # RAM throttle: fewer parallel tasks under memory pressure
+    if ram_status == RamStatus.CRITICAL.value:
+        max_parallel = 1  # Sequential only
+    elif ram_status == RamStatus.WARNING.value:
+        max_parallel = 2
+    else:
+        max_parallel = 5
+
+    ready = plan.get_parallel_ready_tasks(max_parallel=max_parallel)
+
+    if not ready:
+        state["is_complete"] = True
+        state["work_plan"] = plan.to_dict()
+        return "__end__"
+
+    # If only one task or RAM critical — sequential mode
+    if len(ready) == 1 or max_parallel == 1:
+        task = ready[0]
+        task.mark_started()
+        plan.updated_at = datetime.utcnow().isoformat()
+        state["current_agent"] = task.agent
+        state["current_task_id"] = task.task_id
+        state["work_plan"] = plan.to_dict()
+        state["last_evaluated_index"] = len(state.get("parallel_results", []))
+        return task.agent if task.agent in AGENT_NODE_MAP else "agent_executor"
+
+    # Multiple independent tasks — fan-out via Send()
+    # Collect predecessor context from main state
+    predecessor_context: Dict[str, Any] = {}
+    for key in _PREDECESSOR_KEYS:
+        val = state.get(key)
+        if val is not None and val != [] and val != {}:
+            predecessor_context[key] = val
+
+    sends = []
+    for i, task in enumerate(ready):
+        task.mark_started()
+
+        # Minimal payload for each worker
+        worker_payload = {
+            "project_id": state["project_id"],
+            "current_lot_id": state.get("current_lot_id"),
+            "task_description": task.description,
+            "workflow_mode": state.get("workflow_mode", "lot_search"),
+            "current_agent": task.agent,
+            "current_task_id": task.task_id,
+            "task_type": task.task_type,
+            "parallel_index": i,
+            "parallel_total": len(ready),
+            "_llm_fallback_triggered": state.get("_llm_fallback_triggered", False),
+            "_llm_fallback_agents": list(state.get("_llm_fallback_agents", [])),
+            "confidence_scores": dict(state.get("confidence_scores", {})),
+            **predecessor_context,
+        }
+
+        sends.append(Send("agent_worker", worker_payload))
+
+    plan.updated_at = datetime.utcnow().isoformat()
+    state["work_plan"] = plan.to_dict()
+    state["last_evaluated_index"] = len(state.get("parallel_results", []))
+
+    logger.info("PM fan-out: %d parallel tasks dispatched", len(sends))
+    for s in sends:
+        logger.debug("  → %s: %s", s.node, s.arg.get("current_agent", "?"))
+
+    return sends
+
+
+# =============================================================================
+# Agent Worker Node (parallel execution unit)
+# =============================================================================
+
+async def agent_worker_node(state: AgentState) -> Dict[str, Any]:
+    """
+    Parallel agent worker — receives minimal context from Send() and executes.
+
+    Returns results via parallel_results (Annotated[List, operator.add]).
+    The pm_evaluate_node reads new results and updates the plan incrementally.
+    """
+    agent_name = state.get("current_agent")
+    task_id = state.get("current_task_id")
+    task_desc = state.get("task_description", "")
+    parallel_index = state.get("parallel_index", 0)
+
+    if not agent_name:
+        logger.error("agent_worker_node: no current_agent")
+        return {"parallel_results": [{"agent": "unknown", "error": "no agent"}]}
+
+    node_func = AGENT_NODE_MAP.get(agent_name)
+    if not node_func:
+        logger.error("agent_worker_node: unknown agent %s", agent_name)
+        return {"parallel_results": [{"agent": agent_name, "error": "unknown agent"}]}
+
+    step_id = start_step(state, agent_name, f"worker_{task_id}")
+
+    # RAM check
+    if not ram_manager.can_accept_task(agent_name, priority=TaskPriority.NORMAL):
+        logger.warning("RAM rejected worker %s", agent_name)
+        fail_step(state, step_id, "RAM rejected")
+        return {
+            "parallel_results": [{
+                "agent": agent_name,
+                "task_id": task_id,
+                "task_type": state.get("task_type", ""),
+                "ram_rejected": True,
+                "parallel_index": parallel_index,
+            }]
+        }
+
+    ram_manager.register_task_start(agent_name)
+
+    try:
+        result = await node_func(state)
+    except Exception as e:
+        logger.error("Worker %s failed: %s", agent_name, e)
+        ram_manager.register_task_end(agent_name)
+        fail_step(state, step_id, str(e))
+        return {
+            "parallel_results": [{
+                "agent": agent_name,
+                "task_id": task_id,
+                "task_type": state.get("task_type", ""),
+                "error": str(e),
+                "parallel_index": parallel_index,
+            }]
+        }
+    finally:
+        ram_manager.register_task_end(agent_name)
+
+    complete_step(state, step_id, f"Worker {agent_name} completed {task_id}")
+
+    # Determine confidence
+    confidence = state.get("confidence_scores", {}).get(agent_name, 0.5)
+
+    # Return result through parallel_results accumulator
+    return {
+        "parallel_results": [{
+            "agent": agent_name,
+            "task_id": task_id,
+            "task_type": state.get("task_type", ""),
+            "status": "completed",
+            "confidence": confidence,
+            "parallel_index": parallel_index,
+            "result_snapshot": _extract_result_summary(state, agent_name),
+            "intermediate_data_snapshot": dict(state.get("intermediate_data", {})),
+        }]
+    }
+
+
+# =============================================================================
+# PM Evaluate Node (updated for parallel execution)
+# =============================================================================
+
+async def pm_evaluate_node(state: AgentState) -> Dict[str, Any]:
+    """
+    PM оценивает результаты — инкрементально обрабатывает новые parallel_results.
+
+    Поддерживает два режима:
+    1. Последовательный (через agent_executor_node) — task_id из state
+    2. Параллельный (через agent_worker_node) — результаты в parallel_results
+    """
+    plan = _get_plan(state)
+    if not plan:
+        logger.error("pm_evaluate_node: no plan")
+        return {"next_step": "__end__", "is_complete": True}
+
+    # Получить новые результаты (ещё не обработанные)
+    parallel_results = state.get("parallel_results", [])
+    last_idx = state.get("last_evaluated_index", 0)
+    new_results = parallel_results[last_idx:]
+
+    task_id = state.get("current_task_id")
+
+    # Если нет новых параллельных результатов — обрабатываем текущую задачу
+    if not new_results:
+        if not task_id:
+            return _dispatch_next(state, plan)
+        return await _evaluate_single_task(state, plan, task_id)
+
+    # Инкрементально обрабатываем каждый новый результат
+    for result in new_results:
+        r_agent = result.get("agent", "unknown")
+        r_task_id = result.get("task_id", "")
+        r_status = result.get("status", "")
+        r_confidence = result.get("confidence", 0.5)
+        r_error = result.get("error")
+        r_ram_rejected = result.get("ram_rejected")
+
+        task = _find_task(plan, r_task_id)
+        if not task:
+            logger.warning("pm_evaluate: task %s not found in plan", r_task_id)
+            continue
+
+        if r_ram_rejected:
+            task.status = TaskStatus.PENDING.value
+            continue
+
+        if r_error:
+            task.mark_failed(r_error)
+            if task.status == TaskStatus.FAILED.value:
+                plan = await _pm.replan(plan, task, r_error)
+                _update_plan_cache(state, plan)
+            continue
+
+        # Success — merge agent-specific results into main state
+        result_snapshot = result.get("result_snapshot", "")
+        intermediate_snapshot = result.get("intermediate_data_snapshot", {})
+        if intermediate_snapshot:
+            current_intermediate = state.get("intermediate_data", {})
+            state["intermediate_data"] = {**current_intermediate, **intermediate_snapshot}
+
+        task.mark_completed(result_snapshot)
+
+        confidence_scores = state.get("confidence_scores", {})
+        confidence_scores[r_agent] = r_confidence
+        state["confidence_scores"] = confidence_scores
+
+        # Mark completed
+        completed = state.get("completed_task_ids", [])
+        if r_task_id not in completed:
+            completed.append(r_task_id)
+            state["completed_task_ids"] = completed
+
+    # Update last evaluated index
+    state["last_evaluated_index"] = len(parallel_results)
+    plan.updated_at = datetime.utcnow().isoformat()
+    state["work_plan"] = plan.to_dict()
+    _update_plan_cache(state, plan)
+
+    # Check if all tasks complete
+    pending = [t for t in plan.tasks if t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)]
+    if not pending:
+        plan.status = PlanStatus.COMPLETED.value
+        state["work_plan"] = plan.to_dict()
+        state["is_complete"] = True
+        logger.info("PM: plan %s completed — all tasks done", plan.plan_id)
+        return {"next_step": "__end__", "is_complete": True}
+
+    return _dispatch_next(state, plan)
+
+
+async def _evaluate_single_task(
+    state: AgentState, plan: WorkPlan, task_id: str
+) -> Dict[str, Any]:
+    """Evaluate a single task (sequential mode)."""
+    task = _find_task(plan, task_id)
+    if not task:
+        return _dispatch_next(state, plan)
+
+    agent_name = state.get("current_agent", "unknown")
+    intermediate = state.get("intermediate_data", {})
+
+    if intermediate.get(f"{agent_name}_ram_rejected"):
+        task.status = TaskStatus.PENDING.value
+        plan.updated_at = datetime.utcnow().isoformat()
+        state["work_plan"] = plan.to_dict()
+        return _dispatch_next(state, plan)
+
+    if intermediate.get(f"{agent_name}_error"):
+        error_msg = intermediate[f"{agent_name}_error"]
+        task.mark_failed(error_msg)
+        if task.status == TaskStatus.FAILED.value:
+            plan = await _pm.replan(plan, task, error_msg)
+            _update_plan_cache(state, plan)
+        plan.updated_at = datetime.utcnow().isoformat()
+        state["work_plan"] = plan.to_dict()
+        return _dispatch_next(state, plan)
+
+    confidence = state.get("confidence_scores", {}).get(agent_name, 0.5)
+    result_summary = _extract_result_summary(state, agent_name)
+
+    step_id = start_step(state, "pm", f"evaluate_{task_id}")
+
+    verdict = await _pm.evaluate_result(
+        plan=plan, task=task, result_summary=result_summary,
+        confidence=confidence,
+        previous_errors=[
+            t.result_summary for t in plan.get_failed_tasks() if t.result_summary
+        ],
+    )
+
+    state["pm_decision"] = verdict.value
+    state["pm_reasoning"] = f"Task {task_id}: {verdict.value} (confidence={confidence:.2f})"
+
+    if verdict == EvaluationVerdict.ABORT:
+        complete_step(state, step_id, f"Plan ABORTED")
+        plan.status = PlanStatus.ABORTED.value
+        state["work_plan"] = plan.to_dict()
+        state["is_complete"] = True
+        return {"next_step": "__end__", "is_complete": True}
+
+    complete_step(state, step_id, f"Task {task_id}: {verdict.value}")
+
+    if verdict == EvaluationVerdict.RETRY_OTHER_AGENT:
+        alternative = _suggest_alternative_agent(task.agent)
+        task.agent = alternative
+        task.retry_count = 0
+        task.status = TaskStatus.PENDING.value
+
+    plan.updated_at = datetime.utcnow().isoformat()
+    state["work_plan"] = plan.to_dict()
+    _update_plan_cache(state, plan)
+
+    return _dispatch_next(state, plan)
 
 
 # =============================================================================

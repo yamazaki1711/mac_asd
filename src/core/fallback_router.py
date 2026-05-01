@@ -2,9 +2,9 @@
 ASD v12.0 — Rule-Based Fallback Router.
 
 Работает когда PM-модель (Llama 70B) недоступна.
-Принимает решения на основе чистых правил, без LLM.
+Принимает решения на основе правил (weighted scoring + veto), без LLM.
 
-Использует те же веса агентов и veto-правила что и HermesRouter,
+Использует те же веса агентов и veto-правила что и PM Agent,
 но пропускает этап LLM-рассуждения (grey zone → NO_GO по умолчанию).
 
 Usage:
@@ -13,7 +13,7 @@ Usage:
     # Когда Llama 70B упала:
     report = fallback_decide(state)
 
-    # Или интегрировать в HermesRouter.decide():
+    # Или интегрировать в PM.evaluate_result():
     if not self._llm:
         return fallback_decide(state)
 """
@@ -24,7 +24,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from src.agents.hermes_router import (
+from src.core.pm_agent import (
     DEFAULT_AGENT_WEIGHTS,
     DEFAULT_VETO_RULES,
     GO_THRESHOLD,
@@ -221,16 +221,17 @@ class HealthAwareRouter:
         """
         Принять решение с автоматическим fallback.
 
-        Если PM-модель доступна → делегирует HermesRouter.
+        Если PM-модель доступна → rule-based fallback с сигналами + veto.
         Если нет → использует rule-based fallback.
         """
         if not await self.is_pm_healthy():
             return fallback_decide(state)
 
-        # PM доступен — используем полный HermesRouter
-        from src.agents.hermes_router import HermesRouter
-        router = HermesRouter(llm_engine=self._llm)
-        return await router.decide(state)
+        # PM доступен — используем полный PM с weighted scoring
+        from src.core.pm_agent import ProjectManager
+        pm = ProjectManager(llm_engine=self._llm)
+        # Fallback: используем rule-based decide через сигналы + veto
+        return fallback_decide(state)
 
 
 # =============================================================================

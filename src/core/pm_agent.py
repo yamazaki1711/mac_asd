@@ -33,6 +33,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.core.llm_engine import LLMEngine
+from src.schemas.verdict import (
+    AgentSignal,
+    RiskLevel,
+    VetoRule,
+    WeightedScoringResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +84,11 @@ class TaskNode:
         "depends_on", "status", "priority", "deadline",
         "result_summary", "confidence_required", "retry_count",
         "max_retries", "started_at", "completed_at",
+        "parallel_group",  # v12.0: группа параллельных задач ("analysis", "audit", "supply", "generation")
     )
+
+    # Shared model agents (Gemma 4 31B) — LLM calls serialize on MLX
+    _SHARED_MODEL_AGENTS = {"pto", "smeta", "legal", "procurement", "logistics"}
 
     def __init__(
         self,
@@ -91,6 +101,7 @@ class TaskNode:
         deadline: Optional[str] = None,
         confidence_required: float = 0.6,
         max_retries: int = 2,
+        parallel_group: Optional[str] = None,
     ):
         self.task_id = task_id
         self.task_type = task_type
@@ -106,6 +117,12 @@ class TaskNode:
         self.max_retries = max_retries
         self.started_at: Optional[str] = None
         self.completed_at: Optional[str] = None
+        self.parallel_group = parallel_group  # e.g., "analysis", "audit", "supply"
+
+    @property
+    def uses_shared_model(self) -> bool:
+        """True if this agent shares Gemma 4 31B with other agents."""
+        return self.agent in self._SHARED_MODEL_AGENTS
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -123,6 +140,7 @@ class TaskNode:
             "max_retries": self.max_retries,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
+            "parallel_group": self.parallel_group,
         }
 
     @classmethod
@@ -137,6 +155,7 @@ class TaskNode:
             deadline=d.get("deadline"),
             confidence_required=d.get("confidence_required", 0.6),
             max_retries=d.get("max_retries", 2),
+            parallel_group=d.get("parallel_group"),
         )
         node.status = d.get("status", TaskStatus.PENDING.value)
         node.result_summary = d.get("result_summary")
@@ -240,6 +259,21 @@ class WorkPlan:
         Приоритет: готовые к запуску (все зависимости выполнены),
         сортировка по priority (desc), затем по deadline.
         """
+        ready = self.get_parallel_ready_tasks()
+        if not ready:
+            return None
+        return ready[0]
+
+    def get_parallel_ready_tasks(self, max_parallel: int = 10) -> List[TaskNode]:
+        """
+        Возвращает ВСЕ готовые к запуску задачи (зависимости выполнены, статус PENDING).
+
+        Используется для Send() fan-out: PM запускает все независимые задачи параллельно.
+        Архив (archive/delo) на E4B может работать истинно параллельно с shared-агентами.
+        Shared-агенты (Gemma 4 31B) сериализуют LLM-вызовы, но I/O перекрывается через asyncio.
+
+        RAM throttle: WARNING → max 2, CRITICAL → max 1.
+        """
         completed_ids = {
             t.task_id
             for t in self.tasks
@@ -249,21 +283,17 @@ class WorkPlan:
         ready = [
             t
             for t in self.tasks
-            if t.status in (TaskStatus.PENDING.value,)
+            if t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
             and t.can_start(completed_ids)
         ]
 
         if not ready:
-            return None
+            return []
 
-        # Сортируем: приоритет выше → раньше, потом дедлайн ближе → раньше
-        ready.sort(
-            key=lambda t: (
-                -t.priority,
-                t.deadline or "9999-12-31",
-            )
-        )
-        return ready[0]
+        # Сортируем: приоритет выше → раньше
+        ready.sort(key=lambda t: (-t.priority, t.deadline or "9999-12-31"))
+
+        return ready[:max_parallel]
 
     def get_completion_pct(self) -> float:
         if not self.tasks:
@@ -401,6 +431,344 @@ PM_REPLAN_PROMPT = """Ты — Руководитель проекта. Зада
 new_tasks — только для action=split (новые задачи взамен проваленной)
 modified_tasks — task_id → новые значения полей (для action=reorder)
 """
+
+
+# =============================================================================
+# Agent Weights & Decision Thresholds (merged from HermesRouter)
+# =============================================================================
+
+DEFAULT_AGENT_WEIGHTS: Dict[str, float] = {
+    "legal": 0.35,
+    "smeta": 0.25,
+    "pto": 0.20,
+    "procurement": 0.12,
+    "logistics": 0.08,
+}
+
+GO_THRESHOLD = 0.70
+NO_GO_THRESHOLD = 0.30
+
+
+# =============================================================================
+# Veto Rules — жёсткие предохранители (merged from HermesRouter)
+# =============================================================================
+
+DEFAULT_VETO_RULES: List[VetoRule] = [
+    VetoRule(
+        rule_id="veto_dangerous_verdict",
+        rule_name="Юридический вето",
+        description="Вердикт Юриста DANGEROUS — подписание недопустимо",
+        condition="legal_result.verdict == 'dangerous'",
+        triggered=False,
+    ),
+    VetoRule(
+        rule_id="veto_margin_below_10",
+        rule_name="Маржа ниже минимума",
+        description="Маржа ниже 10% — работа в убыток или на грани",
+        condition="smeta_result.profit_margin_pct < 10",
+        triggered=False,
+    ),
+    VetoRule(
+        rule_id="veto_critical_traps_3plus",
+        rule_name="3+ критических ловушки",
+        description="3 и более критических юридических ловушки — слишком рискованно",
+        condition="legal_result.critical_count >= 3",
+        triggered=False,
+    ),
+    VetoRule(
+        rule_id="veto_nmck_below_70pct",
+        rule_name="НМЦК ниже 70% рынка",
+        description="НМЦК ниже 70% рыночной стоимости — демпинг",
+        condition="smeta_result.nmck_below_70pct == True",
+        triggered=False,
+    ),
+]
+
+
+# =============================================================================
+# Signal Extractors — перевод результата агента в числовой сигнал 0..1
+# =============================================================================
+
+def extract_legal_signal(state: Dict[str, Any]) -> AgentSignal:
+    """Извлечь сигнал Юриста из состояния."""
+    legal = state.get("legal_result")
+    confidence = state.get("confidence_scores", {}).get("legal", 0.5)
+
+    if not legal:
+        return AgentSignal(
+            agent_name="legal", signal=0.5, confidence=0.0,
+            weight=DEFAULT_AGENT_WEIGHTS["legal"],
+            reasoning="Юридический анализ не проводился",
+        )
+
+    verdict_signal_map = {
+        "approved": 0.95, "approved_with_comments": 0.65,
+        "rejected": 0.15, "dangerous": 0.05,
+    }
+    verdict = legal.get("verdict", "approved_with_comments")
+    base_signal = verdict_signal_map.get(verdict, 0.5)
+
+    critical = legal.get("critical_count", 0)
+    high = legal.get("high_count", 0)
+    penalty = critical * 0.15 + high * 0.05
+    signal = max(0.0, min(1.0, base_signal - penalty))
+
+    return AgentSignal(
+        agent_name="legal", signal=round(signal, 3), confidence=confidence,
+        weight=DEFAULT_AGENT_WEIGHTS["legal"],
+        reasoning=f"Вердикт: {verdict}, критических: {critical}, высоких: {high}",
+        key_findings=legal.get("blc_matches", [])[:3],
+    )
+
+
+def extract_smeta_signal(state: Dict[str, Any]) -> AgentSignal:
+    """Извлечь сигнал Сметчика из состояния."""
+    smeta = state.get("smeta_result")
+    confidence = state.get("confidence_scores", {}).get("smeta", 0.5)
+
+    if not smeta:
+        return AgentSignal(
+            agent_name="smeta", signal=0.5, confidence=0.0,
+            weight=DEFAULT_AGENT_WEIGHTS["smeta"],
+            reasoning="Расчёт стоимости не проводился",
+        )
+
+    margin = smeta.get("profit_margin_pct", 0)
+    if margin > 40:
+        signal = 0.95
+    elif margin > 25:
+        signal = 0.80
+    elif margin > 15:
+        signal = 0.65
+    elif margin > 10:
+        signal = 0.40
+    elif margin > 0:
+        signal = 0.20
+    else:
+        signal = 0.05
+
+    key_findings = [f"margin_{margin:.1f}_pct"]
+    if smeta.get("low_margin_positions"):
+        key_findings.append(f"low_margin_{len(smeta['low_margin_positions'])}_positions")
+
+    return AgentSignal(
+        agent_name="smeta", signal=round(signal, 3), confidence=confidence,
+        weight=DEFAULT_AGENT_WEIGHTS["smeta"],
+        reasoning=f"Маржа: {margin:.1f}%, ФЕР покрытие: {smeta.get('fer_coverage_pct', 0):.0f}%",
+        key_findings=key_findings,
+    )
+
+
+def extract_pto_signal(state: Dict[str, Any]) -> AgentSignal:
+    """Извлечь сигнал ПТО из состояния."""
+    vor = state.get("vor_result")
+    confidence = state.get("confidence_scores", {}).get("pto", 0.5)
+
+    if not vor:
+        return AgentSignal(
+            agent_name="pto", signal=0.5, confidence=0.0,
+            weight=DEFAULT_AGENT_WEIGHTS["pto"],
+            reasoning="Извлечение ВОР не проводилось",
+        )
+
+    vor_confidence = vor.get("confidence_score", 0.5)
+    unit_mismatches = len(vor.get("unit_mismatches", []))
+    signal = max(0.0, min(1.0, vor_confidence - unit_mismatches * 0.05))
+
+    key_findings = [f"vor_positions_{vor.get('total_positions', 0)}"]
+    if unit_mismatches:
+        key_findings.append(f"unit_mismatches_{unit_mismatches}")
+
+    return AgentSignal(
+        agent_name="pto", signal=round(signal, 3), confidence=confidence,
+        weight=DEFAULT_AGENT_WEIGHTS["pto"],
+        reasoning=f"ВОР: {vor.get('total_positions', 0)} позиций, уверенность: {vor_confidence:.0%}",
+        key_findings=key_findings,
+    )
+
+
+def extract_procurement_signal(state: Dict[str, Any]) -> AgentSignal:
+    """Извлечь сигнал Закупщика из состояния."""
+    proc = state.get("procurement_result")
+    confidence = state.get("confidence_scores", {}).get("procurement", 0.5)
+
+    if not proc:
+        return AgentSignal(
+            agent_name="procurement", signal=0.5, confidence=0.0,
+            weight=DEFAULT_AGENT_WEIGHTS["procurement"],
+            reasoning="Анализ тендера не проводился",
+        )
+
+    decision = proc.get("decision", "watch")
+    nmck_vs = proc.get("nmck_vs_market", 0)
+
+    decision_signal_map = {"bid": 0.75, "watch": 0.45, "skip": 0.20}
+    signal = decision_signal_map.get(decision, 0.5)
+
+    if nmck_vs < -20:
+        signal -= 0.15
+    elif nmck_vs < -10:
+        signal -= 0.05
+
+    signal = max(0.0, min(1.0, signal))
+
+    return AgentSignal(
+        agent_name="procurement", signal=round(signal, 3), confidence=confidence,
+        weight=DEFAULT_AGENT_WEIGHTS["procurement"],
+        reasoning=f"Решение: {decision}, НМЦК vs рынок: {nmck_vs:+.1f}%",
+        key_findings=[f"competitors_{proc.get('competitor_count', 0)}"],
+    )
+
+
+def extract_logistics_signal(state: Dict[str, Any]) -> AgentSignal:
+    """Извлечь сигнал Логиста из состояния."""
+    logistics = state.get("logistics_result")
+    confidence = state.get("confidence_scores", {}).get("logistics", 0.5)
+
+    if not logistics:
+        return AgentSignal(
+            agent_name="logistics", signal=0.5, confidence=0.0,
+            weight=DEFAULT_AGENT_WEIGHTS["logistics"],
+            reasoning="Анализ логистики не проводился",
+        )
+
+    vendors = logistics.get("vendors_found", 0)
+    delivery = logistics.get("delivery_available", False)
+
+    if vendors >= 3 and delivery:
+        signal = 0.80
+    elif vendors >= 1 and delivery:
+        signal = 0.60
+    elif vendors >= 1:
+        signal = 0.40
+    else:
+        signal = 0.20
+
+    return AgentSignal(
+        agent_name="logistics", signal=round(signal, 3), confidence=confidence,
+        weight=DEFAULT_AGENT_WEIGHTS["logistics"],
+        reasoning=f"Поставщиков: {vendors}, доставка: {'да' if delivery else 'нет'}",
+        key_findings=[f"vendors_{vendors}"],
+    )
+
+
+# Signal extractor registry
+AGENT_SIGNAL_EXTRACTORS: Dict[str, Any] = {
+    "legal": extract_legal_signal,
+    "smeta": extract_smeta_signal,
+    "pto": extract_pto_signal,
+    "procurement": extract_procurement_signal,
+    "logistics": extract_logistics_signal,
+}
+
+
+# =============================================================================
+# Weighted Scoring Engine
+# =============================================================================
+
+def compute_weighted_score(signals: List[AgentSignal]) -> WeightedScoringResult:
+    """
+    Рассчитать взвешенный скоринг по сигналам агентов.
+
+    Formula:
+        Score = Σ (signal × weight × confidence) / Σ (weight × confidence)
+    """
+    numerator = 0.0
+    denominator = 0.0
+    contributions = {}
+
+    for s in signals:
+        effective_weight = s.weight * s.confidence
+        contribution = s.signal * effective_weight
+        numerator += contribution
+        denominator += effective_weight
+        contributions[s.agent_name] = round(contribution, 4)
+
+    if denominator == 0:
+        normalized_score = 0.5
+    else:
+        normalized_score = numerator / denominator
+
+    if normalized_score >= GO_THRESHOLD:
+        zone = "go_zone"
+    elif normalized_score <= NO_GO_THRESHOLD:
+        zone = "no_go_zone"
+    else:
+        zone = "grey_zone"
+
+    return WeightedScoringResult(
+        raw_score=round(numerator, 4),
+        normalized_score=round(normalized_score, 4),
+        agent_contributions=contributions,
+        zone=zone,
+        go_threshold=GO_THRESHOLD,
+        no_go_threshold=NO_GO_THRESHOLD,
+    )
+
+
+# =============================================================================
+# Veto Engine
+# =============================================================================
+
+def check_veto_rules(
+    state: Dict[str, Any], rules: List[VetoRule]
+) -> tuple:
+    """
+    Проверить veto-правила.
+
+    Returns:
+        (triggered_rule_id, updated_rules) — ID сработавшего правила или None
+    """
+    legal = state.get("legal_result") or {}
+    smeta = state.get("smeta_result") or {}
+
+    updated_rules = []
+
+    for rule in rules:
+        triggered = False
+
+        if rule.rule_id == "veto_dangerous_verdict":
+            triggered = legal.get("verdict") == "dangerous"
+        elif rule.rule_id == "veto_margin_below_10":
+            triggered = smeta.get("profit_margin_pct", 100) < 10
+        elif rule.rule_id == "veto_critical_traps_3plus":
+            triggered = legal.get("critical_count", 0) >= 3
+        elif rule.rule_id == "veto_nmck_below_70pct":
+            triggered = smeta.get("nmck_below_70pct", False)
+
+        updated_rule = rule.model_copy(update={"triggered": triggered})
+        updated_rules.append(updated_rule)
+
+        if triggered:
+            logger.warning(f"VETO triggered: {rule.rule_id} — {rule.rule_name}")
+            return rule.rule_id, updated_rules
+
+    return None, updated_rules
+
+
+# =============================================================================
+# Risk Level Calculator
+# =============================================================================
+
+def calculate_risk_level(
+    state: Dict[str, Any], scoring: WeightedScoringResult
+) -> RiskLevel:
+    """Рассчитать общий уровень риска."""
+    legal = state.get("legal_result") or {}
+    smeta = state.get("smeta_result") or {}
+
+    critical = legal.get("critical_count", 0)
+    high = legal.get("high_count", 0)
+    margin = smeta.get("profit_margin_pct", 100)
+
+    if critical >= 3 or margin < 5 or scoring.normalized_score < 0.2:
+        return RiskLevel.CRITICAL
+    elif critical >= 1 or high >= 3 or margin < 15 or scoring.normalized_score < 0.4:
+        return RiskLevel.HIGH
+    elif high >= 1 or margin < 25 or scoring.normalized_score < 0.6:
+        return RiskLevel.MEDIUM
+    else:
+        return RiskLevel.LOW
 
 
 # =============================================================================

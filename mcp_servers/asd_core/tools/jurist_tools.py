@@ -389,33 +389,35 @@ async def asd_add_trap(
     description: str,
     source: str,
     mitigation: str,
+    domain: str = "legal",
     channel: Optional[str] = None,
     category: Optional[str] = None,
     court_cases: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Ручное добавление «Ловушки субподрядчика» в БЛС.
+    Ручное добавление доменной ловушки в БЛС.
 
-    v12.0.0: Добавлены поля channel, category, court_cases для интеграции
-    с каталогом Telegram-каналов.
+    v12.0.0: Обобщено с LegalTrap до DomainTrap — поддержка всех доменов.
+    v12.0.0: Добавлен параметр domain (legal, pto, smeta, logistics, procurement).
 
     Args:
         title: Краткое название ловушки
         description: Полное описание
         source: Источник (например, "Telegram @advokatgrikevich", "Internal")
         mitigation: Рекомендация по защите
+        domain: Домен агента (legal, pto, smeta, logistics, procurement)
         channel: Username Telegram-канала (например, "advokatgrikevich")
-        category: Категория источника (legal_practice, legal_association, legal_education, legal_news)
+        category: Категория источника
         court_cases: Список судебных дел (например, ["А40-123/2023"])
 
     Returns:
-        {"status", "message", "trap_id"}
+        {"status", "message", "trap_id", "domain"}
     """
-    logger.info(f"asd_add_trap: {title}")
+    logger.info(f"asd_add_trap: {title} (domain={domain})")
 
     try:
         from src.db.init_db import SessionLocal
-        from src.db.models import LegalTrap
+        from src.db.models import DomainTrap
         from src.core.llm_engine import llm_engine
 
         db = SessionLocal()
@@ -425,15 +427,16 @@ async def asd_add_trap(
 
             # Determine weight from category
             weight_map = {
-                "legal_practice": 100,
-                "legal_association": 80,
-                "legal_education": 60,
-                "legal_news": 40,
+                "legal_practice": 100, "pto_practice": 100, "smeta_practice": 100,
+                "legal_association": 80, "pto_news": 60, "smeta_news": 60,
+                "legal_education": 60, "logistics_practice": 80, "procurement_practice": 80,
+                "legal_news": 40, "logistics_news": 40, "procurement_news": 40,
                 "unknown": 50,
             }
             weight = weight_map.get(category, 50) if category else 50
 
-            trap = LegalTrap(
+            trap = DomainTrap(
+                domain=domain,
                 title=title,
                 description=description,
                 source=source,
@@ -450,8 +453,9 @@ async def asd_add_trap(
 
             return {
                 "status": "success",
-                "message": f"Trap '{title}' added to BLC (id={trap.id}, category={category or 'unknown'}, weight={weight}).",
+                "message": f"Trap '{title}' added to domain={domain} (id={trap.id}, category={category or 'unknown'}, weight={weight}).",
                 "trap_id": trap.id,
+                "domain": domain,
             }
         except Exception as e:
             db.rollback()

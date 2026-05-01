@@ -16,6 +16,7 @@ Migration: AgentStateV1 → AgentStateV2 via migrate_v1_to_v2()
 
 from __future__ import annotations
 
+import operator
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -257,6 +258,10 @@ class AgentState(TypedDict):
     _llm_fallback_triggered: bool                # True если хотя бы один safe_chat ушёл в fallback
     _llm_fallback_agents: List[str]              # Список агентов, у которых сработал fallback
 
+    # ── Parallel Execution (Send() fan-out) ──
+    parallel_results: Annotated[List[Dict[str, Any]], operator.add]  # Результаты параллельных воркеров
+    last_evaluated_index: int                     # Индекс последнего обработанного результата
+
 
 # =============================================================================
 # Default State Factory
@@ -321,6 +326,9 @@ def create_initial_state(
         # LLM Health
         _llm_fallback_triggered=False,
         _llm_fallback_agents=[],
+        # Parallel Execution
+        parallel_results=[],
+        last_evaluated_index=0,
     )
 
 

@@ -28,6 +28,7 @@ from typing import List, Dict, Any, Optional
 from src.config import settings
 from src.core.backends.ollama_backend import OllamaBackend
 from src.core.backends.mlx_backend import MLXBackend
+from src.core.backends.deepseek_backend import DeepSeekBackend
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class LLMEngine:
         self._profile = settings.ASD_PROFILE
         self._ollama = OllamaBackend()
         self._mlx = MLXBackend()
+        self._deepseek = DeepSeekBackend()
         self._fallback_to_ollama = True  # Always allow Ollama fallback
 
         logger.info(
@@ -65,6 +67,8 @@ class LLMEngine:
                 return self._ollama
             else:
                 raise RuntimeError("MLX backend required but not available on this machine.")
+        if engine == "deepseek":
+            return self._deepseek
         return self._ollama
 
     # -------------------------------------------------------------------------

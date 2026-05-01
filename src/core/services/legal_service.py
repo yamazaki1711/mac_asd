@@ -306,7 +306,7 @@ class LegalService:
         """
         try:
             from src.core.rag_service import rag_service
-            results = await rag_service.search_traps(text, top_k=5, min_weight=40)
+            results = await rag_service.search_domain_traps(text, domain="legal", top_k=5, min_weight=40)
             if not results:
                 return "Ловушки из БЛС не найдены для данного фрагмента."
 
@@ -314,12 +314,13 @@ class LegalService:
             for i, r in enumerate(results, 1):
                 title = r.get("title", "Без названия")
                 description = r.get("description", "")[:300]
+                domain = r.get("domain", "legal")
                 channel = r.get("channel", "")
                 weight = r.get("weight", 50)
                 category = r.get("category", "")
                 mitigation = r.get("mitigation", "")
 
-                entry = f"{i}. [{category}|w={weight}] {title}"
+                entry = f"{i}. [{domain}|{category}|w={weight}] {title}"
                 if channel:
                     entry += f" (источник: @{channel})"
                 entry += f"\n   Описание: {description}"

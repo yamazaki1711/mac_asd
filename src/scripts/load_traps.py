@@ -24,7 +24,7 @@ import yaml
 from sqlalchemy import select
 
 from src.db.init_db import SessionLocal
-from src.db.models import LegalTrap
+from src.db.models import DomainTrap, LegalTrap
 from src.core.llm_engine import llm_engine
 
 logging.basicConfig(level=logging.INFO)
@@ -82,7 +82,7 @@ async def load_traps(yaml_path: str, force: bool = False) -> dict:
 
     try:
         if force:
-            deleted = db.query(LegalTrap).delete()
+            deleted = db.query(DomainTrap).delete()
             db.commit()
             logger.info(f"Force mode: deleted {deleted} existing traps")
 
@@ -90,9 +90,10 @@ async def load_traps(yaml_path: str, force: bool = False) -> dict:
             trap_id = trap_def.get("id", "unknown")
             title = trap_def.get("title", "Untitled Trap")
             category = trap_def.get("category", "unknown")
+            domain = trap_def.get("domain", "legal")  # v12.0.0: domain field
 
             # Check if trap already exists (by title)
-            existing = db.query(LegalTrap).filter(LegalTrap.title == title).first()
+            existing = db.query(DomainTrap).filter(DomainTrap.title == title).first()
             if existing and not force:
                 logger.info(f"  Skipping (exists): {title}")
                 stats["skipped"] += 1
@@ -110,7 +111,8 @@ async def load_traps(yaml_path: str, force: bool = False) -> dict:
             # Create trap record
             weight = category_weights.get(category, 80)
 
-            trap = LegalTrap(
+            trap = DomainTrap(
+                domain=domain,
                 title=title,
                 description=trap_def.get("description", ""),
                 source="BLC_YAML",

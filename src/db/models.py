@@ -59,26 +59,32 @@ class AuditLog(Base):
     # Поле для отметки, было ли это действие проанализировано для обучения
     is_learned = Column(Boolean, default=False)
 
-class LegalTrap(Base):
+class DomainTrap(Base):
     """
-    БЛС (База Ловушек Субподрядчика) - структурированные риски из Telegram или опыта.
-    v12.0.0: Добавлены поля channel, category, weight для интеграции с каталогом каналов.
+    Доменные ловушки — структурированные риски из Telegram или опыта.
+    v12.0.0: Обобщено с LegalTrap до DomainTrap — поддержка всех 5 доменов агентов.
+
+    Домены: legal, pto, smeta, logistics, procurement
     """
-    __tablename__ = "legal_traps"
-    
+    __tablename__ = "domain_traps"
+
     id = Column(Integer, primary_key=True)
+    domain = Column(String(50), nullable=False, default="legal")  # legal | pto | smeta | logistics | procurement
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     source = Column(String(255))  # e.g., "Telegram @advokatgrikevich", "Internal"
-    channel = Column(String(255))  # v12.0.0: Username канала (e.g., "advokatgrikevich")
-    category = Column(String(100))  # v12.0.0: legal_practice | legal_association | legal_education | legal_news
-    weight = Column(Integer, default=100)  # v12.0.0: Вес 0-100 для RAG scoring (из каталога: weight*100)
-    court_cases = Column(JSON)  # e.g. ["А40-123/2023", "Постановление КС РФ №..."]
-    mitigation = Column(Text)  # Рекомендация к протоколу разногласий
+    channel = Column(String(255))  # Username канала (e.g., "advokatgrikevich")
+    category = Column(String(100))  # Доменно-специфичная категория
+    weight = Column(Integer, default=100)  # Вес 0-100 для RAG scoring
+    court_cases = Column(JSON)  # e.g. ["А40-123/2023"]
+    mitigation = Column(Text)  # Рекомендация по защите
     created_at = Column(DateTime, server_default=func.now())
-    
+
     # Вектор для RAG (bge-m3 = 1024 dim)
     embedding = Column(Vector(1024))
+
+# Обратная совместимость
+LegalTrap = DomainTrap
 
 # --- LOGISTICS & PROCUREMENT TABLES ---
 
@@ -302,3 +308,35 @@ class LessonLearned(Base):
     
     # Вектор для RAG-поиска (bge-m3 = 1024 dim)
     embedding = Column(Vector(1024))
+
+
+# --- DOMAIN REFERENCE DATA ---
+
+class ReferenceData(Base):
+    """
+    Унифицированный справочник нормативных данных для всех доменов.
+
+    Заменяет разрозненные Python-дикты (rate_lookup.py, work_spec.py, contract_risks.py)
+    единой таблицей с версионированием и кэшированием.
+
+    Домены: legal, pto, smeta, logistics, procurement
+    """
+    __tablename__ = "domain_references"
+
+    id = Column(Integer, primary_key=True)
+    domain = Column(String(50), nullable=False)  # legal | pto | smeta | logistics | procurement
+    code = Column(String(100), nullable=False)   # Уникальный код в домене (ФЕР, ГОСТ, тип работы)
+    description = Column(Text)                    # Человекочитаемое описание
+    data = Column(JSON)                           # Произвольные данные справочника
+    valid_from = Column(DateTime)                 # Начало действия
+    valid_to = Column(DateTime)                   # Конец действия (null = действующий)
+    source = Column(String(255))                  # Источник (ФГИС ЦС, Минстрой, ГОСТ, internal)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    # Вектор для семантического поиска (bge-m3 = 1024 dim)
+    embedding = Column(Vector(1024))
+
+    __table_args__ = (
+        Index('ix_ref_domain_code', 'domain', 'code', unique=True),
+    )

@@ -77,14 +77,14 @@ class TestAgentState:
 
 
 # =============================================================================
-# HermesRouter Tests
+# PM Agent Decision Engine Tests (merged from HermesRouter)
 # =============================================================================
 
-class TestHermesRouter:
-    """Verify HermesRouter 3-stage decision engine."""
+class TestPMAgentDecisions:
+    """Verify PM Agent 3-stage decision engine (weighted scoring + veto rules)."""
 
     def test_weighted_scoring_go_zone(self):
-        from src.agents.hermes_router import compute_weighted_score
+        from src.core.pm_agent import compute_weighted_score
         from src.schemas.verdict import AgentSignal
 
         signals = [
@@ -100,7 +100,7 @@ class TestHermesRouter:
         assert result.normalized_score >= 0.70
 
     def test_weighted_scoring_grey_zone(self):
-        from src.agents.hermes_router import compute_weighted_score
+        from src.core.pm_agent import compute_weighted_score
         from src.schemas.verdict import AgentSignal
 
         signals = [
@@ -116,7 +116,7 @@ class TestHermesRouter:
         assert 0.30 <= result.normalized_score <= 0.70
 
     def test_weighted_scoring_no_go_zone(self):
-        from src.agents.hermes_router import compute_weighted_score
+        from src.core.pm_agent import compute_weighted_score
         from src.schemas.verdict import AgentSignal
 
         signals = [
@@ -132,7 +132,7 @@ class TestHermesRouter:
         assert result.normalized_score <= 0.30
 
     def test_veto_dangerous_triggers(self):
-        from src.agents.hermes_router import check_veto_rules, DEFAULT_VETO_RULES
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
 
         state = {
             "legal_result": {"verdict": "dangerous", "critical_count": 5, "high_count": 2},
@@ -142,7 +142,7 @@ class TestHermesRouter:
         assert veto_id == "veto_dangerous_verdict"
 
     def test_veto_margin_below_10_triggers(self):
-        from src.agents.hermes_router import check_veto_rules, DEFAULT_VETO_RULES
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
 
         state = {
             "legal_result": {"verdict": "approved_with_comments", "critical_count": 0, "high_count": 1},
@@ -152,7 +152,7 @@ class TestHermesRouter:
         assert veto_id == "veto_margin_below_10"
 
     def test_veto_3plus_critical_traps(self):
-        from src.agents.hermes_router import check_veto_rules, DEFAULT_VETO_RULES
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
 
         state = {
             "legal_result": {"verdict": "rejected", "critical_count": 3, "high_count": 1},
@@ -162,7 +162,7 @@ class TestHermesRouter:
         assert veto_id == "veto_critical_traps_3plus"
 
     def test_no_veto_when_clean(self):
-        from src.agents.hermes_router import check_veto_rules, DEFAULT_VETO_RULES
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
 
         state = {
             "legal_result": {"verdict": "approved", "critical_count": 0, "high_count": 0},
@@ -172,7 +172,7 @@ class TestHermesRouter:
         assert veto_id is None
 
     def test_signal_extractors_return_valid_signals(self):
-        from src.agents.hermes_router import (
+        from src.core.pm_agent import (
             extract_legal_signal,
             extract_smeta_signal,
             extract_pto_signal,
@@ -345,11 +345,13 @@ class TestVerdictReport:
 class TestWorkflowSmoke:
     """Smoke test: verify the full pipeline graph compiles and runs."""
 
-    async def test_workflow_graph_compiles(self):
-        """Verify StateGraph compiles without errors."""
-        from src.agents.workflow import create_asd_workflow
-        graph = create_asd_workflow()
-        assert graph is not None
+    async def test_workflow_graph_compiles_parallel(self):
+        """Verify parallel StateGraph compiles without errors."""
+        from src.agents.workflow import create_parallel_workflow, create_sequential_workflow
+        parallel_graph = create_parallel_workflow()
+        assert parallel_graph is not None
+        sequential_graph = create_sequential_workflow()
+        assert sequential_graph is not None
 
     async def test_hermes_node_routing_start_to_archive(self, base_state):
         """Verify Hermes routes start → archive."""
@@ -431,6 +433,30 @@ class TestLLMEngineConfig:
 
         config = settings.get_model_config("pm")
         assert config["engine"] == "mlx"
+
+    def test_deepseek_all_agents_use_deepseek_engine(self):
+        from src.config import Settings
+        settings = Settings(ASD_PROFILE="deepseek")
+
+        for agent in ["pto", "smeta", "legal", "procurement", "logistics", "archive"]:
+            config = settings.get_model_config(agent)
+            assert config["engine"] == "deepseek", f"{agent} should use deepseek, got {config['engine']}"
+            assert config["model"] == "deepseek-chat", f"{agent} should use deepseek-chat"
+
+    def test_deepseek_pm_uses_reasoner(self):
+        from src.config import Settings
+        settings = Settings(ASD_PROFILE="deepseek")
+
+        config = settings.get_model_config("pm")
+        assert config["engine"] == "deepseek"
+        assert config["model"] == "deepseek-reasoner"
+
+    def test_deepseek_embed_uses_ollama(self):
+        from src.config import Settings
+        settings = Settings(ASD_PROFILE="deepseek")
+
+        config = settings.get_model_config("embed")
+        assert config["engine"] == "ollama", "Embeddings should use Ollama (DeepSeek has no embedding model)"
 
     def test_database_url_format(self):
         from src.config import Settings

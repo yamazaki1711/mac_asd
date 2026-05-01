@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy import select, func, text
 from src.core.llm_engine import llm_engine
 from src.core.graph_service import graph_service
-from src.db.models import DocumentChunk, LegalTrap
+from src.db.models import DocumentChunk, DomainTrap, LegalTrap
 from src.db.init_db import Session
 
 logger = logging.getLogger(__name__)
@@ -100,46 +100,58 @@ class RAGService:
         min_weight: int = 0,
     ) -> List[Dict[str, Any]]:
         """
-        Поиск ловушек в БЛС с учётом weight-ранжирования.
+        Поиск ловушек в БЛС (legal) — обёртка над search_domain_traps.
+        """
+        return await self.search_domain_traps(
+            query, domain="legal", top_k=top_k,
+            category=category, min_weight=min_weight,
+        )
+
+    async def search_domain_traps(
+        self,
+        query: str,
+        domain: str = "legal",
+        top_k: int = 10,
+        category: Optional[str] = None,
+        min_weight: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """
+        Поиск ловушек в указанном домене с учётом weight-ранжирования.
 
         v12.0.0: Комбинирует семантическую близость (vector distance)
-        с весом источника (weight) для приоритизации ловушек
-        из авторитетных каналов (legal_practice > legal_news).
+        с весом источника (weight) для приоритизации авторитетных каналов.
 
         Формула ранжирования:
             score = (1 - normalized_distance) * 0.7 + (weight / 100) * 0.3
 
         Args:
-            query: Поисковый запрос (например, "неустойка генподрядчика")
+            query: Поисковый запрос
+            domain: Домен агента (legal, pto, smeta, logistics, procurement)
             top_k: Количество результатов
-            category: Фильтр по категории (legal_practice, legal_news, и т.д.)
+            category: Фильтр по категории
             min_weight: Минимальный вес источника (0-100)
         """
         query_embedding = await llm_engine.embed(query)
 
         with Session() as session:
-            # Build query with optional filters
-            stmt = select(LegalTrap)
+            stmt = select(DomainTrap).where(DomainTrap.domain == domain)
 
             if category:
-                stmt = stmt.where(LegalTrap.category == category)
+                stmt = stmt.where(DomainTrap.category == category)
             if min_weight > 0:
-                stmt = stmt.where(LegalTrap.weight >= min_weight)
+                stmt = stmt.where(DomainTrap.weight >= min_weight)
 
-            # Order by vector distance, fetch more than top_k for re-ranking
             stmt = stmt.order_by(
-                LegalTrap.embedding.l2_distance(query_embedding)
+                DomainTrap.embedding.l2_distance(query_embedding)
             ).limit(top_k * 3)
 
             results = session.execute(stmt).scalars().all()
 
-            # Re-rank with weight
             ranked = []
             for r in results:
-                # Calculate distance (we don't have it directly, approximate from order)
-                # For proper re-ranking, we'd need raw distance — use a simpler approach
                 trap_data = {
                     "id": r.id,
+                    "domain": r.domain,
                     "title": r.title,
                     "description": r.description,
                     "source": r.source,
@@ -151,8 +163,6 @@ class RAGService:
                 }
                 ranked.append(trap_data)
 
-            # Sort by weight (higher weight = more authoritative source = better)
-            # Within same weight, maintain vector distance order (already sorted)
             ranked.sort(key=lambda x: x["weight"], reverse=True)
 
             return ranked[:top_k]

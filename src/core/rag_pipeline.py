@@ -23,6 +23,15 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+# Маппинг agent_name → domain для поиска ловушек
+AGENT_DOMAIN_MAP = {
+    "legal": "legal",
+    "pto": "pto",
+    "smeta": "smeta",
+    "procurement": "procurement",
+    "logistics": "logistics",
+}
+
 
 def _lazy_rag_deps():
     """Ленивый импорт БД-зависимостей для RAG Pipeline."""
@@ -125,23 +134,24 @@ class RAGPipeline:
                 for doc_id in doc_ids:
                     graph_context.extend(graph_service.get_related_nodes(node_id=doc_id, depth=1))
 
-            # 3. BLS for legal
-            bls_context = ""
-            if include_traps and agent == "legal":
+            # 3. Domain traps for all agents
+            trap_context = ""
+            if include_traps:
+                agent_domain = AGENT_DOMAIN_MAP.get(agent, "legal")
                 try:
-                    traps = await rag_service.search_traps(query, top_k=3)
+                    traps = await rag_service.search_domain_traps(query, domain=agent_domain, top_k=3)
                     if traps:
-                        lines = ["\n⚠️ ЛОВУШКИ ИЗ БЛС:"]
+                        lines = [f"\n⚠️ ЛОВУШКИ ({agent_domain.upper()}):"]
                         for t in traps:
                             lines.append(
-                                f"  • {t['title']} [weight={t.get('weight', 0)}]"
+                                f"  • {t['title']} [w={t.get('weight', 0)}]"
                             )
                             lines.append(f"    {t['description'][:200]}")
-                        bls_context = "\n".join(lines)
+                        trap_context = "\n".join(lines)
                 except Exception as e:
-                    logger.warning("BLS search failed: %s", e)
+                    logger.warning("Domain trap search failed for %s: %s", agent_domain, e)
 
-            return self._format_context(vector_results, graph_context, bls_context, agent, query)
+            return self._format_context(vector_results, graph_context, trap_context, agent, query)
         except Exception as e:
             logger.warning("RAG context unavailable: %s", e)
             return ""
@@ -208,7 +218,7 @@ class RAGPipeline:
         return "unknown"
 
     def _format_context(
-        self, vector_results, graph_context, bls_context, agent, query
+        self, vector_results, graph_context, trap_context, agent, query
     ) -> str:
         """Форматировать контекст для промпта агента."""
         parts = []
@@ -236,8 +246,8 @@ class RAGPipeline:
                 )
             parts.append("\n".join(lines))
 
-        if bls_context:
-            parts.append(bls_context)
+        if trap_context:
+            parts.append(trap_context)
 
         return "\n\n".join(parts)
 
