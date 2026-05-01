@@ -61,7 +61,7 @@ class DocumentRepository:
                 session.refresh(doc)
             logger.info("Document #%d created: %s [%s]", doc.id, filename, doc_type)
             return doc
-        except Exception as e:
+        except (ImportError, OSError) as e:
             logger.warning("DB unavailable — returning stub document: %s", e)
             from dataclasses import dataclass
             @dataclass
@@ -78,7 +78,7 @@ class DocumentRepository:
             *_, Document, _, _, Session = _lazy_db()
             with Session() as session:
                 return session.query(Document).filter_by(id=document_id).first()
-        except Exception:
+        except (ImportError, OSError):
             return None
 
     def list_by_project(self, project_id: int, doc_type: str = None, limit: int = 100, offset: int = 0):
@@ -90,7 +90,7 @@ class DocumentRepository:
                     stmt = stmt.where(Document.doc_type == doc_type)
                 stmt = stmt.order_by(Document.created_at.desc()).offset(offset).limit(limit)
                 return list(session.execute(stmt).scalars().all())
-        except Exception:
+        except (ImportError, OSError):
             return []
 
     def update_metadata(self, document_id: int, metadata: Dict[str, Any]) -> bool:
@@ -105,7 +105,7 @@ class DocumentRepository:
                 doc.metadata_json = existing
                 session.commit()
                 return True
-        except Exception:
+        except (ImportError, OSError):
             return False
 
     def delete(self, document_id: int) -> bool:
@@ -119,7 +119,7 @@ class DocumentRepository:
                 session.commit()
                 logger.info("Document #%d deleted", document_id)
                 return True
-        except Exception:
+        except (ImportError, OSError):
             return False
 
     async def add_chunks(
@@ -158,7 +158,7 @@ class DocumentRepository:
                 session.commit()
             logger.info("Doc #%d: %d chunks saved", document_id, count)
             return count
-        except Exception as e:
+        except (ImportError, OSError) as e:
             logger.warning("DB unavailable — add_chunks skipped: %s", e)
             return 0
 
@@ -193,7 +193,7 @@ class DocumentRepository:
                      "doc_type": r.doc_type, "score": round(float(r.score), 4)}
                     for r in rows
                 ]
-        except Exception:
+        except (ImportError, OSError):
             return []
 
     def get_stats(self, project_id: int = None):
@@ -219,7 +219,7 @@ class DocumentRepository:
                     "total_documents": total_docs, "total_chunks": total_chunks,
                     "by_type": by_type,
                 }
-        except Exception:
+        except (ImportError, OSError):
             return {"total_documents": 0, "total_chunks": 0, "by_type": {}}
 
 

@@ -151,7 +151,7 @@ class JournalDataExtractor:
         """
         try:
             return JournalEntry(
-                entry_date=aosr_data.get("work_start", ""),
+                entry_date=aosr_data.get("work_end", aosr_data.get("work_start", "")),
                 work_description=aosr_data.get("work_type", "Неизвестная работа"),
                 work_type=aosr_data.get("work_type", ""),
                 executor=aosr_data.get("executor_company", "ООО «КСК №1»"),

@@ -100,6 +100,7 @@ class VetoRule(BaseModel):
         description="Сработало ли правило"
     )
     override_verdict: TenderVerdict = Field(
+        default=TenderVerdict.NO_GO,
         description="Вердикт при срабатывании правила"
     )
 

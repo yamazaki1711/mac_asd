@@ -217,9 +217,15 @@ class TestProjectManagerFallback:
         assert "smeta" in agents
         assert "pto" in agents
 
-        # Verify dependencies: t1 has no deps, others depend on t1
+        # Verify dependencies: t1 has no deps, others depend transitively on t1
+        # task_5 (smeta_calc) and task_6 (logistics_search) depend on task_3 (pto_vor)
+        # which itself depends on task_1 (transitive dependency chain)
         for t in plan.tasks:
-            if t.task_id != "task_1":
+            if t.task_id == "task_1":
+                assert t.depends_on == [], "task_1 should have no dependencies"
+            elif t.task_id in ("task_5", "task_6"):
+                assert "task_3" in t.depends_on, f"{t.task_id} should depend on task_3"
+            else:
                 assert "task_1" in t.depends_on, f"{t.task_id} should depend on task_1"
 
     def test_fallback_plan_construction_support(self):

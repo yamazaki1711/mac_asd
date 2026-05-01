@@ -101,7 +101,7 @@ class DXFParser:
 
         try:
             doc: Drawing = ezdxf.readfile(str(path))
-        except Exception as e:
+        except (OSError, IOError, ValueError, RuntimeError) as e:
             raise ValueError(f"Не удалось прочитать DXF: {e}") from e
 
         msp = doc.modelspace()
@@ -164,7 +164,7 @@ class DXFParser:
                 design_x=cx, design_y=cy,
                 entity_type="LINE",
             )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError) as e:
             logger.debug(f"LINE entity пропущена: {e}")
             return None
 
@@ -195,7 +195,7 @@ class DXFParser:
                 design_x=cx, design_y=cy,
                 entity_type="LWPOLYLINE",
             )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError) as e:
             logger.debug(f"LWPOLYLINE entity пропущена: {e}")
             return None
 
@@ -226,7 +226,7 @@ class DXFParser:
                 design_x=cx, design_y=cy,
                 entity_type="ARC",
             )
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError) as e:
             logger.debug(f"ARC entity пропущена: {e}")
             return None
 
@@ -243,7 +243,7 @@ class DXFParser:
                     text  = str(entity.dxf.text).strip()
                     if text:
                         index[(float(pos.x), float(pos.y))] = text
-                except Exception:
+                except (OSError, ValueError, KeyError, AttributeError):
                     pass
 
             elif etype == "MTEXT" and layer_upper in self.label_layers:
@@ -252,7 +252,7 @@ class DXFParser:
                     text = entity.plain_mtext().strip()
                     if text:
                         index[(float(pos.x), float(pos.y))] = text
-                except Exception:
+                except (OSError, ValueError, KeyError, AttributeError):
                     pass
 
         return index
@@ -360,7 +360,7 @@ class DXFParser:
                     new_entity = entity.copy()
                     new_msp.add_entity(new_entity)
                     copied_count += 1
-                except Exception as e:
+                except (OSError, ValueError, KeyError, AttributeError) as e:
                     logger.debug(f"Сущность {entity.dxftype()} не скопирована: {e}")
 
         # Копируем использованные слои
@@ -374,11 +374,11 @@ class DXFParser:
                         "color": src_layer.dxf.color,
                         "linetype": src_layer.dxf.linetype,
                     })
-                except Exception:
+                except (OSError, ValueError, KeyError, AttributeError):
                     # Слой не найден в исходнике — создаём с параметрами по умолчанию
                     try:
                         new_doc.layers.add(layer_name, dxfattribs={"color": 7})
-                    except Exception:
+                    except (OSError, ValueError, KeyError, AttributeError):
                         pass
 
         new_doc.saveas(str(out_path))
@@ -436,14 +436,14 @@ class DXFParser:
                 try:
                     pos = entity.dxf.insert
                     return bbox.contains(float(pos.x), float(pos.y), margin)
-                except Exception:
+                except (OSError, ValueError, KeyError, AttributeError):
                     return False
 
             elif etype in ("INSERT",):  # Block reference
                 try:
                     pos = entity.dxf.insert
                     return bbox.contains(float(pos.x), float(pos.y), margin)
-                except Exception:
+                except (OSError, ValueError, KeyError, AttributeError):
                     return False
 
             else:
@@ -459,11 +459,11 @@ class DXFParser:
                             or ext.max.y < bbox.y_min - margin
                             or ext.min.y > bbox.y_max + margin
                         )
-                except Exception:
+                except (OSError, ValueError, KeyError, AttributeError):
                     pass
                 return False
 
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             return False
 
     @staticmethod
@@ -481,5 +481,5 @@ class DXFParser:
         try:
             doc.layers.get(layer_name)
             return True
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             return False

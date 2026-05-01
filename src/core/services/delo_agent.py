@@ -430,5 +430,113 @@ class DeloAgent:
             for e in entries
         ]
 
+    # -------------------------------------------------------------------------
+    # Handover Act & Regulation Workflows (from Регламент взаимодействия ТЗ с П)
+    # -------------------------------------------------------------------------
+
+    def generate_handover_act(
+        self,
+        project_id: int,
+        sender_org: str = "",
+        sender_rep: str = "",
+        receiver_org: str = "",
+        receiver_rep: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Генерирует данные для Акта приёма-передачи ИД (Приложение 3 Регламента).
+
+        Включает бумажный реестр и информацию об электронной версии.
+        """
+        registry = self._registries.get(project_id)
+        if not registry:
+            return {}
+
+        documents = []
+        for i, e in enumerate(registry.entries, 1):
+            documents.append({
+                "num": i,
+                "rd_type": "ИД",
+                "queue": "1",
+                "contractor": getattr(registry, 'contractor', ''),
+                "aosr_first": e.reg_id,
+                "aosr_last": "",
+                "month_object": "",
+            })
+
+        return {
+            "date": datetime.now().strftime("%d.%m.%Y"),
+            "place": getattr(registry, 'object_address', 'г. Москва'),
+            "object_name": registry.project_name,
+            "object_address": getattr(registry, 'object_address', ''),
+            "sender": {"org": sender_org or getattr(registry, 'contractor', 'ООО «КСК №1»'), "rep": sender_rep},
+            "receiver": {"org": receiver_org or getattr(registry, 'customer', 'Заказчик'), "rep": receiver_rep},
+            "documents": documents,
+            "electronic": {
+                "disks": [{"num": 1, "org": sender_org, "folder": f"{registry.project_name}", "count": 1}],
+            },
+            "appendix": "Реестр исполнительной документации",
+            "stats": self.get_completion_stats(project_id),
+        }
+
+    def generate_storage_registry(self, project_id: int) -> List[Dict[str, Any]]:
+        """
+        Генерирует реестр хранения ИД (Приложение 5 Регламента).
+
+        Используется для учёта мест хранения документов в архиве.
+        """
+        registry = self._registries.get(project_id)
+        if not registry:
+            return []
+
+        rows = []
+        for i, e in enumerate(registry.entries, 1):
+            rows.append({
+                "num": i,
+                "package_num": f"ПАК-{project_id}",
+                "rd_num": e.reg_id,
+                "doc_name": e.doc_name,
+                "doc_number": e.reg_id,
+                "date": e.prepared_date or e.submitted_date or "",
+                "work_type": e.work_type,
+                "received_date": e.accepted_date or "",
+                "status": e.status.value,
+                "contractor": getattr(registry, 'contractor', ''),
+                "note": e.notes,
+            })
+        return rows
+
+    def get_preparation_checklist(self) -> List[Dict[str, str]]:
+        """Возвращает чек-лист этапов подготовки ИД (из Регламента)."""
+        return [
+            {"stage": "1", "action": "Уведомить заказчика о готовности скрытых работ к освидетельствованию", "deadline": "Не позднее чем за 3 рабочих дня", "ref": "ПП РФ №468 п. 11"},
+            {"stage": "2", "action": "Проверить НТД: соответствие проекту, наличие сертификатов, паспортов на материалы", "deadline": "До начала освидетельствования", "ref": "СП 543.1325800.2024"},
+            {"stage": "3", "action": "Провести освидетельствование комиссией (заказчик, подрядчик, стройконтроль)", "deadline": "В назначенную дату", "ref": "Приказ 344/пр"},
+            {"stage": "4", "action": "Оформить АОСР с подписями всех членов комиссии", "deadline": "В день освидетельствования", "ref": "Приказ 344/пр, Приложение 3"},
+            {"stage": "5", "action": "Приложить к АОСР: исполнительные схемы, протоколы испытаний, паспорта качества", "deadline": "Вместе с АОСР", "ref": "ГОСТ Р 51872-2024"},
+            {"stage": "6", "action": "Зарегистрировать АОСР в реестре ИД (сквозная нумерация)", "deadline": "В день оформления", "ref": "Приказ 344/пр"},
+            {"stage": "7", "action": "Передать комплект ИД заказчику по реестру приёма-передачи", "deadline": "По графику передачи", "ref": "Приложение 3 Регламента"},
+        ]
+
+    def get_gosstroynadzor_checklist(self) -> List[Dict[str, str]]:
+        """Возвращает чек-лист взаимодействия с Госстройнадзором."""
+        return [
+            {"stage": "1", "action": "Извещение о начале строительства", "deadline": "Не позднее чем за 7 рабочих дней до начала", "ref": "Ст. 52 ГрК РФ ч. 5"},
+            {"stage": "2", "action": "Извещение о сроках завершения работ, подлежащих проверке", "deadline": "После получения извещения ГСН", "ref": "РД-11-04-2006 п. 9"},
+            {"stage": "3", "action": "Предоставление ИД для проверки по запросу ГСН", "deadline": "В течение 3 рабочих дней", "ref": "РД-11-04-2006 п. 12"},
+            {"stage": "4", "action": "Акт проверки ГСН — оформление в 2 экземплярах", "deadline": "По результатам проверки", "ref": "РД-11-04-2006 п. 14"},
+            {"stage": "5", "action": "Извещение об окончании строительства", "deadline": "После завершения всех работ", "ref": "Ст. 55 ГрК РФ ч. 1 п. 3"},
+        ]
+
+    def load_regulation_templates(self) -> Dict[str, Any]:
+        """Загружает шаблоны из Регламента взаимодействия ТЗ с П."""
+        import json as _json
+        from pathlib import Path as _Path
+        tmpl_path = _Path(__file__).parent.parent.parent.parent / "data" / "knowledge" / "templates" / "regulation_templates.json"
+        try:
+            with open(tmpl_path, "r", encoding="utf-8") as f:
+                return _json.load(f)
+        except Exception:
+            return {}
+
 
 delo_agent = DeloAgent()

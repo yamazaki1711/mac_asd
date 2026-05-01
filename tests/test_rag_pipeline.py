@@ -364,7 +364,7 @@ class TestRAGContextFormatting:
         result = pipeline._format_context(
             vector_results=[],
             graph_context=[],
-            bls_context="",
+            trap_context="",
             agent="legal",
             query="test",
         )
@@ -385,7 +385,7 @@ class TestRAGContextFormatting:
         ctx = pipeline._format_context(
             vector_results=results,
             graph_context=[],
-            bls_context="",
+            trap_context="",
             agent="legal",
             query="неустойка",
         )
@@ -403,19 +403,19 @@ class TestRAGContextFormatting:
         ctx = pipeline._format_context(
             vector_results=[],
             graph_context=graph_ctx,
-            bls_context="",
+            trap_context="",
             agent="pto",
             query="test",
         )
         assert "doc1.pdf" in ctx
         assert "doc2.pdf" in ctx
 
-    def test_format_bls_context(self):
+    def test_format_trap_context(self):
         pipeline = self._get_pipeline()
         ctx = pipeline._format_context(
             vector_results=[],
             graph_context=[],
-            bls_context="⚠️ ЛОВУШКИ:\n  • Риск неустойки",
+            trap_context="⚠️ ЛОВУШКИ:\n  • Риск неустойки",
             agent="legal",
             query="test",
         )

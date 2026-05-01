@@ -791,7 +791,7 @@ class ProjectManager:
 
     def __init__(
         self,
-        llm_engine: LLMEngine,
+        llm_engine: Optional[LLMEngine] = None,
         completeness_matrix=None,
     ):
         self._llm = llm_engine
@@ -988,6 +988,37 @@ class ProjectManager:
     # -------------------------------------------------------------------------
     # Evaluation
     # -------------------------------------------------------------------------
+
+    def evaluate_result_sync(
+        self,
+        plan: WorkPlan,
+        task: TaskNode,
+        result_summary: str,
+        confidence: float,
+        previous_errors: Optional[List[str]] = None,
+    ) -> EvaluationVerdict:
+        """
+        Синхронная оценка результата (без LLM, только быстрые пути).
+
+        Используется в тестах и когда LLM недоступен.
+        Быстрые пороги: confidence >= required → ACCEPT, confidence < 0.1 → RETRY/ABORT.
+        """
+        if confidence >= task.confidence_required:
+            task.mark_completed(result_summary)
+            plan.updated_at = datetime.utcnow().isoformat()
+            return EvaluationVerdict.ACCEPT
+
+        if confidence < 0.1:
+            task.mark_failed("Confidence too low (< 0.1)")
+            if task.status == TaskStatus.FAILED.value:
+                return EvaluationVerdict.ABORT
+            return EvaluationVerdict.RETRY
+
+        # Grey zone without LLM: conservative RETRY
+        task.mark_failed("Grey zone (no LLM available)")
+        if task.status == TaskStatus.FAILED.value:
+            return EvaluationVerdict.ABORT
+        return EvaluationVerdict.RETRY
 
     async def evaluate_result(
         self,

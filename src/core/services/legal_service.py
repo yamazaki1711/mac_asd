@@ -156,7 +156,25 @@ class LegalService:
                 request.review_type,
             )
 
-        # Step 3: Add metadata
+        # Step 3: Check normative refs validity via InvalidationEngine
+        if result.normative_refs:
+            validity_warnings = self._check_norms_validity(result.normative_refs)
+            if validity_warnings:
+                result.normative_validity_warnings = validity_warnings
+                # Add as a finding if any norms are stale
+                for vw in validity_warnings:
+                    if vw.get("status") in ("stale", "replaced"):
+                        result.findings.append(LegalFinding(
+                            category=LegalFindingCategory.RISK,
+                            severity=LegalSeverity.HIGH,
+                            clause_ref=vw.get("norm_ref", ""),
+                            legal_basis="InvalidationEngine",
+                            issue=f"Нормативный документ устарел: {vw.get('warning', '')}",
+                            recommendation=f"Проверить актуальность: {vw.get('norm_ref', '')}",
+                            auto_fixable=False,
+                        ))
+
+        # Step 4: Add metadata
         elapsed = time.time() - start_time
         model_config = settings.get_model_config(self.agent)
         result.analysis_metadata = {
@@ -427,6 +445,33 @@ class LegalService:
                 logger.error(f"Failed to load document from DB: {e}")
 
         return ""
+
+    # =========================================================================
+    # Normative Validity Check (Knowledge Invalidation)
+    # =========================================================================
+
+    def _check_norms_validity(self, norm_refs: List[str]) -> List[Dict[str, Any]]:
+        """
+        Check normative references against the InvalidationEngine.
+
+        Returns list of warnings for stale/replaced norms.
+        """
+        try:
+            from src.core.knowledge.invalidation_engine import invalidation_engine
+            results = invalidation_engine.check_validity_batch(norm_refs)
+        except Exception:
+            return []
+
+        warnings = []
+        for ref, status in results.items():
+            if not status.get("valid", True) or status.get("warning"):
+                warnings.append({
+                    "norm_ref": ref,
+                    "status": status.get("status", "unknown"),
+                    "replaced_by": status.get("replaced_by"),
+                    "warning": status.get("warning", ""),
+                })
+        return warnings
 
     # =========================================================================
     # Response Parsing

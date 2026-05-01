@@ -359,4 +359,60 @@ class SmetaAgent:
         }
 
 
+    # -------------------------------------------------------------------------
+    # Normative Validity Check (Knowledge Invalidation)
+    # -------------------------------------------------------------------------
+
+    def check_norms_validity(self, norm_refs: List[str]) -> List[Dict[str, Any]]:
+        """
+        Проверить актуальность нормативных ссылок (ФЕР/ТЕР/МДС) через InvalidationEngine.
+
+        Возвращает список предупреждений для устаревших норм.
+        """
+        try:
+            from src.core.knowledge.invalidation_engine import invalidation_engine
+            results = invalidation_engine.check_validity_batch(norm_refs)
+        except Exception:
+            return []
+
+        warnings = []
+        for ref, status in results.items():
+            if not status.get("valid", True) or status.get("warning"):
+                warnings.append({
+                    "norm_ref": ref,
+                    "status": status.get("status", "unknown"),
+                    "replaced_by": status.get("replaced_by"),
+                    "warning": status.get("warning", ""),
+                })
+        return warnings
+
+    def build_estimate_with_validity(
+        self,
+        project_id: int,
+        title: str,
+        vor_positions: List[Dict[str, Any]],
+        norm_refs: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Tuple[SmetaEstimate, List[Dict[str, Any]]]:
+        """
+        Построить смету с проверкой актуальности нормативной базы.
+
+        Returns:
+            (SmetaEstimate, stale_warnings_list)
+        """
+        estimate = self.build_estimate(project_id, title, vor_positions, **kwargs)
+
+        # Collect norm refs from estimate codes
+        all_refs = set(norm_refs or [])
+        for line in estimate.lines:
+            if line.code:
+                all_refs.add(line.code)
+        # Add common smeta norms
+        all_refs.update(["МДС 81-35.2004", "МДС 81-33.2004", "МДС 81-25.2001"])
+
+        validity_warnings = self.check_norms_validity(list(all_refs))
+
+        return estimate, validity_warnings
+
+
 smeta_agent = SmetaAgent()

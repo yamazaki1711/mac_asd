@@ -75,19 +75,39 @@ class WorkType(str, Enum):
     # Сети связи (5.12)
     COMMUNICATION_NETWORKS = "сети_связи"                 # 5.12
 
+    # Дополнительные виды работ (id-prosto.ru / Пособие, гл. 5)
+    ANTICORROSIVE = "акз_огнезащита"                       # 5.6 / 10_anticorrosive
+    HDD_DRILLING = "гнб_прокол"                             # 13_drilling
+    FIRE_EXTINGUISHING = "пожаротушение"                   # 18_extinguishing
+    PROCESS_PIPELINES = "технологические_трубопроводы"     # 19_pipelines
+    PROCESS_EQUIPMENT = "технологическое_оборудование"     # 20_equipment
+    TANKS = "резервуары"                                    # 21_tanks
+    AUTOMATION = "системы_автоматизации"                   # 24_automatic
+    FIRE_ALARM = "пожарная_сигнализация"                   # 25_fire-alarm
+    ELEVATORS = "лифты"                                     # 27_elevators
+    HEAT_PIPELINES = "тепловые_сети"                       # 28_heat-pipelines
+    ROADS = "автомобильные_дороги"                         # 29_roads
+    DEMOLITION = "демонтажные_работы"                      # 30_demolition
+    STEAM_BOILER = "паровая_котельная"                     # 31_steam-boiler
+
 
 # Группировка видов работ по категориям
 WORK_TYPE_CATEGORIES: Dict[str, List[WorkType]] = {
-    "earthwork": [WorkType.EARTHWORK_EXCAVATION, WorkType.EARTHWORK_BACKFILL],
+    "earthwork": [WorkType.EARTHWORK_EXCAVATION, WorkType.EARTHWORK_BACKFILL, WorkType.HDD_DRILLING],
     "foundation": [WorkType.FOUNDATION_MONOLITHIC, WorkType.FOUNDATION_PRECAST, WorkType.FOUNDATION_PILE],
     "concrete": [WorkType.CONCRETE],
     "metal": [WorkType.METAL_STRUCTURES],
     "masonry": [WorkType.MASONRY],
     "finishing": [WorkType.FINISHING_FLOORS, WorkType.FINISHING_WALLS_CEILINGS, WorkType.FINISHING_WINDOWS_DOORS],
     "water_sewer": [WorkType.WATER_SUPPLY, WorkType.SEWERAGE, WorkType.EXTERNAL_NETWORKS_VK],
-    "hvac": [WorkType.HEATING, WorkType.VENTILATION, WorkType.AIR_CONDITIONING],
+    "hvac": [WorkType.HEATING, WorkType.VENTILATION, WorkType.AIR_CONDITIONING, WorkType.HEAT_PIPELINES],
     "electrical": [WorkType.ELECTRICAL_INTERNAL, WorkType.ELECTRICAL_EXTERNAL],
     "communication": [WorkType.COMMUNICATION_NETWORKS],
+    "fire_safety": [WorkType.FIRE_EXTINGUISHING, WorkType.FIRE_ALARM],
+    "industrial": [WorkType.PROCESS_PIPELINES, WorkType.PROCESS_EQUIPMENT, WorkType.TANKS, WorkType.STEAM_BOILER],
+    "automation": [WorkType.AUTOMATION],
+    "transport": [WorkType.ELEVATORS, WorkType.ROADS],
+    "special": [WorkType.ANTICORROSIVE, WorkType.DEMOLITION],
 }
 
 # Ссылки на разделы Пособия
@@ -112,6 +132,19 @@ WORK_TYPE_CHAPTERS: Dict[str, str] = {
     WorkType.ELECTRICAL_INTERNAL: "5.11",
     WorkType.ELECTRICAL_EXTERNAL: "5.11",
     WorkType.COMMUNICATION_NETWORKS: "5.12",
+    WorkType.ANTICORROSIVE: "5.6",
+    WorkType.HDD_DRILLING: "5.3.3",
+    WorkType.FIRE_EXTINGUISHING: "5.13",
+    WorkType.PROCESS_PIPELINES: "5.14",
+    WorkType.PROCESS_EQUIPMENT: "5.15",
+    WorkType.TANKS: "5.16",
+    WorkType.AUTOMATION: "5.17",
+    WorkType.FIRE_ALARM: "5.13",
+    WorkType.ELEVATORS: "5.18",
+    WorkType.HEAT_PIPELINES: "5.10.4",
+    WorkType.ROADS: "5.19",
+    WorkType.DEMOLITION: "5.20",
+    WorkType.STEAM_BOILER: "5.21",
 }
 
 
@@ -409,6 +442,136 @@ WORK_JOURNALS: Dict[str, List[Dict[str, Any]]] = {
         COMMON_JOURNAL_OJR,
         COMMON_JOURNAL_JVK,
     ],
+    # ---- АКЗ и огнезащита ----
+    WorkType.ANTICORROSIVE: [
+        COMMON_JOURNAL_OJR,
+        {
+            "name": "Журнал производства антикоррозионных работ",
+            "form": "СП 70.13330.2012, Приложение И",
+            "mandatory": True,
+        },
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- ГНБ ----
+    WorkType.HDD_DRILLING: [
+        COMMON_JOURNAL_OJR,
+        {
+            "name": "Журнал производства земляных работ при ГНБ",
+            "form": "ВСН 012-88, часть II",
+            "mandatory": False,
+        },
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Пожаротушение ----
+    WorkType.FIRE_EXTINGUISHING: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Технологические трубопроводы ----
+    WorkType.PROCESS_PIPELINES: [
+        COMMON_JOURNAL_OJR,
+        {
+            "name": "Журнал по сварке трубопроводов",
+            "form": "ГОСТ 32569-2013",
+            "mandatory": True,
+            "conditional": "для трубопроводов I и II категории",
+        },
+        {
+            "name": "Журнал учёта и проверки качества контрольных сварных соединений",
+            "form": "ГОСТ 32569-2013",
+            "mandatory": True,
+        },
+        {
+            "name": "Журнал сборки разъёмных соединений трубопроводов",
+            "form": "ГОСТ 32569-2013",
+            "mandatory": False,
+            "conditional": "при давлении P > 10 МПа",
+        },
+        {
+            "name": "Журнал термической обработки сварных соединений",
+            "form": "ГОСТ 32569-2013",
+            "mandatory": False,
+            "conditional": "при термообработке",
+        },
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Технологическое оборудование ----
+    WorkType.PROCESS_EQUIPMENT: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Резервуары ----
+    WorkType.TANKS: [
+        COMMON_JOURNAL_OJR,
+        {
+            "name": "Журнал пооперационного контроля монтажно-сварочных работ при сооружении резервуара",
+            "form": "СП 365.1325800.2017",
+            "mandatory": True,
+        },
+        {
+            "name": "Журнал работ по монтажу строительных конструкций (лестницы, площадки, кронштейны)",
+            "form": "СП 70.13330.2012, Приложение А",
+            "mandatory": True,
+        },
+        {
+            "name": "Журнал сварочных работ (лестницы, площадки, кронштейны)",
+            "form": "СП 70.13330.2012, Приложение В",
+            "mandatory": True,
+        },
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Системы автоматизации ----
+    WorkType.AUTOMATION: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Пожарная сигнализация ----
+    WorkType.FIRE_ALARM: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Лифты ----
+    WorkType.ELEVATORS: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Тепловые сети ----
+    WorkType.HEAT_PIPELINES: [
+        COMMON_JOURNAL_OJR,
+        {
+            "name": "Журнал сварочных работ",
+            "form": "СП 70.13330.2012, Приложение В",
+            "mandatory": False,
+            "conditional": "при сварных соединениях",
+        },
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Автомобильные дороги ----
+    WorkType.ROADS: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Демонтажные работы ----
+    WorkType.DEMOLITION: [
+        COMMON_JOURNAL_OJR,
+        COMMON_JOURNAL_JVK,
+    ],
+    # ---- Паровая котельная ----
+    WorkType.STEAM_BOILER: [
+        COMMON_JOURNAL_OJR,
+        {
+            "name": "Сварочный журнал",
+            "form": "ГОСТ 32569-2013",
+            "mandatory": True,
+        },
+        {
+            "name": "Журнал термической обработки сварных соединений",
+            "form": "ГОСТ 32569-2013",
+            "mandatory": False,
+            "conditional": "при термообработке",
+        },
+        COMMON_JOURNAL_JVK,
+    ],
 }
 
 
@@ -632,6 +795,124 @@ WORK_HIDDEN_ACTS: Dict[str, List[Dict[str, Any]]] = {
         {"name": "Устройство проходов через стены и перекрытия", "mandatory": True},
         {"name": "Монтаж оборудования связи", "mandatory": True},
     ],
+    # ---- АКЗ и огнезащита ----
+    WorkType.ANTICORROSIVE: [
+        {"name": "Подготовка поверхности (абразивоструйная очистка)", "mandatory": True},
+        {"name": "Нанесение антикоррозионного покрытия (грунтовка)", "mandatory": True},
+        {"name": "Нанесение финишного покрытия (покраска)", "mandatory": True},
+        {"name": "Нанесение огнезащитного состава", "mandatory": False, "conditional": "при наличии огнезащиты"},
+        {"name": "Контроль толщины покрытия", "mandatory": True},
+    ],
+    # ---- ГНБ ----
+    WorkType.HDD_DRILLING: [
+        {"name": "Бурение пилотной скважины", "mandatory": True},
+        {"name": "Расширение скважины", "mandatory": True},
+        {"name": "Протаскивание трубопровода в скважину", "mandatory": True},
+        {"name": "Восстановление/рекультивация участка", "mandatory": True},
+        {"name": "Сварка стыков полиэтиленовых труб", "mandatory": False, "conditional": "при ПЭ трубах"},
+    ],
+    # ---- Пожаротушение ----
+    WorkType.FIRE_EXTINGUISHING: [
+        {"name": "Монтаж трубопроводов пожаротушения", "mandatory": True},
+        {"name": "Монтаж спринклерных/дренчерных оросителей", "mandatory": True},
+        {"name": "Монтаж насосной станции пожаротушения", "mandatory": True},
+        {"name": "Устройство проходов через стены и перекрытия", "mandatory": True},
+        {"name": "Огнезащита трубопроводов пожаротушения", "mandatory": False, "conditional": "при наличии"},
+    ],
+    # ---- Технологические трубопроводы ----
+    WorkType.PROCESS_PIPELINES: [
+        {"name": "Монтаж трубопроводов", "mandatory": True},
+        {"name": "Сварка стыков трубопроводов", "mandatory": False, "conditional": "при сварных соединениях"},
+        {"name": "Контроль сварных соединений (ВИК, УЗК, радиография)", "mandatory": False, "conditional": "при сварных соединениях I-II кат."},
+        {"name": "Антикоррозионная защита трубопроводов", "mandatory": True},
+        {"name": "Теплоизоляция трубопроводов", "mandatory": False, "conditional": "при наличии"},
+        {"name": "Устройство проходов через стены и перекрытия", "mandatory": True},
+        {"name": "Монтаж опор и подвесок трубопроводов", "mandatory": True},
+    ],
+    # ---- Технологическое оборудование ----
+    WorkType.PROCESS_EQUIPMENT: [
+        {"name": "Монтаж фундаментов под оборудование", "mandatory": True},
+        {"name": "Установка технологического оборудования", "mandatory": True},
+        {"name": "Центровка и выверка оборудования", "mandatory": True},
+        {"name": "Подливка под оборудование", "mandatory": True},
+    ],
+    # ---- Резервуары ----
+    WorkType.TANKS: [
+        {"name": "Устройство основания под резервуар", "mandatory": True},
+        {"name": "Монтаж днища резервуара", "mandatory": True},
+        {"name": "Монтаж стенок резервуара", "mandatory": True},
+        {"name": "Монтаж крыши резервуара", "mandatory": True},
+        {"name": "Контроль сварных соединений (радиография)", "mandatory": True},
+        {"name": "Вакуумное испытание днища", "mandatory": True},
+        {"name": "Гидравлическое испытание резервуара", "mandatory": True},
+        {"name": "Антикоррозийная защита резервуара", "mandatory": True},
+    ],
+    # ---- Системы автоматизации ----
+    WorkType.AUTOMATION: [
+        {"name": "Монтаж шкафов автоматизации", "mandatory": True},
+        {"name": "Прокладка контрольных кабелей", "mandatory": True},
+        {"name": "Монтаж датчиков и КИПиА", "mandatory": True},
+        {"name": "Устройство проходов через стены и перекрытия", "mandatory": True},
+    ],
+    # ---- Пожарная сигнализация ----
+    WorkType.FIRE_ALARM: [
+        {"name": "Прокладка кабелей пожарной сигнализации", "mandatory": True},
+        {"name": "Монтаж пожарных извещателей", "mandatory": True},
+        {"name": "Монтаж оповещателей (СОУЭ)", "mandatory": False, "conditional": "при наличии СОУЭ"},
+        {"name": "Монтаж приборов приёмно-контрольных (ППК)", "mandatory": True},
+        {"name": "Устройство проходов через стены и перекрытия", "mandatory": True},
+    ],
+    # ---- Лифты ----
+    WorkType.ELEVATORS: [
+        {"name": "Монтаж направляющих кабины и противовеса", "mandatory": True},
+        {"name": "Монтаж лебёдки и отводных блоков", "mandatory": True},
+        {"name": "Монтаж кабины лифта", "mandatory": True},
+        {"name": "Монтаж противовеса", "mandatory": True},
+        {"name": "Монтаж дверей шахты", "mandatory": True},
+        {"name": "Монтаж ограждения шахты", "mandatory": True},
+        {"name": "Монтаж электрооборудования лифта", "mandatory": True},
+    ],
+    # ---- Тепловые сети ----
+    WorkType.HEAT_PIPELINES: [
+        {"name": "Разработка траншеи", "mandatory": True},
+        {"name": "Устройство оснований под трубопроводы", "mandatory": True},
+        {"name": "Монтаж трубопроводов теплосети", "mandatory": True},
+        {"name": "Монтаж компенсаторов и неподвижных опор", "mandatory": True},
+        {"name": "Антикоррозионная защита трубопроводов", "mandatory": True},
+        {"name": "Тепловая изоляция трубопроводов", "mandatory": True},
+        {"name": "Обратная засыпка траншеи", "mandatory": True},
+        {"name": "Устройство колодцев/камер", "mandatory": False, "conditional": "при наличии камер"},
+    ],
+    # ---- Автомобильные дороги ----
+    WorkType.ROADS: [
+        {"name": "Снятие растительного слоя и планировка", "mandatory": True},
+        {"name": "Устройство земляного полотна", "mandatory": True},
+        {"name": "Устройство подстилающего слоя из песка", "mandatory": True},
+        {"name": "Устройство основания из щебня", "mandatory": True},
+        {"name": "Розлив битума (подгрунтовка)", "mandatory": True},
+        {"name": "Устройство асфальтобетонного покрытия (нижний слой)", "mandatory": True},
+        {"name": "Устройство асфальтобетонного покрытия (верхний слой)", "mandatory": True},
+        {"name": "Установка бортового камня", "mandatory": True},
+        {"name": "Нанесение дорожной разметки", "mandatory": False, "conditional": "при наличии в проекте"},
+    ],
+    # ---- Демонтажные работы ----
+    WorkType.DEMOLITION: [
+        {"name": "Демонтаж строительных конструкций", "mandatory": True},
+        {"name": "Демонтаж инженерных систем", "mandatory": True},
+        {"name": "Демонтаж фундаментов", "mandatory": False, "conditional": "при демонтаже фундаментов"},
+        {"name": "Демонтаж оборудования", "mandatory": False, "conditional": "при демонтаже оборудования"},
+    ],
+    # ---- Паровая котельная ----
+    WorkType.STEAM_BOILER: [
+        {"name": "Монтаж котлов", "mandatory": True},
+        {"name": "Монтаж трубопроводов пара и конденсата", "mandatory": True},
+        {"name": "Сварка трубопроводов пара", "mandatory": True},
+        {"name": "Контроль сварных соединений (ВИК, УЗК)", "mandatory": True},
+        {"name": "Монтаж дымовой трубы", "mandatory": True},
+        {"name": "Монтаж вспомогательного оборудования", "mandatory": True},
+        {"name": "Теплоизоляция котлов и трубопроводов", "mandatory": True},
+        {"name": "Гидравлическое испытание котлов", "mandatory": True},
+    ],
 }
 
 
@@ -693,6 +974,34 @@ WORK_RESPONSIBLE_ACTS: Dict[str, List[Dict[str, Any]]] = {
 
     # ---- Сети связи ----
     WorkType.COMMUNICATION_NETWORKS: [],  # АООК не предусмотрен
+    # ---- Новые виды работ ----
+    WorkType.ANTICORROSIVE: [],
+    WorkType.HDD_DRILLING: [],
+    WorkType.FIRE_EXTINGUISHING: [],
+    WorkType.PROCESS_PIPELINES: [
+        {"name": "АООК на участок трубопровода", "mandatory": True, "note": "На участки трубопроводов I и II категории (ГОСТ 32569-2013)"},
+    ],
+    WorkType.PROCESS_EQUIPMENT: [
+        {"name": "АООК на технологическое оборудование", "mandatory": True, "note": "После монтажа, центровки и подливки"},
+    ],
+    WorkType.TANKS: [
+        {"name": "АООК на резервуар", "mandatory": True, "note": "После гидроиспытаний и контроля сварных соединений"},
+    ],
+    WorkType.AUTOMATION: [],
+    WorkType.FIRE_ALARM: [],
+    WorkType.ELEVATORS: [
+        {"name": "АООК на лифтовую установку", "mandatory": True, "note": "После полного монтажа и декларирования соответствия ТР ТС 011/2011"},
+    ],
+    WorkType.HEAT_PIPELINES: [
+        {"name": "АОУСИТО (акт освидетельствования участков сетей ИТО)", "mandatory": True, "note": "На участки тепловых сетей"},
+    ],
+    WorkType.ROADS: [
+        {"name": "АООК на конструктивные слои дорожной одежды", "mandatory": True, "note": "На все конструктивные слои (основание, покрытие)"},
+    ],
+    WorkType.DEMOLITION: [],
+    WorkType.STEAM_BOILER: [
+        {"name": "АООК на паровую котельную", "mandatory": True, "note": "После гидроиспытаний и комплексного опробования"},
+    ],
 }
 
 
@@ -804,6 +1113,96 @@ WORK_ACCEPTANCE_ACTS: Dict[str, List[Dict[str, Any]]] = {
     WorkType.COMMUNICATION_NETWORKS: [
         {"name": "Акт приёмки систем связи", "mandatory": True},
         {"name": "Акт индивидуального испытания оборудования", "mandatory": True},
+    ],
+    # ---- Новые виды работ ----
+    WorkType.ANTICORROSIVE: [
+        {"name": "Акт приёмки выполненных антикоррозионных работ", "mandatory": True, "note": "Форма свободная, на основе АОСР/АООК"},
+        {"name": "Протокол измерения толщины покрытия", "mandatory": True},
+        {"name": "Протокол адгезии покрытия", "mandatory": True},
+    ],
+    WorkType.HDD_DRILLING: [
+        {"name": "Акт приёмки пилотной скважины", "mandatory": True},
+        {"name": "Акт приёмки расширенной скважины", "mandatory": True},
+        {"name": "Акт приёмки протаскивания трубопровода в скважину", "mandatory": True},
+    ],
+    WorkType.FIRE_EXTINGUISHING: [
+        {"name": "Акт гидростатического испытания трубопроводов пожаротушения", "mandatory": True},
+        {"name": "Акт индивидуального испытания насосной станции", "mandatory": True},
+        {"name": "Акт комплексного опробования системы пожаротушения", "mandatory": True},
+        {"name": "Акт приёмки автоматической системы пожаротушения в эксплуатацию", "mandatory": True},
+    ],
+    WorkType.PROCESS_PIPELINES: [
+        {"name": "Акт гидравлического испытания трубопровода на прочность и герметичность", "mandatory": True},
+        {"name": "Акт ВИК сварных швов", "mandatory": False, "conditional": "при сварных соединениях"},
+        {"name": "Заключение по неразрушающему контролю (УЗК, радиография)", "mandatory": False, "conditional": "для трубопроводов I-II категории"},
+        {"name": "Акт продувки/промывки трубопровода", "mandatory": True},
+        {"name": "Акт приёмки технологического трубопровода", "mandatory": True},
+    ],
+    WorkType.PROCESS_EQUIPMENT: [
+        {"name": "Акт приёмки-передачи оборудования в монтаж", "mandatory": True},
+        {"name": "Акт приёмки фундаментов под монтаж оборудования", "mandatory": True},
+        {"name": "Акт индивидуального испытания оборудования", "mandatory": True},
+    ],
+    WorkType.TANKS: [
+        {"name": "Акт приёмки основания под резервуар", "mandatory": True},
+        {"name": "Заключение по радиографическому контролю сварных швов", "mandatory": True},
+        {"name": "Акт вакуумного испытания днища", "mandatory": True},
+        {"name": "Акт гидравлического испытания резервуара", "mandatory": True},
+        {"name": "Акт испытания крыши резервуара", "mandatory": True},
+        {"name": "Акт приёмки резервуара в эксплуатацию", "mandatory": True},
+    ],
+    WorkType.AUTOMATION: [
+        {"name": "Акт готовности строительной части к монтажу систем автоматизации", "mandatory": True},
+        {"name": "Акт приёмки-передачи оборудования в монтаж", "mandatory": True},
+        {"name": "Акт передачи систем для ПНР", "mandatory": True},
+        {"name": "Акт об окончании ПНР", "mandatory": True},
+        {"name": "Акт приёмки системы автоматизации", "mandatory": True},
+    ],
+    WorkType.FIRE_ALARM: [
+        {"name": "Акт входного контроля оборудования ПС", "mandatory": True},
+        {"name": "Акт приёмки-передачи оборудования в монтаж", "mandatory": True},
+        {"name": "Акт измерения сопротивления изоляции электропроводок", "mandatory": True},
+        {"name": "Акт окончания монтажных работ", "mandatory": True},
+        {"name": "Акт проведения ПНР", "mandatory": True},
+        {"name": "Акт комплексного опробования системы пожарной сигнализации", "mandatory": True},
+        {"name": "Акт приёмки системы ПС в эксплуатацию", "mandatory": True},
+    ],
+    WorkType.ELEVATORS: [
+        {"name": "Акт готовности строительной части шахты лифта", "mandatory": True},
+        {"name": "Акт приёмки-передачи лифтового оборудования в монтаж", "mandatory": True},
+        {"name": "Акт полного технического освидетельствования лифта", "mandatory": True},
+        {"name": "Декларация соответствия ТР ТС 011/2011", "mandatory": True},
+        {"name": "Акт приёмки лифта в эксплуатацию", "mandatory": True},
+    ],
+    WorkType.HEAT_PIPELINES: [
+        {"name": "Акт разбивки осей трассы", "mandatory": True},
+        {"name": "Акт гидравлического испытания трубопровода на прочность и герметичность", "mandatory": True},
+        {"name": "Акт ВИК сварных швов", "mandatory": False, "conditional": "при сварных соединениях"},
+        {"name": "Акт тепловых испытаний тепловой сети", "mandatory": True},
+        {"name": "Акт приёмки тепловой сети в эксплуатацию", "mandatory": True},
+    ],
+    WorkType.ROADS: [
+        {"name": "Акт разбивки осей дороги", "mandatory": True},
+        {"name": "Акт освидетельствования земляного полотна", "mandatory": True},
+        {"name": "Акт освидетельствования подстилающего слоя", "mandatory": True},
+        {"name": "Акт освидетельствования основания (щебень)", "mandatory": True},
+        {"name": "Протокол лабораторных испытаний кернов (вырубок)", "mandatory": True},
+        {"name": "Акт освидетельствования покрытия (нижний слой)", "mandatory": True},
+        {"name": "Акт освидетельствования покрытия (верхний слой)", "mandatory": True},
+        {"name": "Акт приёмки выполненных дорожных работ", "mandatory": True},
+    ],
+    WorkType.DEMOLITION: [
+        {"name": "Акт обследования строительных конструкций перед демонтажем", "mandatory": True},
+        {"name": "Акт завершения демонтажных работ", "mandatory": True},
+    ],
+    WorkType.STEAM_BOILER: [
+        {"name": "Акт приёмки-передачи оборудования в монтаж", "mandatory": True},
+        {"name": "Акт ВИК сварных швов котла", "mandatory": True},
+        {"name": "Заключение по неразрушающему контролю сварных швов", "mandatory": True},
+        {"name": "Акт гидравлического испытания котла", "mandatory": True},
+        {"name": "Акт парового опробования котла", "mandatory": True},
+        {"name": "Акт комплексного опробования котельной", "mandatory": True},
+        {"name": "Акт приёмки паровой котельной в эксплуатацию", "mandatory": True},
     ],
 }
 

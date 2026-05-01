@@ -20,7 +20,12 @@ import operator
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
+
+try:
+    from typing import Annotated, Literal
+except ImportError:
+    from typing_extensions import Annotated, Literal
 
 from langgraph.graph import add_messages
 

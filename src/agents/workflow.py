@@ -46,6 +46,10 @@ ALL_AGENT_KEYS = [
 AGENT_EDGE_MAP = {k: "agent_executor" for k in ALL_AGENT_KEYS}
 AGENT_EDGE_MAP["__end__"] = END
 
+# Conditional edge map for parallel dispatch (agent_worker, not agent_executor)
+AGENT_PARALLEL_EDGE_MAP = {k: "agent_worker" for k in ALL_AGENT_KEYS}
+AGENT_PARALLEL_EDGE_MAP["__end__"] = END
+
 
 def create_parallel_workflow():
     """
@@ -66,7 +70,7 @@ def create_parallel_workflow():
     workflow.add_conditional_edges(
         "pm_planning",
         pm_fan_out_router,
-        AGENT_EDGE_MAP,  # For str returns (sequential fallback)
+        AGENT_PARALLEL_EDGE_MAP,  # Str returns → agent_worker (sequential fallback)
     )
 
     # Parallel workers → PM evaluate
@@ -76,7 +80,7 @@ def create_parallel_workflow():
     workflow.add_conditional_edges(
         "pm_evaluate",
         pm_fan_out_router,
-        AGENT_EDGE_MAP,
+        AGENT_PARALLEL_EDGE_MAP,
     )
 
     return workflow.compile()

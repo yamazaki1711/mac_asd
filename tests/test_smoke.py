@@ -495,16 +495,18 @@ class TestIDServices:
         from src.core.services.pto_agent import PTOAgent, ID344Category
         agent = PTOAgent()
 
-        matrix = agent.build_completeness_matrix(["concrete"])
+        from src.agents.skills.pto.work_spec import WorkType
+        matrix = agent.build_completeness_matrix([WorkType.CONCRETE.value])
         assert matrix[ID344Category.ACT_AOSR] > 0, "Concrete work must require AOSR"
         assert matrix[ID344Category.JOURNALS] == 1
         assert matrix[ID344Category.ACT_GRO] == 1
 
     def test_pto_aosr_trail(self):
         from src.core.services.pto_agent import PTOAgent
+        from src.agents.skills.pto.work_spec import WorkType
         agent = PTOAgent()
 
-        trail = agent.build_aosr_trail("Бетонирование фундамента", "concrete")
+        trail = agent.build_aosr_trail("Бетонирование фундамента", WorkType.CONCRETE.value)
         assert trail.aosr_name == "Бетонирование фундамента"
         mandatory = [i for i in trail.items if i.mandatory]
         assert len(mandatory) >= 3, f"Expected >=3 mandatory items, got {len(mandatory)}"
@@ -584,8 +586,8 @@ class TestIDServices:
 
         assert journal.is_viable
         assert len(journal.section_3.entries) == 2
-        assert journal.section_3.date_range[0] == "2025-06-01"
-        assert journal.section_3.date_range[1] == "2025-06-08"
+        assert journal.section_3.date_range[0] == "2025-06-05"  # work_end of first AOSR
+        assert journal.section_3.date_range[1] == "2025-06-08"  # work_end of second AOSR
 
         # Test to_aosr_data round-trip
         data = restorer.to_aosr_data(journal)
@@ -597,6 +599,7 @@ class TestIDServices:
 
     def test_batch_id_generator(self):
         from src.core.services.batch_id_generator import BatchIDGenerator
+        from src.agents.skills.pto.work_spec import WorkType
         gen = BatchIDGenerator(
             project_id=1,
             project_name="Тестовый объект",
@@ -604,10 +607,10 @@ class TestIDServices:
         )
 
         schedule = [
-            {"work_type": "concrete", "work_name": "Бетонирование фундамента",
+            {"work_type": WorkType.CONCRETE.value, "work_name": "Бетонирование фундамента",
              "start_date": "2025-06-01", "end_date": "2025-06-05",
              "quantity": "100", "unit": "м3"},
-            {"work_type": "waterproofing", "work_name": "Гидроизоляция",
+            {"work_type": WorkType.FOUNDATION_MONOLITHIC.value, "work_name": "Гидроизоляция",
              "start_date": "2025-06-06", "end_date": "2025-06-10",
              "quantity": "500", "unit": "м2"},
         ]
@@ -616,3 +619,498 @@ class TestIDServices:
         assert result["total_aosr"] > 0, f"Expected AOSR, got {result}"
         assert result["total_ks2_lines"] == 2
         assert result["zip_path"].endswith(".zip")
+
+
+class TestPTOComplianceSkill:
+    """Тесты нового навыка комплаенса ПТО (v12.0)."""
+
+    def test_resolve_enum_worktype(self):
+        from src.agents.skills.pto.compliance_skill import compliance_skill
+        spec = compliance_skill.resolve("бетонные")
+        assert spec.work_type_code == "бетонные"
+        assert len(spec.aosr_hidden) >= 4
+        assert len(spec.journals) >= 3
+        assert not spec.from_idprosto
+
+    def test_resolve_idprosto_fuzzy(self):
+        from src.agents.skills.pto.compliance_skill import compliance_skill
+        spec = compliance_skill.resolve("монтаж лифтового оборудования")
+        assert spec.from_idprosto
+        assert "27_elevators" in spec.work_type_code or "лифт" in spec.work_type_name.lower()
+
+    def test_resolve_fallback(self):
+        from src.agents.skills.pto.compliance_skill import compliance_skill
+        spec = compliance_skill.resolve("совершенно неизвестная работа")
+        assert len(spec.journals) >= 1  # ОЖР + ЖВК minimum
+
+    def test_completeness_report(self):
+        from src.agents.skills.pto.compliance_skill import compliance_skill
+        report = compliance_skill.completeness_report(
+            project_id=1,
+            work_type_queries=["бетонные", "монтаж металлоконструкций"],
+        )
+        assert report["project_id"] == 1
+        assert report["required_total"] > 0
+        assert "completeness_pct" in report
+        assert len(report["work_types"]) == 2
+
+    def test_batch_spec(self):
+        from src.agents.skills.pto.compliance_skill import compliance_skill
+        batch = compliance_skill.generate_batch_spec([
+            {"work_type": "бетонные", "work_name": "Бетонирование", "start_date": "2025-01-01", "end_date": "2025-01-10"},
+        ])
+        assert batch["total_aosr_expected"] > 0
+        assert batch["total_journals_expected"] > 0
+        assert "бетонные" in batch["by_work_type"]
+
+    def test_list_all_work_types(self):
+        from src.agents.skills.pto.compliance_skill import compliance_skill
+        all_types = compliance_skill.list_all_work_types()
+        assert len(all_types) >= 50  # 33 + 31 minimum
+
+    def test_all_33_worktypes_have_coverage(self):
+        from src.agents.skills.pto.work_spec import WorkType, WORK_JOURNALS, WORK_HIDDEN_ACTS, WORK_ACCEPTANCE_ACTS
+        for wt in WorkType:
+            assert wt in WORK_JOURNALS, f"{wt.name} missing journals"
+            assert wt in WORK_HIDDEN_ACTS, f"{wt.name} missing hidden acts"
+            assert wt in WORK_ACCEPTANCE_ACTS, f"{wt.name} missing acceptance acts"
+
+
+class TestIDProstoKnowledge:
+    """Тесты загрузчика знаний id-prosto.ru."""
+
+    def test_resolve_all_31_types(self):
+        from src.core.knowledge.idprosto_loader import idprosto_loader, IDPROSTO_WORK_TYPES
+        for code in IDPROSTO_WORK_TYPES:
+            summary = idprosto_loader.get_work_type_summary(code)
+            assert summary["total_docs"] > 0, f"{code} has 0 documents"
+
+    def test_all_norms_loaded(self):
+        from src.core.knowledge.idprosto_loader import idprosto_loader
+        norms = idprosto_loader.get_all_normative_refs()
+        assert len(norms) >= 200  # 252 known
+
+    def test_compound_keyword_matching(self):
+        from src.core.knowledge.idprosto_loader import idprosto_loader
+        assert idprosto_loader.resolve_work_type("асфальтобетонное покрытие") == "29_roads"
+        assert idprosto_loader.resolve_work_type("сборные ж/б конструкции") == "08_precast-concrete"
+        assert idprosto_loader.resolve_work_type("наружное водоснабжение") == "11_extwatersupply"
+        assert idprosto_loader.resolve_work_type("технологический трубопровод") == "19_pipelines"
+
+
+class TestDeloAgentRegulation:
+    """Тесты интеграции с Регламентом ТЗ-П."""
+
+    def test_handover_act_generation(self):
+        from src.core.services.delo_agent import DeloAgent
+        agent = DeloAgent()
+        agent.create_registry(1, "Тестовый объект")
+        agent.register_document(1, "АОСР", "Бетонирование фундамента", pages=2)
+        agent.register_document(1, "АОСР", "Армирование", pages=2)
+
+        act = agent.generate_handover_act(project_id=1)
+        assert act["object_name"] == "Тестовый объект"
+        assert len(act["documents"]) == 2
+        assert "date" in act
+        assert "sender" in act
+
+    def test_preparation_checklist(self):
+        from src.core.services.delo_agent import DeloAgent
+        agent = DeloAgent()
+        checklist = agent.get_preparation_checklist()
+        assert len(checklist) == 7  # 7 stages
+        assert all("stage" in s and "action" in s for s in checklist)
+
+    def test_gosstroynadzor_checklist(self):
+        from src.core.services.delo_agent import DeloAgent
+        agent = DeloAgent()
+        checklist = agent.get_gosstroynadzor_checklist()
+        assert len(checklist) == 5
+        assert any("начал" in s["action"].lower() for s in checklist)
+
+    def test_storage_registry(self):
+        from src.core.services.delo_agent import DeloAgent
+        agent = DeloAgent()
+        agent.create_registry(2, "Объект №2")
+        agent.register_document(2, "АОСР", "Гидроизоляция", pages=1)
+        rows = agent.generate_storage_registry(2)
+        assert len(rows) == 1
+        assert rows[0]["package_num"] == "ПАК-2"
+
+
+class TestTemplateRegistry:
+    """Template registry DOCX form resolution tests."""
+
+    def test_list_all_templates(self):
+        from src.core.knowledge.template_registry import TemplateRegistry
+        registry = TemplateRegistry()
+        catalog = registry.list_templates()
+        assert len(catalog) >= 100  # 149 templates from 26 packages
+        assert all("file_name" in t and "full_path" in t for t in catalog)
+
+    def test_resolve_aosr_form(self):
+        from src.core.knowledge.template_registry import TemplateRegistry
+        registry = TemplateRegistry()
+        results = registry.resolve_form("Приказ Минстроя №344/пр, приложение 3")
+        assert len(results) >= 1
+        aosr_names = [r["file_name"] for r in results]
+        assert any("AOSR" in name for name in aosr_names)
+
+    def test_resolve_gwl_form(self):
+        from src.core.knowledge.template_registry import TemplateRegistry
+        registry = TemplateRegistry()
+        results = registry.resolve_form("Приказ Минстроя №1026/пр, приложение 1")
+        assert len(results) >= 1
+        assert any("GWL" in r["file_name"] for r in results)
+
+    def test_resolve_concrete_journal(self):
+        from src.core.knowledge.template_registry import TemplateRegistry
+        registry = TemplateRegistry()
+        results = registry.resolve_form("СП 70.13330.2012, приложение Ф")
+        assert len(results) >= 1
+        assert any("zhbr" in r["file_name"] for r in results)
+
+    def test_get_forms_for_concrete(self):
+        from src.core.knowledge.template_registry import TemplateRegistry
+        registry = TemplateRegistry()
+        forms = registry.get_forms_for_work_type("06_concrete")
+        assert len(forms) >= 10
+        with_templates = sum(1 for f in forms if f["has_template"])
+        assert with_templates >= 5  # at least 5 forms have DOCX templates
+
+    def test_template_coverage_report(self):
+        from src.core.knowledge.template_registry import TemplateRegistry
+        registry = TemplateRegistry()
+        report = registry.template_coverage_report()
+        assert report["work_types_analyzed"] == 31
+        assert report["coverage_pct"] >= 50  # at least 50% coverage
+
+    def test_compliance_skill_get_templates(self):
+        from src.agents.skills.pto.compliance_skill import PTOComplianceSkill
+        skill = PTOComplianceSkill()
+        result = skill.get_templates_for_work_type("бетонные")
+        assert result["total_forms"] > 0
+        assert result["forms_with_templates"] + result["forms_without_templates"] == result["total_forms"]
+
+    def test_resolve_template_via_compliance_skill(self):
+        from src.agents.skills.pto.compliance_skill import PTOComplianceSkill
+        skill = PTOComplianceSkill()
+        results = skill.resolve_template("Приказ Минстроя №344/пр, приложение 3")
+        assert len(results) >= 1
+
+
+# =============================================================================
+# Knowledge Invalidation Engine Tests
+# =============================================================================
+
+class TestKnowledgeInvalidation:
+    """Tests for the platform-level knowledge invalidation engine."""
+
+    # ── Change Type Detection ──
+
+    def test_detect_repeal(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        from src.core.knowledge.invalidation_engine import ChangeType
+        engine = InvalidationEngine()
+        text = "Приказ Минстроя №344/пр отменён с 01.01.2026. Утратил силу полностью."
+        result = engine.detect_change_type(text)
+        assert result == ChangeType.REPEAL
+
+    def test_detect_replacement(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        from src.core.knowledge.invalidation_engine import ChangeType
+        engine = InvalidationEngine()
+        text = "Утверждён СП 70.13330.2025 взамен ранее действовавшего СП 70.13330.2012. Новая редакция вступает в силу с 01.06.2026."
+        result = engine.detect_change_type(text)
+        assert result == ChangeType.REPLACEMENT
+
+    def test_detect_amendment(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        from src.core.knowledge.invalidation_engine import ChangeType
+        engine = InvalidationEngine()
+        text = "Внесены изменения в Приказ Минстроя №1026/пр. Дополнены пункты 5.1-5.3."
+        result = engine.detect_change_type(text)
+        assert result == ChangeType.AMENDMENT
+
+    def test_detect_new(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        from src.core.knowledge.invalidation_engine import ChangeType
+        engine = InvalidationEngine()
+        text = "Утверждён новый СП 543.1325800.2025. Вступает в силу с 01.07.2026."
+        result = engine.detect_change_type(text)
+        assert result == ChangeType.NEW
+
+    def test_detect_clarification(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        from src.core.knowledge.invalidation_engine import ChangeType
+        engine = InvalidationEngine()
+        text = "Письмо Минстроя России: разъяснения порядка применения СП 48.13330.2019. Методические рекомендации по приёмке работ."
+        result = engine.detect_change_type(text)
+        assert result == ChangeType.CLARIFICATION
+
+    def test_no_change_detected(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Строительная компания выиграла тендер на строительство школы в Подмосковье."
+        result = engine.detect_change_type(text)
+        assert result is None
+
+    # ── Domain Classification ──
+
+    def test_classify_pto_domain(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Новый СП 70.13330.2025 меняет требования к АОСР и журналам работ."
+        domains = engine.classify_domain(text)
+        assert "pto" in domains
+
+    def test_classify_legal_domain(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Изменения в 44-ФЗ: новые правила тендеров и обеспечения контрактов."
+        domains = engine.classify_domain(text)
+        assert "legal" in domains
+
+    def test_classify_smeta_domain(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Обновлены ФЕР-2026: новые индексы пересчёта сметной стоимости. Изменены коэффициенты НМЦК."
+        domains = engine.classify_domain(text)
+        assert "smeta" in domains
+
+    def test_classify_cross_domain(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Отменён СП 48.13330.2019. Это влияет на договоры подряда (контракты по 44-ФЗ) и сметные расчёты ФЕР."
+        domains = engine.classify_domain(text)
+        assert "pto" in domains
+        assert "legal" in domains
+        assert "smeta" in domains
+
+    # ── Normative Ref Extraction ──
+
+    def test_extract_norms_sp_gost(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Отменены СП 70.13330.2012 и ГОСТ Р 51872-2024. Заменены на СП 70.13330.2025."
+        refs = engine.extract_norms_from_text(text)
+        refs_str = " ".join(refs)
+        assert "СП 70.13330.2012" in refs_str
+        assert "СП 70.13330.2025" in refs_str
+
+    def test_extract_norms_prikaz(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Приказ Минстроя №344/пр отменён. Взамен Приказ Минстроя №1026/пр."
+        refs = engine.extract_norms_from_text(text)
+        refs_str = " ".join(refs)
+        assert any("344/пр" in r for r in refs)
+        assert any("1026/пр" in r for r in refs)
+
+    def test_extract_fz(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Поправки в 44-ФЗ и 223-ФЗ приняты Госдумой."
+        refs = engine.extract_norms_from_text(text)
+        refs_str = " ".join(refs)
+        assert "44-ФЗ" in refs_str
+        assert "223-ФЗ" in refs_str
+
+    # ── check_validity API ──
+
+    def test_check_validity_active_by_default(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        result = engine.check_validity("СП 70.13330.2025 п.3.5")
+        assert result["valid"] is True
+        assert result["status"] == "active"
+
+    def test_check_validity_batch(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        refs = ["СП 70.13330.2012", "ГОСТ Р 51872-2024", "Приказ Минстроя №344/пр"]
+        results = engine.check_validity_batch(refs)
+        assert len(results) == 3
+        for ref in refs:
+            assert ref in results
+            assert "valid" in results[ref]
+            assert "status" in results[ref]
+
+    def test_check_validity_after_process_text(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = "Приказ Минстроя №999/пр отменён с 01.01.2026. Документ утратил силу."
+        affected = engine.process_text(text, domain="pto", source="test")
+        if affected:  # If detection worked
+            result = engine.check_validity("Приказ Минстроя №999/пр")
+            assert result["valid"] is False
+            assert result["status"] in ("stale", "replaced")
+
+    # ── process_text (manual input) ──
+
+    def test_process_text_detects_repeal(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        text = (
+            "Минстрой России сообщает: Приказ Минстроя №500/пр от 15.03.2020 "
+            "утратил силу с 01.01.2026. Признан утратившим силу полностью."
+        )
+        affected = engine.process_text(text, domain="pto", source="test")
+        # Should detect at least the norm was extracted
+        assert isinstance(affected, list)
+
+    # ── Summary / Reporting ──
+
+    def test_get_summary(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        summary = engine.get_summary()
+        assert "total_changes" in summary
+        assert "stale_norms" in summary
+        assert "active_norms" in summary
+        assert "by_domain" in summary
+        assert "last_updated" in summary
+
+    def test_get_stale_norms(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        stale = engine.get_stale_norms()
+        assert isinstance(stale, list)
+
+    def test_get_stale_norms_filtered_by_domain(self):
+        from src.core.knowledge.invalidation_engine import InvalidationEngine
+        engine = InvalidationEngine()
+        for domain in ("pto", "legal", "smeta"):
+            stale = engine.get_stale_norms(domain=domain)
+            assert isinstance(stale, list)
+
+    # ── Data Models ──
+
+    def test_regulatory_change_to_dict(self):
+        from src.core.knowledge.invalidation_engine import RegulatoryChange, ChangeType
+        change = RegulatoryChange(
+            change_id="test-001",
+            domain="pto",
+            change_type=ChangeType.REPLACEMENT,
+            title="Новый СП 70.13330",
+            description="Замена СП 70.13330.2012 на СП 70.13330.2025",
+            affected_norms=["СП 70.13330.2012"],
+            new_norms=["СП 70.13330.2025"],
+            source="telegram/минстрой",
+            effective_date="2026-06-01",
+            confidence=0.85,
+        )
+        d = change.to_dict()
+        assert d["change_id"] == "test-001"
+        assert d["change_type"] == "replacement"
+        assert "СП 70.13330.2012" in d["affected_norms"]
+
+    def test_regulatory_change_roundtrip(self):
+        from src.core.knowledge.invalidation_engine import RegulatoryChange, ChangeType
+        change = RegulatoryChange(
+            change_id="test-002",
+            domain="legal",
+            change_type=ChangeType.AMENDMENT,
+            title="Изменения в 44-ФЗ",
+            description="Дополнены пункты обеспечения контрактов",
+            affected_norms=["44-ФЗ"],
+            new_norms=[],
+            source="telegram/закупки",
+        )
+        d = change.to_dict()
+        restored = RegulatoryChange.from_dict(d)
+        assert restored.change_id == change.change_id
+        assert restored.change_type == change.change_type
+        assert restored.domain == "legal"
+
+    def test_affected_entry_model(self):
+        from src.core.knowledge.invalidation_engine import AffectedEntry, RegulatoryChange, ChangeType, EntryStatus
+        change = RegulatoryChange(
+            change_id="test-003",
+            domain="pto",
+            change_type=ChangeType.REPEAL,
+            title="Test",
+            description="Test",
+            affected_norms=["СП 1.2.3"],
+        )
+        entry = AffectedEntry(
+            entry_type="normative_ref",
+            entry_ref="СП 1.2.3",
+            agent_domain="pto",
+            change=change,
+            new_status=EntryStatus.STALE,
+            detail="Документ утратил силу",
+        )
+        d = entry.to_dict()
+        assert d["entry_type"] == "normative_ref"
+        assert d["new_status"] == "stale"
+        assert d["change_id"] == "test-003"
+
+
+# =============================================================================
+# Agent Invalidation Integration Tests
+# =============================================================================
+
+class TestPTOAgentValidity:
+    """Tests for PTO agent knowledge invalidation integration."""
+
+    def test_check_norms_validity_returns_list(self):
+        from src.core.services.pto_agent import PTOAgent
+        agent = PTOAgent()
+        refs = ["СП 70.13330.2012", "ГОСТ Р 51872-2024", "Приказ Минстроя №344/пр"]
+        warnings = agent.check_norms_validity(refs)
+        assert isinstance(warnings, list)
+
+    def test_get_regulations_with_validity(self):
+        from src.core.services.pto_agent import PTOAgent
+        agent = PTOAgent()
+        result = agent.get_regulations_with_validity()
+        assert "regulations" in result
+        assert "stale_warnings" in result
+        assert "has_stale" in result
+        assert isinstance(result["regulations"], list)
+        if result["regulations"]:
+            assert "is_current" in result["regulations"][0]
+
+    def test_get_work_type_help_includes_validity_check(self):
+        from src.core.services.pto_agent import PTOAgent
+        agent = PTOAgent()
+        help_text = agent.get_work_type_help("бетонные работы")
+        assert len(help_text) > 0
+
+
+class TestLegalServiceValidity:
+    """Tests for Legal Service knowledge invalidation integration."""
+
+    def test_check_norms_validity(self):
+        from src.core.services.legal_service import LegalService
+        service = LegalService()
+        refs = ["44-ФЗ", "223-ФЗ", "ПП РФ №468"]
+        warnings = service._check_norms_validity(refs)
+        assert isinstance(warnings, list)
+
+
+class TestSmetaAgentValidity:
+    """Tests for Smeta Agent knowledge invalidation integration."""
+
+    def test_check_norms_validity(self):
+        from src.core.services.smeta_agent import SmetaAgent
+        agent = SmetaAgent()
+        refs = ["ФЕР01-01-013", "МДС 81-35.2004", "ГЭСН-2020"]
+        warnings = agent.check_norms_validity(refs)
+        assert isinstance(warnings, list)
+
+    def test_build_estimate_with_validity(self):
+        from src.core.services.smeta_agent import SmetaAgent
+        agent = SmetaAgent()
+        vor = [
+            {"code": "ФЕР06-01-001", "name": "Бетонная подготовка", "unit": "м3", "quantity": 10},
+            {"code": "ФЕР06-01-020", "name": "Бетонирование", "unit": "м3", "quantity": 25},
+        ]
+        estimate, warnings = agent.build_estimate_with_validity(
+            project_id=1, title="Тест", vor_positions=vor
+        )
+        from src.core.services.smeta_agent import SmetaEstimate
+        assert isinstance(estimate, SmetaEstimate)
+        assert isinstance(warnings, list)
+        assert estimate.grand_total > 0

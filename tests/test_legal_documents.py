@@ -152,7 +152,7 @@ class TestProtocolGeneration:
         with tempfile.TemporaryDirectory() as d:
             path = gen._export_protocol_text(protocol, d)
             assert os.path.exists(path)
-            content = open(path).read()
+            content = open(path, encoding="utf-8").read()
             assert "Протокол разногласий" in content
             assert "ст. 711 ГК РФ" in content
             assert "Заказчик" in content

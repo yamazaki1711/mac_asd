@@ -228,6 +228,10 @@ class LegalAnalysisResult(BaseModel):
     summary: str = Field(
         description="Краткое заключение"
     )
+    normative_validity_warnings: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Предупреждения об устаревших нормах (от InvalidationEngine)"
+    )
     analysis_metadata: Dict[str, Any] = Field(
         default_factory=dict,
         description="Метаданные анализа"

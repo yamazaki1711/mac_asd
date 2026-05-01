@@ -766,8 +766,5 @@
 - Комплекты ИД по видам работ: `/home/z/my-project/docs/id_prosto_catalog/ID_Kits_by_Work_Type.md`
 
 ### Онлайн ресурсы
-- id-prosto.ru — Перечни ИД: `https://id-prosto.ru/lists/{slug}`
-- id-prosto.ru — Формы ИД: `https://id-prosto.ru/forms/{nd-slug}/{form-slug}`
-- id-prosto.ru — Примеры: `https://id-prosto.ru/examples/{nd-slug}`
 - @rimmastroy — Telegram-канал «Блог инженера ПТО»
 - ДАКОН — цифровой сервис ИД (dacon.ru)

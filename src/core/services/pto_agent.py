@@ -743,36 +743,123 @@ class PTOAgent:
                     "overall": "Не удалось проверить цепочку — LLM недоступен."}
 
     # =========================================================================
-    # 6. Нормативная справка
+    # 6. Нормативная справка (с проверкой актуальности)
     # =========================================================================
+
+    def check_norms_validity(self, norm_refs: List[str]) -> List[Dict[str, Any]]:
+        """
+        Проверить актуальность списка нормативных ссылок через InvalidationEngine.
+
+        Возвращает список предупреждений для устаревших/заменённых норм.
+        """
+        try:
+            from src.core.knowledge.invalidation_engine import invalidation_engine
+            results = invalidation_engine.check_validity_batch(norm_refs)
+        except Exception:
+            return []
+
+        warnings = []
+        for ref, status in results.items():
+            if not status.get("valid", True) or status.get("warning"):
+                warnings.append({
+                    "norm_ref": ref,
+                    "status": status.get("status", "unknown"),
+                    "replaced_by": status.get("replaced_by"),
+                    "warning": status.get("warning", ""),
+                })
+        return warnings
 
     def get_regulations(self) -> List[Dict[str, str]]:
         """Получить список действующих нормативных документов."""
         return COMMON_REGULATIONS
 
+    def get_regulations_with_validity(self) -> Dict[str, Any]:
+        """
+        Получить список нормативных документов с проверкой актуальности.
+
+        Returns:
+            {"regulations": [...], "stale_warnings": [...]}
+        """
+        regs = COMMON_REGULATIONS
+        refs = [r.get("code", "") for r in regs if r.get("code")]
+        stale_warnings = self.check_norms_validity(refs)
+
+        annotated = []
+        for r in regs:
+            entry = dict(r)
+            code = r.get("code", "")
+            stale = next((w for w in stale_warnings if w["norm_ref"] == code), None)
+            entry["is_current"] = stale is None
+            entry["stale_warning"] = stale["warning"] if stale else ""
+            annotated.append(entry)
+
+        return {
+            "regulations": annotated,
+            "stale_warnings": stale_warnings,
+            "has_stale": len(stale_warnings) > 0,
+        }
+
     def get_work_type_help(self, work_type: str) -> str:
-        """Получить справку по виду работ."""
+        """Получить справку по виду работ (с проверкой актуальности норм)."""
+        # Try WorkType enum first (work_spec.py)
         try:
             wt = WorkType(work_type)
+            acts = self.get_required_aosr_list(work_type)
+            journals = self.get_required_journals(work_type)
+            lines = [f"Вид работ: {wt.value}", ""]
+            lines.append("Обязательные АОСР:")
+            for a in acts:
+                if a["mandatory"]:
+                    lines.append(f"  • {a['name']}")
+            lines.append("\nОбязательные журналы:")
+            for j in journals:
+                if j["mandatory"]:
+                    lines.append(f"  • {j['name']} ({j.get('form', '')})")
+            return "\n".join(lines)
         except ValueError:
-            return f"Неизвестный вид работ: {work_type}"
+            pass
 
-        acts = self.get_required_aosr_list(work_type)
-        journals = self.get_required_journals(work_type)
+        # Fallback: query idprosto knowledge base
+        try:
+            from src.core.knowledge.idprosto_loader import idprosto_loader
+            code = idprosto_loader.resolve_work_type(work_type)
+            if code:
+                summary = idprosto_loader.get_work_type_summary(code)
+                lines = [f"Вид работ: {summary['name']} [{code}]", ""]
+                lines.append(f"Всего документов в перечне: {summary['total_docs']}")
+                lines.append("")
 
-        lines = [f"Вид работ: {wt.value}", ""]
+                # Check normative refs validity
+                if summary.get("normative_refs"):
+                    validity = self.check_norms_validity(summary["normative_refs"][:20])
+                    if validity:
+                        lines.append("ПРЕДУПРЕЖДЕНИЯ ОБ АКТУАЛЬНОСТИ НОРМ:")
+                        for w in validity:
+                            lines.append(f"  • {w['warning']}")
+                        lines.append("")
 
-        lines.append("Обязательные АОСР:")
-        for a in acts:
-            if a["mandatory"]:
-                lines.append(f"  • {a['name']}")
+                if summary["aosr"]:
+                    lines.append("Акты скрытых работ (АОСР):")
+                    for a in summary["aosr"]:
+                        lines.append(f"  • {a['name']}")
+                if summary["aook"]:
+                    lines.append("\nАкты ответственных конструкций (АООК):")
+                    for a in summary["aook"]:
+                        lines.append(f"  • {a['name']}")
+                if summary["journals"]:
+                    lines.append("\nЖурналы:")
+                    for j in summary["journals"]:
+                        lines.append(f"  • {j['name']} [{j.get('form', '')}]")
+                if summary["test_acts"]:
+                    lines.append(f"\nАкты испытаний/протоколы: {len(summary['test_acts'])} шт.")
+                if summary["schemas"]:
+                    lines.append(f"Исполнительные схемы: {len(summary['schemas'])} шт.")
+                lines.append(f"\nНормативных ссылок: {len(summary['normative_refs'])}")
+                return "\n".join(lines)
+        except Exception:
+            pass
 
-        lines.append("\nОбязательные журналы:")
-        for j in journals:
-            if j["mandatory"]:
-                lines.append(f"  • {j['name']} ({j.get('form', '')})")
-
-        return "\n".join(lines)
+        return f"Неизвестный вид работ: {work_type}"
 
 
 # Синглтон

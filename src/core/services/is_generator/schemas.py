@@ -8,7 +8,7 @@ v12.0 — расширение: два пути генерации (DXF-First и
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel
 
 
@@ -193,7 +193,7 @@ class RDSheetInfo(BaseModel):
     format: RDFormat           # Формат файла
     file_path: str             # Путь к файлу на диске
     page_number: int = 0       # Номер страницы (для PDF — страница в документе)
-    bbox: Optional[list[float]] = None  # [x_min, y_min, x_max, y_max] — область захватки
+    bbox: Optional[List[float]] = None  # [x_min, y_min, x_max, y_max] — область захватки
     registered_at: str = ""    # Дата регистрации
     registered_by: str = ""    # Кто зарегистрировал
 
@@ -222,12 +222,12 @@ class ISResult(BaseModel):
     warning_deviations: int = 0
     ok_deviations: int = 0
 
-    deviations: list[Deviation] = []
-    fact_marks: list[FactMark] = []
-    fact_dimensions: list[FactDimension] = []
+    deviations: List[Deviation] = []
+    fact_marks: List[FactMark] = []
+    fact_dimensions: List[FactDimension] = []
 
-    unmatched_axes: list[str] = []
-    unmatched_survey_points: list[str] = []
+    unmatched_axes: List[str] = []
+    unmatched_survey_points: List[str] = []
 
     coordinate_transform_applied: bool = False
 
@@ -268,7 +268,7 @@ class BBox:
         return self.y_max - self.y_min
 
     @property
-    def center(self) -> tuple[float, float]:
+    def center(self) -> Tuple[float, float]:
         return (self.x_min + self.x_max) / 2, (self.y_min + self.y_max) / 2
 
     def contains(self, x: float, y: float, margin: float = 0.0) -> bool:
@@ -298,10 +298,10 @@ class CoordinateTransform:
     rotation_rad: float = 0.0
     translate_x: float = 0.0
     translate_y: float = 0.0
-    anchor_points: list[AnchorPoint] = field(default_factory=list)
+    anchor_points: List[AnchorPoint] = field(default_factory=list)
     residual_mm: float = 0.0  # Ошибка привязки на контрольных точках
 
-    def apply(self, dxf_x: float, dxf_y: float) -> tuple[float, float]:
+    def apply(self, dxf_x: float, dxf_y: float) -> Tuple[float, float]:
         """Преобразует DXF-координаты в геодезические."""
         import math
         cos_r = math.cos(self.rotation_rad)
@@ -310,7 +310,7 @@ class CoordinateTransform:
         geo_y = self.scale * (dxf_x * sin_r + dxf_y * cos_r) + self.translate_y
         return geo_x, geo_y
 
-    def inverse(self, geo_x: float, geo_y: float) -> tuple[float, float]:
+    def inverse(self, geo_x: float, geo_y: float) -> Tuple[float, float]:
         """Обратное преобразование: из геодезических координат в DXF."""
         import math
         # Аффинное обратное преобразование
