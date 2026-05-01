@@ -359,5 +359,76 @@ class DeloAgent:
             },
         }
 
+    # -------------------------------------------------------------------------
+    # Export to OutputPipeline
+    # -------------------------------------------------------------------------
+
+    def export_registry_for_output(self, project_id: int) -> Dict[str, Any]:
+        """
+        Экспортирует реестр в формат, готовый для IDRegisterGenerator.
+
+        Устраняет разрыв между DeloAgent (трекинг) и OutputPipeline (генерация DOCX).
+        """
+        registry = self._registries.get(project_id)
+        if not registry:
+            return {}
+
+        return {
+            "project_name": registry.project_name,
+            "project_code": f"PRJ-{project_id}",
+            "customer": getattr(registry, 'customer', 'Заказчик'),
+            "contractor": getattr(registry, 'contractor', 'ООО «КСК №1»'),
+            "date": datetime.now().strftime("%d.%m.%Y"),
+            "documents": [
+                {
+                    "number": e.reg_id,
+                    "name": e.doc_name,
+                    "pages": e.pages,
+                    "date": e.prepared_date or e.submitted_date or "",
+                    "status": e.status.value,
+                    "note": e.notes,
+                }
+                for e in registry.entries
+            ],
+            "stats": self.get_completion_stats(project_id),
+        }
+
+    def export_aosr_batch_for_output(
+        self, project_id: int, category_filter: str = "act_aosr"
+    ) -> List[Dict[str, Any]]:
+        """
+        Экспортирует данные АОСР из реестра для пакетной генерации DOCX.
+
+        Returns:
+            Список dict, готовых для AOSRGenerator.generate().
+        """
+        registry = self._registries.get(project_id)
+        if not registry:
+            return []
+
+        entries = registry.by_category(category_filter)
+        return [
+            {
+                "aosr_number": e.reg_id,
+                "project_name": registry.project_name,
+                "work_type": e.work_type,
+                "object_address": getattr(registry, 'object_address', ''),
+                "executor_company": getattr(registry, 'contractor', 'ООО «КСК №1»'),
+                "customer_company": getattr(registry, 'customer', 'Заказчик'),
+                "developer_company": getattr(registry, 'developer', ''),
+                "decision": "разрешается",
+                "date": e.prepared_date or datetime.now().strftime("%d.%m.%Y"),
+                "materials": [],
+                "certificates": [],
+                "design_docs": [],
+                "commission_members": [
+                    {"name": "", "role": "Представитель заказчика", "company": getattr(registry, 'customer', '')},
+                    {"name": "", "role": "Представитель подрядчика", "company": getattr(registry, 'contractor', '')},
+                    {"name": "", "role": "Представитель стройконтроля", "company": ""},
+                ],
+            }
+            for e in entries
+        ]
+
 
 delo_agent = DeloAgent()

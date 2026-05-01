@@ -549,7 +549,201 @@ class PTOAgent:
         return "\n".join(lines)
 
     # =========================================================================
-    # 5. Нормативная справка
+    # 5. LLM-Powered Document Analysis
+    # =========================================================================
+
+    async def analyze_document_batch(
+        self,
+        documents: List[Dict[str, Any]],
+        project_context: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Анализирует пакет документов через LLM: классификация, проверка связей, аномалии.
+
+        Args:
+            documents: [{"filename": str, "content_preview": str (первые 2000 символов), ...}]
+            project_context: описание проекта для контекста
+
+        Returns:
+            {
+                "classified": {filename: {"category_344": str, "doc_type": str, "confidence": float}},
+                "issues": [{"doc": str, "issue": str, "severity": str}],
+                "recommendations": [str],
+            }
+        """
+        if not documents:
+            return {"classified": {}, "issues": [], "recommendations": []}
+
+        prompt = self._build_classification_prompt(documents, project_context)
+
+        try:
+            response = await self._llm.chat("pto", [
+                {"role": "system", "content": (
+                    "Ты — инженер ПТО строительной компании. Твоя задача — анализировать "
+                    "пакет исполнительной документации на соответствие Приказу Минстроя №344/пр. "
+                    "Отвечай строго в JSON-формате без markdown-обёрток."
+                )},
+                {"role": "user", "content": prompt},
+            ], temperature=0.1)
+        except Exception as e:
+            logger.warning("LLM unavailable for PTO analysis: %s", e)
+            return self._fallback_classify(documents)
+
+        import json as _json
+        try:
+            result = _json.loads(response)
+        except _json.JSONDecodeError:
+            # Try to extract JSON from response
+            import re as _re
+            match = _re.search(r'\{[\s\S]*\}', response)
+            if match:
+                try:
+                    result = _json.loads(match.group())
+                except _json.JSONDecodeError:
+                    return self._fallback_classify(documents)
+            else:
+                return self._fallback_classify(documents)
+
+        return result
+
+    def _build_classification_prompt(
+        self,
+        documents: List[Dict[str, Any]],
+        project_context: str,
+    ) -> str:
+        """Строит промпт для классификации пакета документов."""
+        lines = [
+            "Проанализируй следующий пакет документов исполнительной документации.\n",
+            "КОНТЕКСТ ПРОЕКТА:" if project_context else "",
+            project_context if project_context else "",
+            f"\nДОКУМЕНТЫ НА АНАЛИЗ ({len(documents)} шт.):\n",
+        ]
+
+        for i, doc in enumerate(documents, 1):
+            fname = doc.get("filename", f"doc_{i}")
+            content = doc.get("content_preview", doc.get("text", ""))[:2000]
+            lines.append(f"--- Документ {i}: {fname} ---")
+            lines.append(content[:1500])
+            lines.append("")
+
+        lines.append("""
+ЗАДАЧА:
+1. Классифицируй каждый документ по категории Приказа №344/пр:
+   act_gro, act_axes, act_aosr, act_aook, act_aousito, remarks,
+   work_drawings, igs, is_result, test_acts, lab_results, input_control, journals
+2. Определи тип документа: АОСР, АООК, КС-2, КС-3, ВОР, ИГС, ИС,
+   сертификат, паспорт качества, протокол испытаний, приказ, договор,
+   журнал работ, чертёж, спецификация, уведомление, фотоотчёт
+3. Найди проблемы:
+   - Отсутствие обязательных подписей
+   - Несоответствие дат (например, АОСР раньше протокола испытаний)
+   - Ссылки на устаревшие формы (РД-11-02-2006 вместо Приказа №344/пр)
+   - Отсутствие обязательных приложений
+4. Дай рекомендации по доукомплектованию.
+
+Верни ТОЛЬКО JSON (без markdown):
+{
+  "classified": {
+    "имя_файла": {
+      "category_344": "act_aosr",
+      "doc_type": "АОСР",
+      "confidence": 0.95,
+      "work_type": "бетонирование фундамента",
+      "has_signatures": true,
+      "date_valid": true
+    }
+  },
+  "issues": [
+    {"doc": "имя_файла", "issue": "описание проблемы", "severity": "critical|high|medium|low"}
+  ],
+  "recommendations": ["рекомендация 1", "рекомендация 2"],
+  "completeness_summary": "краткая оценка полноты пакета (1-2 предложения)"
+}""")
+        return "\n".join(lines)
+
+    def _fallback_classify(
+        self, documents: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Fallback-классификация без LLM (keyword-based)."""
+        classified = {}
+        for doc in documents:
+            fname = doc.get("filename", "")
+            text = (doc.get("content_preview", "") + " " + fname).lower()[:500]
+            classified[fname] = {
+                "category_344": "act_aosr" if "аоср" in text or "освидетельствование" in text
+                else "test_acts" if "испытан" in text or "протокол" in text
+                else "input_control" if "сертификат" in text or "паспорт" in text
+                else "journals" if "журнал" in text
+                else "work_drawings",
+                "doc_type": "unknown",
+                "confidence": 0.3,
+                "llm_fallback": True,
+            }
+        return {
+            "classified": classified,
+            "issues": [],
+            "recommendations": ["ВНИМАНИЕ: классификация выполнена без LLM (keyword-based). Точность низкая."],
+            "completeness_summary": "LLM недоступен. Классификация по ключевым словам — требуется ручная проверка.",
+        }
+
+    async def verify_document_chain(
+        self,
+        aosr_text: str,
+        related_docs: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """
+        Проверяет цепочку документов для одного АОСР через LLM.
+
+        Args:
+            aosr_text: текст АОСР
+            related_docs: [{"name": "ИГС.pdf", "text": "..."}, ...]
+
+        Returns:
+            {"valid": bool, "chain_gaps": [...], "date_conflicts": [...], "volume_mismatches": [...]}
+        """
+        prompt = f"""Проверь цепочку исполнительной документации.
+
+АОСР:
+{aosr_text[:3000]}
+
+СВЯЗАННЫЕ ДОКУМЕНТЫ:
+"""
+        for d in related_docs:
+            prompt += f"\n--- {d['name']} ---\n{d.get('text', '')[:1500]}\n"
+
+        prompt += """
+Проверь:
+1. Правильность дат (АОСР должен быть ПОЗЖЕ протоколов испытаний)
+2. Соответствие объёмов в АОСР и ВОР/КС-2
+3. Наличие всех обязательных приложений (сертификаты, паспорта)
+4. Соответствие вида работ проектным решениям
+5. Ссылки на НТД — не устарели ли?
+
+Верни JSON:
+{
+  "valid": true/false,
+  "chain_gaps": ["отсутствует документ X"],
+  "date_conflicts": ["конфликт дат между Y и Z"],
+  "volume_mismatches": ["расхождение объёмов: АОСР=100м3, КС-2=95м3"],
+  "outdated_refs": ["ссылка на РД-11-02-2006"],
+  "overall": "краткое заключение (1-2 предложения)"
+}"""
+
+        try:
+            response = await self._llm.chat("pto", [
+                {"role": "system", "content": "Ты — инженер строительного контроля. Отвечай строго в JSON."},
+                {"role": "user", "content": prompt},
+            ], temperature=0.1)
+            import json as _json
+            return _json.loads(response)
+        except Exception as e:
+            logger.warning("LLM chain verification failed: %s", e)
+            return {"valid": False, "chain_gaps": [], "date_conflicts": [],
+                    "volume_mismatches": [], "error": str(e),
+                    "overall": "Не удалось проверить цепочку — LLM недоступен."}
+
+    # =========================================================================
+    # 6. Нормативная справка
     # =========================================================================
 
     def get_regulations(self) -> List[Dict[str, str]]:

@@ -637,6 +637,77 @@ class OutputPipeline:
         logger.info("Package bundled: %s (%d files)", zip_path, len(doc_paths))
         return zip_path
 
+    # -------------------------------------------------------------------------
+    # Auto-export from DeloAgent
+    # -------------------------------------------------------------------------
+
+    def generate_from_registry(self, registry_data: Dict[str, Any]) -> List[Path]:
+        """
+        Генерирует полный комплект ИД из данных реестра (DeloAgent).
+
+        Автоматически создаёт:
+          - Реестр ИД (титульный лист + опись)
+          - Все АОСР из реестра
+          - КС-2/КС-3 (если есть данные)
+
+        Args:
+            registry_data: результат DeloAgent.export_registry_for_output()
+
+        Returns:
+            Список путей к сгенерированным файлам
+        """
+        paths: List[Path] = []
+        project_code = registry_data.get("project_code", "UNKNOWN")
+        output_dir = registry_data.get("output_dir", f"/tmp/asd_output/{project_code}")
+
+        # 1. Реестр ИД
+        register_path = self.generate_id_register(registry_data)
+        paths.append(register_path)
+
+        # 2. АОСР из реестра
+        for doc in registry_data.get("documents", []):
+            if "аоср" in doc.get("name", "").lower():
+                aosr_data = {
+                    "aosr_number": doc["number"],
+                    "project_name": registry_data.get("project_name", ""),
+                    "object_address": registry_data.get("object_address", ""),
+                    "work_type": doc.get("name", ""),
+                    "decision": "разрешается",
+                    "date": doc.get("date", ""),
+                    "executor_company": registry_data.get("contractor", "ООО «КСК №1»"),
+                    "customer_company": registry_data.get("customer", "Заказчик"),
+                    "commission_members": [
+                        {"name": "", "role": "Представитель заказчика",
+                         "company": registry_data.get("customer", "")},
+                        {"name": "", "role": "Представитель подрядчика",
+                         "company": registry_data.get("contractor", "")},
+                    ],
+                    "output_dir": output_dir,
+                }
+                path = self.aosr_gen.generate(aosr_data)
+                paths.append(path)
+
+        # 3. КС-2/КС-3 если есть данные
+        ks2_docs = [d for d in registry_data.get("documents", [])
+                    if "кс-2" in d.get("name", "").lower() or "кс2" in d.get("note", "").lower()]
+        if ks2_docs:
+            ks2_data = {
+                "ks2_number": self.numbering.next_number(project_code, "КС2"),
+                "ks3_number": self.numbering.next_number(project_code, "КС3"),
+                "project_name": registry_data.get("project_name", ""),
+                "customer": registry_data.get("customer", "Заказчик"),
+                "contractor": registry_data.get("contractor", "ООО «КСК №1»"),
+                "date": datetime.now().strftime("%d.%m.%Y"),
+                "lines": [],
+                "output_dir": output_dir,
+            }
+            ks2_path = self.ks2_gen.generate(ks2_data)
+            ks3_path = self.ks3_gen.generate(ks2_data)
+            paths.extend([ks2_path, ks3_path])
+
+        logger.info("Auto-generated %d files from registry for %s", len(paths), project_code)
+        return paths
+
 
 # =============================================================================
 # Singleton

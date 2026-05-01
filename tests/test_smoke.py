@@ -472,3 +472,147 @@ class TestLLMEngineConfig:
         assert "postgresql+psycopg2://" in url
         assert "testuser:testpass" in url
         assert "localhost:5433/testdb" in url
+
+
+# =============================================================================
+# ID Services Tests (v12.0 — Batch ID, Journal Restoration, DeloAgent export)
+# =============================================================================
+
+class TestIDServices:
+    """Verify ID-related services: PTO Agent, Delo Agent, Journal Restorer."""
+
+    def test_pto_classify_document(self):
+        from src.core.services.pto_agent import PTOAgent, ID344Category
+        agent = PTOAgent()
+
+        assert agent.classify_document("AOSR") == ID344Category.ACT_AOSR
+        assert agent.classify_document("KS2") == ID344Category.ACT_AOSR
+        assert agent.classify_document("Certificate") == ID344Category.INPUT_CONTROL
+        assert agent.classify_document("OZHR") == ID344Category.JOURNALS
+        assert agent.classify_document("unknown_type") == ID344Category.WORK_DRAWINGS
+
+    def test_pto_build_completeness_matrix(self):
+        from src.core.services.pto_agent import PTOAgent, ID344Category
+        agent = PTOAgent()
+
+        matrix = agent.build_completeness_matrix(["concrete"])
+        assert matrix[ID344Category.ACT_AOSR] > 0, "Concrete work must require AOSR"
+        assert matrix[ID344Category.JOURNALS] == 1
+        assert matrix[ID344Category.ACT_GRO] == 1
+
+    def test_pto_aosr_trail(self):
+        from src.core.services.pto_agent import PTOAgent
+        agent = PTOAgent()
+
+        trail = agent.build_aosr_trail("Бетонирование фундамента", "concrete")
+        assert trail.aosr_name == "Бетонирование фундамента"
+        mandatory = [i for i in trail.items if i.mandatory]
+        assert len(mandatory) >= 3, f"Expected >=3 mandatory items, got {len(mandatory)}"
+
+        # Check specific mandatory items
+        item_types = [i.item_type for i in mandatory]
+        assert "is_geodetic" in item_types
+        assert "is_result" in item_types
+        assert "quality_docs" in item_types
+
+    def test_delo_agent_registry_lifecycle(self):
+        from src.core.services.delo_agent import DeloAgent, DocStatus
+        agent = DeloAgent()
+
+        agent.create_registry(1, "Тестовый проект")
+        entry = agent.register_document(1, "АОСР", "Бетонирование фундамента",
+                                        category_344="act_aosr", work_type="concrete",
+                                        pages=2)
+        assert entry is not None
+        assert entry.reg_id.startswith("ASD-1-")
+        assert entry.status == DocStatus.DRAFT
+
+        # Update status
+        ok = agent.update_status(1, entry.reg_id, DocStatus.PREPARED)
+        assert ok is True
+
+        registry = agent.get_registry(1)
+        assert registry is not None
+        assert registry.total_docs == 1
+        assert registry.completion_pct == 0.0  # Not accepted yet
+
+    def test_delo_export_for_output(self):
+        from src.core.services.delo_agent import DeloAgent
+        agent = DeloAgent()
+
+        agent.create_registry(1, "Тест")
+        agent.register_document(1, "АОСР", "Скрытые работы фундамента",
+                                category_344="act_aosr", pages=2)
+        agent.register_document(1, "КС-2", "Акт приёмки",
+                                category_344="act_aosr", pages=1)
+
+        export = agent.export_registry_for_output(1)
+        assert export["project_name"] == "Тест"
+        assert len(export["documents"]) == 2
+        assert "stats" in export
+
+    def test_journal_restorer_reconstruct(self):
+        from src.core.services.journal_restorer import JournalRestorer
+        restorer = JournalRestorer()
+
+        aosr_list = [
+            {
+                "aosr_number": "АОСР-001",
+                "work_type": "Бетонирование фундамента",
+                "work_start": "2025-06-01",
+                "work_end": "2025-06-05",
+                "materials": ["Бетон B25", "Арматура А500С"],
+                "executor_company": "ООО «КСК №1»",
+                "decision": "разрешается",
+            },
+            {
+                "aosr_number": "АОСР-002",
+                "work_type": "Гидроизоляция",
+                "work_start": "2025-06-06",
+                "work_end": "2025-06-08",
+                "materials": ["Гидроизол"],
+                "executor_company": "ООО «КСК №1»",
+                "decision": "разрешается",
+            },
+        ]
+
+        journal = restorer.reconstruct(
+            project_id=1,
+            project_name="Жилой дом №3",
+            aosr_list=aosr_list,
+        )
+
+        assert journal.is_viable
+        assert len(journal.section_3.entries) == 2
+        assert journal.section_3.date_range[0] == "2025-06-01"
+        assert journal.section_3.date_range[1] == "2025-06-08"
+
+        # Test to_aosr_data round-trip
+        data = restorer.to_aosr_data(journal)
+        assert len(data) == 2
+
+        # Test to_register_entries
+        entries = restorer.to_register_entries(journal)
+        assert len(entries) >= 2  # 2 AOSR refs
+
+    def test_batch_id_generator(self):
+        from src.core.services.batch_id_generator import BatchIDGenerator
+        gen = BatchIDGenerator(
+            project_id=1,
+            project_name="Тестовый объект",
+            project_meta={"customer": "Заказчик", "contractor": "ООО «КСК №1»"},
+        )
+
+        schedule = [
+            {"work_type": "concrete", "work_name": "Бетонирование фундамента",
+             "start_date": "2025-06-01", "end_date": "2025-06-05",
+             "quantity": "100", "unit": "м3"},
+            {"work_type": "waterproofing", "work_name": "Гидроизоляция",
+             "start_date": "2025-06-06", "end_date": "2025-06-10",
+             "quantity": "500", "unit": "м2"},
+        ]
+
+        result = gen.generate(schedule, output_dir="/tmp/asd_test_output")
+        assert result["total_aosr"] > 0, f"Expected AOSR, got {result}"
+        assert result["total_ks2_lines"] == 2
+        assert result["zip_path"].endswith(".zip")
