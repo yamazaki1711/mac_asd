@@ -1,0 +1,853 @@
+{
+  "description": "Полный перечень нормативных документов из Пособия по ИД Вып.2 (Щербаков, 425 стр.) — ~110 док.",
+  "documents": [
+    {
+      "id": "70108_2025",
+      "query": "ГОСТ Р 70108-2025",
+      "name": "ГОСТ Р 70108-2025 — Документация исполнительная. Формирование и ведение в электронном виде",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "51872_2024",
+      "query": "ГОСТ Р 51872-2024",
+      "name": "ГОСТ Р 51872-2024 — Документация исполнительная геодезическая. Правила выполнения",
+      "category": "gost/documentation",
+      "priority": "critical",
+      "_exists": false
+    },
+    {
+      "id": "59492_2021",
+      "query": "ГОСТ Р 59492-2021",
+      "name": "ГОСТ Р 59492-2021 — Сохранение объектов культурного наследия. Виды ИД",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "58973",
+      "query": "ГОСТ Р 58973",
+      "name": "ГОСТ Р 58973 — Правила оформления протоколов испытаний",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "70132_2022",
+      "query": "ГОСТ Р 70132-2022",
+      "name": "ГОСТ Р 70132-2022 — Контроль натяжения болтов",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "21_101_2020",
+      "query": "ГОСТ Р 21.101-2020",
+      "name": "ГОСТ Р 21.101-2020 — СПДС. Основные требования к ПД и РД",
+      "category": "gost/documentation",
+      "priority": "critical",
+      "_exists": false
+    },
+    {
+      "id": "21_1101",
+      "query": "ГОСТ Р 21.1101",
+      "name": "ГОСТ Р 21.1101 — СПДС. Основная надпись",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "71408_2024",
+      "query": "ГОСТ Р 71408-2024",
+      "name": "ГОСТ Р 71408-2024 — Сварка труб из полиэтилена",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "6947_2022",
+      "query": "ГОСТ Р ИСО 6947-2022",
+      "name": "ГОСТ Р ИСО 6947-2022 — Сварка. Сварочные положения",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "12176_2",
+      "query": "ГОСТ Р ИСО 12176-2",
+      "name": "ГОСТ Р ИСО 12176-2 — Трубы пластмасс. Сварка встык",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "12176_3",
+      "query": "ГОСТ Р ИСО 12176-3",
+      "name": "ГОСТ Р ИСО 12176-3 — Трубы пластмасс. Сварка закладными нагревателями",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "13950",
+      "query": "ГОСТ Р ИСО 13950",
+      "name": "ГОСТ Р ИСО 13950 — Трубы пластмасс. Контроль параметров",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "8501_1",
+      "query": "ГОСТ Р ИСО 8501-1",
+      "name": "ГОСТ Р ИСО 8501-1 — Подготовка стальной поверхности",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "57355_2016",
+      "query": "ГОСТ Р 57355-2016",
+      "name": "ГОСТ Р 57355-2016 — Анкеры грунтовые. Правила работ",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "51232_98",
+      "query": "ГОСТ Р 51232-98",
+      "name": "ГОСТ Р 51232-98 — Вода питьевая. Контроль качества",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "60050_826_2009",
+      "query": "ГОСТ Р МЭК 60050-826-2009",
+      "name": "ГОСТ Р МЭК 60050-826-2009 — Электрическое оборудование. Термины",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "24297_2013",
+      "query": "ГОСТ 24297-2013",
+      "name": "ГОСТ 24297-2013 — Верификация закупленной продукции",
+      "category": "gost/materials",
+      "priority": "critical",
+      "_exists": false
+    },
+    {
+      "id": "32569_2013",
+      "query": "ГОСТ 32569-2013",
+      "name": "ГОСТ 32569-2013 — Трубопроводы технологические стальные",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "32755_2014",
+      "query": "ГОСТ 32755-2014",
+      "name": "ГОСТ 32755-2014 — Дороги. Приёмка в эксплуатацию",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "32756_2014",
+      "query": "ГОСТ 32756-2014",
+      "name": "ГОСТ 32756-2014 — Дороги. Промежуточная приёмка",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "31937_2024",
+      "query": "ГОСТ 31937-2024",
+      "name": "ГОСТ 31937-2024 — Здания. Правила обследования",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "34378_2018",
+      "query": "ГОСТ 34378-2018",
+      "name": "ГОСТ 34378-2018 — Конструкции оконные. Правила монтажа",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "24992_2014",
+      "query": "ГОСТ 24992-2014",
+      "name": "ГОСТ 24992-2014 — Конструкции каменные. Прочность сцепления",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "70444_2022",
+      "query": "ГОСТ 70444-2022",
+      "name": "ГОСТ 70444-2022 — Кабельный журнал",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "7473_2010",
+      "query": "ГОСТ 7473-2010",
+      "name": "ГОСТ 7473-2010 — Смеси бетонные. Технические условия",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "26633_91",
+      "query": "ГОСТ 26633-91",
+      "name": "ГОСТ 26633-91 — Бетоны тяжелые и мелкозернистые",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "10180_2012",
+      "query": "ГОСТ 10180-2012",
+      "name": "ГОСТ 10180-2012 — Бетоны. Методы определения прочности",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "18105_2018",
+      "query": "ГОСТ 18105-2018",
+      "name": "ГОСТ 18105-2018 — Бетоны. Контроль и оценка качества",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "22690_2015",
+      "query": "ГОСТ 22690-2015",
+      "name": "ГОСТ 22690-2015 — Бетоны. Неразрушающий контроль",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "17624_2021",
+      "query": "ГОСТ 17624-2021",
+      "name": "ГОСТ 17624-2021 — Бетоны. Ультразвуковой метод",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "30247_0_94",
+      "query": "ГОСТ 30247.0-94",
+      "name": "ГОСТ 30247.0-94 — Конструкции. Испытания на огнестойкость",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "30416_2020",
+      "query": "ГОСТ 30416-2020",
+      "name": "ГОСТ 30416-2020 — Грунты. Лабораторные испытания",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "5180_2015",
+      "query": "ГОСТ 5180-2015",
+      "name": "ГОСТ 5180-2015 — Грунты. Физические характеристики",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "5686_2020",
+      "query": "ГОСТ 5686-2020",
+      "name": "ГОСТ 5686-2020 — Грунты. Испытания сваями",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "23118_2019",
+      "query": "ГОСТ 23118-2019",
+      "name": "ГОСТ 23118-2019 — Конструкции стальные строительные",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "19281_2014",
+      "query": "ГОСТ 19281-2014",
+      "name": "ГОСТ 19281-2014 — Прокат стали повышенной прочности",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "17375_2001",
+      "query": "ГОСТ 17375-2001",
+      "name": "ГОСТ 17375-2001 — Детали трубопроводов. Отводы",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "16037_80",
+      "query": "ГОСТ 16037-80",
+      "name": "ГОСТ 16037-80 — Соединения сварные трубопроводов",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "9_402_2004",
+      "query": "ГОСТ 9.402-2004",
+      "name": "ГОСТ 9.402-2004 — ЕСЗКС. Лакокрасочные покрытия",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "9_105_80",
+      "query": "ГОСТ 9.105-80",
+      "name": "ГОСТ 9.105-80 — ЕСЗКС. Покрытия лакокрасочные",
+      "category": "gost/materials",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "2_307",
+      "query": "ГОСТ 2.307",
+      "name": "ГОСТ 2.307 — ЕСКД. Нанесение размеров",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "2_308",
+      "query": "ГОСТ 2.308",
+      "name": "ГОСТ 2.308 — ЕСКД. Допуски формы",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "21_508",
+      "query": "ГОСТ 21.508",
+      "name": "ГОСТ 21.508 — СПДС. Генеральные планы",
+      "category": "gost/documentation",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "48_13330_2019",
+      "query": "СП 48.13330.2019",
+      "name": "СП 48.13330.2019 — Организация строительства",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "68_13330_2017",
+      "query": "СП 68.13330.2017",
+      "name": "СП 68.13330.2017 — Приёмка в эксплуатацию",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "70_13330_2012",
+      "query": "СП 70.13330.2012",
+      "name": "СП 70.13330.2012 — Несущие и ограждающие конструкции",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "45_13330_2017",
+      "query": "СП 45.13330.2017",
+      "name": "СП 45.13330.2017 — Земляные сооружения и фундаменты",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "71_13330_2017",
+      "query": "СП 71.13330.2017",
+      "name": "СП 71.13330.2017 — Изоляционные и отделочные покрытия",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "72_13330_2016",
+      "query": "СП 72.13330.2016",
+      "name": "СП 72.13330.2016 — Защита от коррозии",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "63_13330_2018",
+      "query": "СП 63.13330.2018",
+      "name": "СП 63.13330.2018 — Бетонные и железобетонные конструкции",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "435_1325800_2018",
+      "query": "СП 435.1325800.2018",
+      "name": "СП 435.1325800.2018 — Конструкции бетонные монолитные",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "22_13330_2016",
+      "query": "СП 22.13330.2016",
+      "name": "СП 22.13330.2016 — Основания зданий и сооружений",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "28_13330_2017",
+      "query": "СП 28.13330.2017",
+      "name": "СП 28.13330.2017 — Защита конструкций от коррозии",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "90_13330_2012",
+      "query": "СП 90.13330.2012",
+      "name": "СП 90.13330.2012 — Тепловые электростанции",
+      "category": "sp/design",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "73_13330_2016",
+      "query": "СП 73.13330.2016",
+      "name": "СП 73.13330.2016 — Внутренние сантехсистемы",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "347_1325800_2017",
+      "query": "СП 347.1325800.2017",
+      "name": "СП 347.1325800.2017 — Системы отопления и водоснабжения",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "129_13330_2019",
+      "query": "СП 129.13330.2019",
+      "name": "СП 129.13330.2019 — Наружные сети водоснабжения",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "31_13330_2021",
+      "query": "СП 31.13330.2021",
+      "name": "СП 31.13330.2021 — Водоснабжение. Наружные сети",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "74_13330_2023",
+      "query": "СП 74.13330.2023",
+      "name": "СП 74.13330.2023 — Тепловые сети",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "76_13330_2016",
+      "query": "СП 76.13330.2016",
+      "name": "СП 76.13330.2016 — Электротехнические устройства",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "77_13330_2016",
+      "query": "СП 77.13330.2016",
+      "name": "СП 77.13330.2016 — Системы автоматизации",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "126_13330_2017",
+      "query": "СП 126.13330.2017",
+      "name": "СП 126.13330.2017 — Геодезические работы",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "392_1325800_2018",
+      "query": "СП 392.1325800.2018",
+      "name": "СП 392.1325800.2018 — Трубопроводы. ИД при строительстве",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "406_1325800_2018",
+      "query": "СП 406.1325800.2018",
+      "name": "СП 406.1325800.2018 — Трубопроводы. Сварка",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "86_13330_2022",
+      "query": "СП 86.13330.2022",
+      "name": "СП 86.13330.2022 — Магистральные трубопроводы",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "409_1325800_2018",
+      "query": "СП 409.1325800.2018",
+      "name": "СП 409.1325800.2018 — Трубопроводы. Изоляция",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "341_1325800_2017",
+      "query": "СП 341.1325800.2017",
+      "name": "СП 341.1325800.2017 — Подземные коммуникации. ГНБ",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "361_1325800_2017",
+      "query": "СП 361.1325800.2017",
+      "name": "СП 361.1325800.2017 — Защита в зоне подземных объектов",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "32_105_2004",
+      "query": "СП 32-105-2004",
+      "name": "СП 32-105-2004 — Метрополитены",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "42_101_2003",
+      "query": "СП 42-101-2003",
+      "name": "СП 42-101-2003 — Газораспределительные системы",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "246_1325800_2023",
+      "query": "СП 246.1325800.2023",
+      "name": "СП 246.1325800.2023 — Авторский надзор",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "407_1325800_2024",
+      "query": "СП 407.1325800.2024",
+      "name": "СП 407.1325800.2024 — Земляные работы",
+      "category": "sp/construction",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "3_01_04_87",
+      "query": "СНиП 3.01.04-87",
+      "name": "СНиП 3.01.04-87 — Приёмка в эксплуатацию",
+      "category": "snip",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "iii_15_76",
+      "query": "СНиП III-15-76",
+      "name": "СНиП III-15-76 — Бетонные конструкции монолитные",
+      "category": "snip",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "iii_9_74",
+      "query": "СНиП III-9-74",
+      "name": "СНиП III-9-74 — Основания и фундаменты",
+      "category": "snip",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "12_04_2002",
+      "query": "СНиП 12-04-2002",
+      "name": "СНиП 12-04-2002 — Безопасность труда в строительстве",
+      "category": "snip",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "52_01_2003",
+      "query": "СНиП 52-01-2003",
+      "name": "СНиП 52-01-2003 — Бетонные и железобетонные конструкции",
+      "category": "snip",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "384",
+      "query": "384-ФЗ Техрегламент безопасности",
+      "name": "384-ФЗ Техрегламент безопасности — Техрегламент о безопасности зданий и сооружений",
+      "category": "fz",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "116",
+      "query": "116-ФЗ Промышленная безопасность",
+      "name": "116-ФЗ Промышленная безопасность — О промышленной безопасности ОПО",
+      "category": "fz",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "73",
+      "query": "73-ФЗ Объекты культурного наследия",
+      "name": "73-ФЗ Объекты культурного наследия — Об объектах культурного наследия",
+      "category": "fz",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "248",
+      "query": "248-ФЗ Государственный контроль",
+      "name": "248-ФЗ Государственный контроль — О государственном контроле (надзоре)",
+      "category": "fz",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "208",
+      "query": "208-ФЗ Об АО",
+      "name": "208-ФЗ Об АО — Об акционерных обществах",
+      "category": "fz",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "344__2023",
+      "query": "Приказ Минстроя 344/пр 2023",
+      "name": "Приказ Минстроя 344/пр 2023 — Состав и порядок ведения ИД",
+      "category": "prikazy/minstroy",
+      "priority": "critical",
+      "_exists": false
+    },
+    {
+      "id": "1026__2022",
+      "query": "Приказ Минстроя 1026/пр 2022",
+      "name": "Приказ Минстроя 1026/пр 2022 — Форма общего журнала работ",
+      "category": "prikazy/minstroy",
+      "priority": "critical",
+      "_exists": false
+    },
+    {
+      "id": "519_2020",
+      "query": "Приказ Ростехнадзора 519 2020",
+      "name": "Приказ Ростехнадзора 519 2020 — Сварочные работы на ОПО",
+      "category": "prikazy/rostechnadzor",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "1130_2006",
+      "query": "Приказ РТН 1130 2006",
+      "name": "Приказ РТН 1130 2006 — Регистрация ОЖР",
+      "category": "prikazy/rostechnadzor",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "782__2020",
+      "query": "Приказ Минтруда 782н 2020",
+      "name": "Приказ Минтруда 782н 2020 — Охрана труда при сварке",
+      "category": "prikazy",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "63_1998",
+      "query": "Постановление ГГТН 63 1998",
+      "name": "Постановление ГГТН 63 1998 — Аттестация сварщиков",
+      "category": "prikazy/rostechnadzor",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "87_2008",
+      "query": "ПП РФ 87 2008",
+      "name": "ПП РФ 87 2008 — Состав разделов ПД",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "468_2010",
+      "query": "ПП РФ 468 2010",
+      "name": "ПП РФ 468 2010 — Положение о строительном контроле",
+      "category": "pp_rf",
+      "priority": "critical",
+      "_exists": false
+    },
+    {
+      "id": "145_2007",
+      "query": "ПП РФ 145 2007",
+      "name": "ПП РФ 145 2007 — Госэкспертиза ПД",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "2425_2021",
+      "query": "ПП РФ 2425 2021",
+      "name": "ПП РФ 2425 2021 — Перечень средств измерений",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "331_2021",
+      "query": "ПП РФ 331 2021",
+      "name": "ПП РФ 331 2021 — ИД при ДДУ",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "614_2024",
+      "query": "ПП РФ 614 2024",
+      "name": "ПП РФ 614 2024 — Информационная модель ОКС",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "1087_2021",
+      "query": "ПП РФ 1087 2021",
+      "name": "ПП РФ 1087 2021 — Строительный контроль",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "3646__2020",
+      "query": "Распоряжение 3646-р 2020",
+      "name": "Распоряжение 3646-р 2020 — Средства измерений",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "399____2023",
+      "query": "399-ПП Москва 2023",
+      "name": "399-ПП Москва 2023 — Региональные перечни ИД",
+      "category": "pp_rf",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "478_86",
+      "query": "ВСН 478-86",
+      "name": "ВСН 478-86 — Сварка технологических трубопроводов",
+      "category": "vsn",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "012_88___2",
+      "query": "ВСН 012-88 часть 2",
+      "name": "ВСН 012-88 часть 2 — Строительство трубопроводов. Контроль",
+      "category": "vsn",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "123_90",
+      "query": "ВСН 123-90",
+      "name": "ВСН 123-90 — Электромонтажная документация",
+      "category": "vsn",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "11_05_2007",
+      "query": "РД 11-05-2007",
+      "name": "РД 11-05-2007 — Общий и специальные журналы",
+      "category": "rd",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "03_606_03",
+      "query": "РД 03-606-03",
+      "name": "РД 03-606-03 — Визуальный и измерительный контроль",
+      "category": "rd",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "34_15_132_96",
+      "query": "РД 34.15.132-96",
+      "name": "РД 34.15.132-96 — Сварка и контроль арматуры",
+      "category": "rd",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "1_13_07",
+      "query": "И 1.13-07",
+      "name": "И 1.13-07 — Приемо-сдаточная документация электромонтаж",
+      "category": "other",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "478__2002",
+      "query": "Распоряжение Росавтодора ИС-478-р 2002",
+      "name": "Распоряжение Росавтодора ИС-478-р 2002 — Приёмка дорожных работ",
+      "category": "other",
+      "priority": "high",
+      "_exists": false
+    },
+    {
+      "id": "33047_2014",
+      "query": "ГОСТ 33047-2014",
+      "name": "ГОСТ 33047-2014 — Дороги. Исполнительная документация",
+      "category": "gost/testing",
+      "priority": "high",
+      "_exists": false
+    }
+  ]
+}

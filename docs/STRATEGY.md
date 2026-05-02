@@ -108,7 +108,7 @@
 | 4 | Агент Юрист (экспертиза, протокол, претензия, иск) | 🔧 Частично |
 | **5** | **Evidence Graph v2 (7 узлов, Inference Engine, ProjectLoader)** | ✅ **Реализован** |
 | 6–10 | ПТО, Сметчик, Дело, Закупщик, Логист, Интеграция | 🔧 Частично |
-| **11** | **Journal Reconstructor v2, HITL System, Chain Builder** | 🔲 **Следующий** |
+| **11** | **Journal Reconstructor v2, HITL System, Chain Builder** | ✅ **Реализован** |
 
 ### Следующий этап — антикризисный режим
 

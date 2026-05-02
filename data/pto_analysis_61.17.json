@@ -1,0 +1,139 @@
+{
+  "llm_classification": {
+    "Декларация Плиты из каменной ваты Рязань 24_11_2021.pdf": {
+      "category_344": "input_control",
+      "doc_type": "сертификат",
+      "confidence": 0.9,
+      "work_type": "устройство теплоизоляции",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "СС ПБ_НПО Арсенал сертификат .pdf": {
+      "category_344": "input_control",
+      "doc_type": "сертификат",
+      "confidence": 0.95,
+      "work_type": "монтаж противопожарных систем",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "Сертификат профили стальные листовые гнутые.pdf": {
+      "category_344": "input_control",
+      "doc_type": "сертификат",
+      "confidence": 0.95,
+      "work_type": "монтаж металлоконструкций",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "гефест паспорт 57.docx": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.9,
+      "work_type": "установка дверей",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "замок_.pdf": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.85,
+      "work_type": "установка фурнитуры",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "паспорт двери противопожарные стальные .docx": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.9,
+      "work_type": "установка противопожарных дверей",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "паспорт Deckon .pdf": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.9,
+      "work_type": "устройство потолков",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "паспорт ISOBOX95 цоколь 67.17.docx": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.9,
+      "work_type": "гидроизоляция цоколя",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "паспорт профили для подвесных потлков от 19.12.2023.pdf": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.7,
+      "work_type": "устройство потолков",
+      "has_signatures": false,
+      "date_valid": true
+    },
+    "паспорт_РОКВУЛ_ЛАЙТ_БАТТС_цоколь_61_17.docx": {
+      "category_344": "input_control",
+      "doc_type": "паспорт качества",
+      "confidence": 0.95,
+      "work_type": "устройство теплоизоляции цоколя",
+      "has_signatures": false,
+      "date_valid": true
+    }
+  },
+  "issues": [
+    {
+      "doc": "паспорт профили для подвесных потлков от 19.12.2023.pdf",
+      "issue": "Документ представляет собой нечитаемый скан/набор символов, невозможно подтвердить подлинность и реквизиты",
+      "severity": "critical"
+    },
+    {
+      "doc": "паспорт двери противопожарные стальные .docx",
+      "issue": "Файл пуст или не содержит текстового содержимого",
+      "severity": "critical"
+    },
+    {
+      "doc": "все документы",
+      "issue": "В пакете полностью отсутствуют акты освидетельствования скрытых работ (АОСР) и акты приемки материалов",
+      "severity": "critical"
+    }
+  ],
+  "recommendations": [
+    "Предоставить читаемые скан-копии паспортов на профили для подвесных потолков.",
+    "Заполнить и предоставить паспорт на противопожарные стальные двери.",
+    "Сформировать реестр входного контроля материалов на основании предоставленных паспортов и сертификатов.",
+    "Разработать и предоставить АОСР на соответствующие виды работ (устройство цоколя, теплоизоляция, потолки, двери) в соответствии с формами Приказа №344/пр."
+  ],
+  "completeness": {
+    "coverage_pct": 16.7,
+    "total_positions": 6,
+    "covered_positions": 1,
+    "gaps": [
+      {
+        "category": "act_gro",
+        "desc": "act_gro: требуется 1, имеется 0",
+        "severity": "high"
+      },
+      {
+        "category": "act_axes",
+        "desc": "act_axes: требуется 1, имеется 0",
+        "severity": "high"
+      },
+      {
+        "category": "remarks",
+        "desc": "remarks: требуется 1, имеется 0",
+        "severity": "high"
+      },
+      {
+        "category": "input_control",
+        "desc": "input_control: требуется 1, имеется 0",
+        "severity": "high"
+      },
+      {
+        "category": "journals",
+        "desc": "journals: требуется 1, имеется 0",
+        "severity": "high"
+      }
+    ]
+  }
+}
