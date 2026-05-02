@@ -430,9 +430,9 @@ def build_content():
          Paragraph('Событие contract_signed / ks11_signed', TABLE_CELL_STYLE),
          Paragraph('Переключение режима StateGraph', TABLE_CELL_STYLE)],
         [Paragraph('SK_REFLECTION_TRIGGER', TABLE_CELL_STYLE),
-         Paragraph('Инициация цикла рефлексии: по завершении пайплайна запускает reflection_node для анализа логов и оптимизации wiki-правил.', TABLE_CELL_STYLE),
-         Paragraph('is_complete=True', TABLE_CELL_STYLE),
-         Paragraph('Вызов reflection_node', TABLE_CELL_STYLE)],
+        Paragraph('Инициация цикла оценки: по завершении пайплайна запускает pm_evaluate_node для анализа результатов и оптимизации wiki-правил.', TABLE_CELL_STYLE),
+        Paragraph('is_complete=True', TABLE_CELL_STYLE),
+        Paragraph('Вызов pm_evaluate_node', TABLE_CELL_STYLE)],
     ]
     story.append(make_table(hermes_skills, col_ratios=[0.16, 0.40, 0.22, 0.22]))
     story.append(Paragraph('Таблица 2. Навыки агента Hermes', CAPTION_STYLE))

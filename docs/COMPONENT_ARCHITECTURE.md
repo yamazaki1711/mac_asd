@@ -1497,9 +1497,10 @@ StateGraph
 ├── src/
 │   ├── agents/
 │   │   ├── workflow.py          # LangGraph (7 агентов через asd_app)
-│   │   ├── nodes.py             # Логика узлов графа
+│   │   ├── nodes.py             # Логика узлов графа (legacy, shared helpers)
+│   │   ├── nodes_v2.py          # Актуальные PM-узлы (май 2026, merged orchestrator)
 │   │   ├── state.py             # AgentState — состояние графа
-│   │   └── reflection_node.py   # Узел рефлексии (оптимизация результатов)
+│   │   └── workflow.py          # LangGraph workflow (parallel Send + sequential)
 │   │
 │   ├── core/
 │   │   ├── llm_engine.py        # LLMEngine — единый интерфейс к LLM
