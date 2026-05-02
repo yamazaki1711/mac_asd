@@ -75,3 +75,9 @@ coverage.xml
 # Нормативная библиотека и шаблоны (локальные, не в GitHub)
 library/
 data/graphs/
+
+# Inventory / forensic / PTO analysis JSON reports (test artifacts)
+data/inventory_*.json
+data/forensic_*.json
+data/pto_analysis_*.json
+data/vlm_analysis_*.json
