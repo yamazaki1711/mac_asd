@@ -764,7 +764,7 @@ class IngestionPipeline:
             file_path=file_path,
             doc_type=doc_type,
             classification_confidence=confidence,
-            raw_text=text[:2000],  # Первые 2000 символов — для отладки
+            raw_text=text[:5000],  # Увеличено с 2000 для аудита self-consistency
             entities=entities,
             page_count=page_count,
             vlm_classified=vlm_classified,

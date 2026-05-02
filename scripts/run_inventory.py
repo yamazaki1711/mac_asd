@@ -58,6 +58,23 @@ def run_inventory(folder: Path, project_id: str = ""):
         logger.warning("Forensic checks skipped: %s", e)
     forensic_time = time.time() - t0
 
+    # ── Шаг 3.5: Classification Quality Audit (новые проверки 9-11) ───────
+    t0 = time.time()
+    class_findings = []
+    try:
+        from src.core.auditor import AuditorAgent
+        auditor = AuditorAgent(llm_engine=None)
+        class_findings = auditor._check_classification_quality(state=None)
+        # Если документы не загрузились из singleton — передаём явно
+        if not class_findings and pipeline.documents:
+            from src.core.ingestion import ingestion_pipeline
+            ingestion_pipeline.documents = pipeline.documents
+            class_findings = auditor._check_classification_quality(state=None)
+        logger.info("Шаг 3.5 (Classif. audit): %d находок", len(class_findings))
+    except Exception as e:
+        logger.warning("Classification audit skipped: %s", e)
+    class_audit_time = time.time() - t0
+
     # ── Шаг 4: Отчёт ───────────────────────────────────────────────────────
     report = pipeline.get_inventory_report()
     report["project_id"] = project_id or folder.name
@@ -66,7 +83,8 @@ def run_inventory(folder: Path, project_id: str = ""):
         "scan_seconds": round(scan_time, 1),
         "graph_seconds": round(graph_time, 1),
         "forensic_seconds": round(forensic_time, 1),
-        "total_seconds": round(scan_time + graph_time + forensic_time, 1),
+        "class_audit_seconds": round(class_audit_time, 1),
+        "total_seconds": round(scan_time + graph_time + forensic_time + class_audit_time, 1),
     }
     report["graph"] = {
         "total_nodes": graph_service.graph.number_of_nodes(),
@@ -77,6 +95,30 @@ def run_inventory(folder: Path, project_id: str = ""):
         "critical": sum(1 for f in forensic_findings if getattr(f, "severity", "") == "critical"),
         "high": sum(1 for f in forensic_findings if getattr(f, "severity", "") == "high"),
         "medium": sum(1 for f in forensic_findings if getattr(f, "severity", "") == "medium"),
+    }
+
+    # Classification quality audit findings
+    class_sev = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for f in class_findings:
+        sev = getattr(f, "severity", None)
+        k = sev.value.upper() if hasattr(sev, "value") else str(sev).upper()
+        class_sev[k] = class_sev.get(k, 0) + 1
+    report["classification_audit"] = {
+        "total": len(class_findings),
+        "critical": class_sev.get("CRITICAL", 0),
+        "high": class_sev.get("HIGH", 0),
+        "medium": class_sev.get("MEDIUM", 0),
+        "low": class_sev.get("LOW", 0),
+        "details": [
+            {
+                "target": f.target_agent,
+                "category": f.category,
+                "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                "description": f.description,
+                "recommendation": f.recommendation,
+            }
+            for f in class_findings
+        ],
     }
 
     # ── Детализация по типам ───────────────────────────────────────────────
@@ -121,6 +163,20 @@ def run_inventory(folder: Path, project_id: str = ""):
           f"(крит: {report['forensic_findings']['critical']}, "
           f"выс: {report['forensic_findings']['high']}, "
           f"сред: {report['forensic_findings']['medium']})")
+
+    # Classification audit findings
+    ca = report.get("classification_audit", {})
+    if ca and ca.get("total", 0) > 0:
+        print(f"\n  Аудит классификации:")
+        print(f"    Всего находок: {ca['total']} "
+              f"(крит: {ca.get('critical',0)}, "
+              f"выс: {ca.get('high',0)}, "
+              f"сред: {ca.get('medium',0)}, "
+              f"низ: {ca.get('low',0)})")
+        for d in ca.get("details", [])[:8]:
+            sev = d.get("severity", "?").upper()
+            desc = d.get("description", "")[:120]
+            print(f"    [{sev}] {desc}")
     print()
     print("  Типы документов:")
     for dt, info in sorted(type_details.items(), key=lambda x: -x[1]["count"]):

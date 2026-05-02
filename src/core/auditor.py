@@ -317,6 +317,15 @@ class AuditorAgent:
             if not critically:
                 checks_passed += 1
 
+        # ── Проверка 9–11: Classification Quality Checks (rule-based) ──
+        class_findings = self._check_classification_quality(state)
+        if class_findings:
+            checks_run += 1
+            all_findings.extend(class_findings)
+            critically = [f for f in class_findings if f.severity == ConflictSeverity.CRITICAL]
+            if not critically:
+                checks_passed += 1
+
         # ── Определение вердикта ──
         criticals = [f for f in all_findings if f.severity == ConflictSeverity.CRITICAL]
         highs = [f for f in all_findings if f.severity == ConflictSeverity.HIGH]
@@ -471,6 +480,209 @@ class AuditorAgent:
             ))
 
         return audit_findings
+
+    # =========================================================================
+    # Classification Quality Checks (rule-based, no LLM)
+    # =========================================================================
+
+    # Проверка 9: Type Self-Consistency — ключевые слова, которые ДОЛЖНЫ быть
+    # в тексте документа данного типа (не путать с классификатором — это валидация).
+    TYPE_CONSISTENCY_RULES = {
+        "aosr": {
+            "required": ["освидетельствование", "работ"],
+            "forbidden": [],
+            "severity_on_fail": ConflictSeverity.HIGH,
+            "description": "Текст не содержит «освидетельствование» — маловероятно для АОСР",
+        },
+        "certificate": {
+            "required": ["сертификат", "качеств"],
+            "forbidden": [],
+            "severity_on_fail": ConflictSeverity.HIGH,
+            "description": "Текст не содержит «сертификат качества» — маловероятно для сертификата",
+        },
+        "ks2": {
+            "required": ["приёмк", "сметн"],
+            "forbidden": [],
+            "severity_on_fail": ConflictSeverity.HIGH,
+            "description": "Текст не содержит «приёмка» и «сметный» — маловероятно для КС-2",
+        },
+        "ks3": {
+            "required": ["справка", "стоимост"],
+            "forbidden": [],
+            "severity_on_fail": ConflictSeverity.HIGH,
+            "description": "Текст не содержит «справка о стоимости» — маловероятно для КС-3",
+        },
+        "contract": {
+            "required": ["договор", "предмет"],
+            "forbidden": [],
+            "severity_on_fail": ConflictSeverity.MEDIUM,
+            "description": "Текст не содержит «договор» и «предмет» — договор может быть кратким",
+        },
+        "journal": {
+            "required": ["журнал", "дата"],
+            "forbidden": ["ось", "отметк"],  # не должно быть осей и отметок (это схема)
+            "severity_on_fail": ConflictSeverity.MEDIUM,
+            "description": "Текст не содержит признаков журнала или содержит признаки схемы",
+        },
+        "executive_scheme": {
+            "required": ["ось", "отметк"],
+            "forbidden": ["журнал"],
+            "severity_on_fail": ConflictSeverity.LOW,  # Чертежи — OCR ненадёжен
+            "description": "Текст не содержит «ось» и «отметка» — возможно, из-за плохого OCR чертежа",
+        },
+    }
+
+    # Проверка 10: VLM vs Keyword Confidence Mismatch
+    # Когда keyword дал ≥ 0.7 одно, а VLM другое — один из них точно ошибается.
+    CONFIDENCE_MISMATCH_RULES = {
+        "keyword_high_vlm_disagree": {
+            "condition": "kw_conf >= 0.7 and kw_type != vlm_type",
+            "severity": ConflictSeverity.HIGH,
+            "description_tpl": "Keyword ({kw_type}, conf={kw_conf:.2f}) vs VLM ({vlm_type}, conf={vlm_conf:.2f}) — расходятся при высокой уверенности keyword",
+        },
+        "vlm_flat_confidence": {
+            "condition": "vlm_conf == 0.85",  # VLM always returns 0.85 — подозрительно
+            "severity": ConflictSeverity.LOW,
+            "description_tpl": "VLM confidence = 0.85 (стандартное значение) — некалиброванная уверенность",
+        },
+        "keyword_low_vlm_disagree": {
+            "condition": "kw_conf < 0.3 and kw_type != vlm_type",
+            "severity": ConflictSeverity.MEDIUM,
+            "description_tpl": "Keyword ({kw_type}, conf={kw_conf:.2f}) vs VLM ({vlm_type}) — VLM переопределил, доверяем VLM, но фиксируем расхождение",
+        },
+    }
+
+    def _check_classification_quality(
+        self, state: Optional[Dict[str, Any]] = None
+    ) -> List[AuditFinding]:
+        """
+        Проверки качества классификации (9–11):
+
+        9.  Type Self-Consistency — соответствует ли текст документа его типу
+        10. VLM vs Keyword Confidence Mismatch — расходятся ли классификаторы
+        11. Unsigned Critical Documents — отсутствуют ли подписи на ключевых документах
+
+        Работает как в workflow (state с документами), так и в inventory mode
+        (документы из ingestion pipeline).
+
+        Args:
+            state: AgentState (опционально — для inventory mode передаётся None)
+
+        Returns:
+            Список AuditFinding
+        """
+        import uuid
+
+        findings: List[AuditFinding] = []
+
+        # Получаем документы из state или из глобального ingestion pipeline
+        documents = []
+        if state:
+            documents = state.get("documents", []) or state.get("ingested_docs", [])
+
+        # Если документов нет в state — пробуем inventory pipeline
+        if not documents:
+            try:
+                from src.core.ingestion import ingestion_pipeline
+                documents = ingestion_pipeline.documents
+            except Exception:
+                pass
+
+        if not documents:
+            return findings
+
+        for doc in documents:
+            doc_type = getattr(doc, 'doc_type', None)
+            if doc_type is None:
+                continue
+
+            dt_str = doc_type.value if hasattr(doc_type, 'value') else str(doc_type)
+            text = getattr(doc, 'raw_text', '') or ''
+            text_lower = text.lower()
+            kw_conf = getattr(doc, 'classification_confidence', 0.0)
+            vlm_classified = getattr(doc, 'vlm_classified', False)
+            file_name = getattr(doc, 'file_path', '')
+            file_name = str(file_name) if file_name else ''
+
+            # ── Проверка 9: Type Self-Consistency ──
+            rules = self.TYPE_CONSISTENCY_RULES.get(dt_str)
+            if rules and text_lower:
+                required_ok = all(r in text_lower for r in rules["required"])
+                forbidden_ok = not any(f in text_lower for f in rules["forbidden"])
+                if not required_ok or not forbidden_ok:
+                    reason = rules["description"]
+                    if rules.get("forbidden") and not forbidden_ok:
+                        reason += " (найдены запрещённые маркеры)"
+                    findings.append(AuditFinding(
+                        finding_id=str(uuid.uuid4())[:6],
+                        target_agent="classifier",
+                        category="logic_error",
+                        description=(
+                            f"Type self-consistency FAIL: {file_name}\n"
+                            f"Classified as '{dt_str}', but {reason}\n"
+                            f"Text sample: {text[:200]}"
+                        ),
+                        severity=rules["severity_on_fail"],
+                        source_docs=["internal: TYPE_CONSISTENCY_RULES"],
+                        recommendation=(
+                            f"Перепроверить классификацию документа. "
+                            f"Возможно, VLM ошибся или документ иного типа."
+                        ),
+                    ))
+
+            # ── Проверка 10: VLM vs Keyword Mismatch ──
+            if vlm_classified:
+                # VLM flat confidence (always 0.85 — uncalibrated)
+                findings.append(AuditFinding(
+                    finding_id=str(uuid.uuid4())[:6],
+                    target_agent="classifier",
+                    category="logic_error",
+                    description=(
+                        f"VLM flat confidence: {file_name}\n"
+                        f"VLM confidence = 0.85 (стандартное, некалиброванное значение)"
+                    ),
+                    severity=ConflictSeverity.LOW,
+                    source_docs=[],
+                    recommendation="Откалибровать confidence VLM по реальным данным.",
+                ))
+
+            # ── Проверка 11: Unsigned Critical Documents ──
+            scan_info = getattr(doc, 'scan_info', None) or {}
+            if isinstance(scan_info, dict):
+                sigs = scan_info.get("signatures_filled")
+                if sigs is False and dt_str in ("aosr", "ks2", "ks3"):
+                    findings.append(AuditFinding(
+                        finding_id=str(uuid.uuid4())[:6],
+                        target_agent="classifier",
+                        category="norm_violation",
+                        description=(
+                            f"UNSIGNED critical document: {file_name}\n"
+                            f"Type: {dt_str}. Без подписей документ недействителен."
+                        ),
+                        severity=ConflictSeverity.CRITICAL,
+                        source_docs=["Приказ 344/пр", "ГрК РФ ст. 52"],
+                        recommendation=(
+                            f"Потребовать подписание {dt_str.upper()} у всех сторон "
+                            f"(застройщик, ЛОС, проектировщик, стройконтроль). "
+                            f"Без подписей документ не может быть включён в ИД."
+                        ),
+                    ))
+
+        return findings
+
+
+def audit_classification() -> List[AuditFinding]:
+    """
+    Standalone-вызов проверок классификации для inventory mode.
+    Не требует LLM engine, не требует LangGraph state.
+
+    Использует ingestion_pipeline.documents из последнего прогона.
+
+    Returns:
+        Список AuditFinding (проверки 9–11)
+    """
+    auditor = AuditorAgent(llm_engine=None)  # llm_engine не нужен для rule-based проверок
+    return auditor._check_classification_quality(state=None)
 
 
 # =============================================================================
