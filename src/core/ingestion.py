@@ -82,10 +82,11 @@ DOCUMENT_KEYWORDS: Dict[DocumentType, List[Dict[str, Any]]] = {
     ],
     DocumentType.CERTIFICATE: [
         {"keywords": ["сертификат качества", "паспорт качества", "сертификат соответствия",
-                      "декларация о соответствии", "свидетельство о качестве"],
+                      "декларация о соответствии", "свидетельство о качестве",
+                      "паспорт", "сертификат"],
          "weight": 10},
-        {"keywords": ["сертификат", "качества", "партия №", "плавка", "евраз",
-                      "северсталь"], "weight": 5},
+        {"keywords": ["качества", "партия №", "плавка", "евраз", "северсталь"],
+         "weight": 5},
     ],
     DocumentType.TTN: [
         {"keywords": ["товарно-транспортная накладная", "ттн", "транспортная накладная",
@@ -97,9 +98,11 @@ DOCUMENT_KEYWORDS: Dict[DocumentType, List[Dict[str, Any]]] = {
                       "форма № у-1"], "weight": 10},
     ],
     DocumentType.CONTRACT: [
-        {"keywords": ["договор", "контракт", "дополнительное соглашение",
-                      "генеральный подрядчик", "субподрядчик", "заказчик",
-                      "существенные условия"], "weight": 8},
+        {"keywords": ["договор подряда", "договор", "контракт", "дополнительное соглашение",
+                      "допсоглашение", "субподряд"],
+         "weight": 10, "must_have": ["договор"]},
+        {"keywords": ["договор", "контракт", "субподряд"],
+         "weight": 5},
     ],
     DocumentType.CLAIM: [
         {"keywords": ["претензия", "досудебная претензия", "требование об уплате",
@@ -271,6 +274,9 @@ class DocumentClassifier:
         """
         Определить тип документа по тексту.
 
+        Для каждого doc_type пробует все rule_sets; confidence = лучший результат
+        среди rule_sets (а не среднее по всем rule_sets).
+
         Args:
             text: Извлечённый текст документа
 
@@ -278,38 +284,42 @@ class DocumentClassifier:
             (DocumentType, confidence: 0.0–1.0)
         """
         text_lower = text.lower()
-        scores: Dict[DocumentType, float] = {}
+        best_per_type: Dict[DocumentType, float] = {}
 
         for doc_type, rule_sets in DOCUMENT_KEYWORDS.items():
-            score = 0.0
-            max_possible = 0.0
-            must_have_failed = False
+            best_confidence = 0.0
 
             for rule in rule_sets:
                 # Проверка must_have
                 if "must_have" in rule:
                     if not all(mh.lower() in text_lower for mh in rule["must_have"]):
-                        must_have_failed = True
-                        break
+                        continue
 
-                # Подсчёт keyword matches
+                # Подсчёт keyword matches для этого rule_set
+                matched = 0
+                total = 0
                 for kw in rule["keywords"]:
-                    max_possible += rule["weight"]
+                    total += rule["weight"]
                     if kw.lower() in text_lower:
-                        score += rule["weight"]
+                        matched += rule["weight"]
 
-            if not must_have_failed and max_possible > 0:
-                scores[doc_type] = score / max_possible
+                if total > 0:
+                    conf = matched / total
+                    if conf > best_confidence:
+                        best_confidence = conf
 
-        if not scores:
+            if best_confidence > 0:
+                best_per_type[doc_type] = best_confidence
+
+        if not best_per_type:
             return (DocumentType.UNKNOWN, 0.0)
 
         # Наилучшее совпадение
-        best_type = max(scores, key=scores.get)
-        confidence = scores[best_type]
+        best_type = max(best_per_type, key=best_per_type.get)
+        confidence = best_per_type[best_type]
 
-        # Порог уверенности
-        if confidence < 0.3:
+        # Порог уверенности (снижен для keyword-based классификатора)
+        if confidence < 0.15:
             return (DocumentType.UNKNOWN, confidence)
 
         return (best_type, min(confidence, 0.95))
@@ -455,21 +465,11 @@ class OCREngine:
         return ("\n".join(full_text), page_count)
 
     def _ocr_page(self, page) -> str:
-        """OCR одной страницы через rapidocr."""
+        """OCR одной страницы. Приоритет: Tesseract (rus+eng) → RapidOCR (GPU)."""
         pix = page.get_pixmap(dpi=200)
         img_bytes = pix.tobytes("png")
 
-        try:
-            from rapidocr import RapidOCR
-            engine = RapidOCR()
-            result, _ = engine(img_bytes)
-            if result:
-                lines = [item[1] for item in result if item[1]]
-                return "\n".join(lines)
-        except ImportError:
-            pass
-
-        # Fallback: Tesseract CLI
+        # Primary: Tesseract CLI (лучше для кириллицы, чем китайские OCR-модели)
         import tempfile, subprocess
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             f.write(img_bytes)
@@ -479,9 +479,30 @@ class OCREngine:
                 ['tesseract', tmp_path, 'stdout', '-l', 'rus+eng', '--psm', '6'],
                 capture_output=True, text=True, timeout=30
             )
-            return result.stdout
+            text = result.stdout.strip()
+            if len(text) > 20:  # minimum meaningful text
+                return text
+        except Exception as e:
+            logger.debug("Tesseract failed: %s", e)
         finally:
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        # Fallback: RapidOCR (GPU-ускорение через onnxruntime)
+        try:
+            from rapidocr import RapidOCR
+            engine = RapidOCR()
+            output = engine(img_bytes)
+            if hasattr(output, 'txts') and output.txts:
+                return "\n".join(str(t) for t in output.txts if t)
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning("RapidOCR failed for page: %s", e)
+
+        return ""
 
     def _extract_image(self, file_path: Path) -> Tuple[str, int]:
         """OCR изображения через rapidocr."""
@@ -689,6 +710,7 @@ class IngestionPipeline:
 
         Для каждого ExtractedDocument создаёт соответствующий узел
         (AOSR/Batch/Certificate/...) и рёбра связей.
+        UNKNOWN-документы также попадают в граф как generic document nodes.
 
         Returns:
             Количество добавленных узлов
@@ -710,8 +732,6 @@ class IngestionPipeline:
                         project_id=project_id,
                     )
                     nodes_added += 1
-
-                    # Если указан материал — связываем
                     mat_name = self._first_str(entities.get("material_name", ""))
                     if mat_name:
                         mat_id = f"mat_{mat_name.replace(' ', '_')}"
@@ -731,8 +751,6 @@ class IngestionPipeline:
                         gost=self._first_str(entities.get("gost", "")),
                     )
                     nodes_added += 1
-
-                    # Связь сертификат → партия
                     batch_num = self._first_str(entities.get("batch_number", ""))
                     if batch_num:
                         batch_id = f"batch_{batch_num}"
@@ -758,11 +776,23 @@ class IngestionPipeline:
                     })
                     nodes_added += 1
 
-                # Provenance: документ → файл
+                else:
+                    # UNKNOWN and other types — still create a document node
+                    graph_service.add_document(doc_id, {
+                        "doc_type": doc.doc_type.value,
+                        "file_name": doc.file_path.name,
+                        "raw_text_sample": (doc.raw_text or "")[:500],
+                        "confidence": doc.classification_confidence,
+                    })
+                    nodes_added += 1
+
+                # Provenance: документ → файл (scan node must be created first)
                 scan_id = f"scan_{doc.file_path.name}"
-                graph_service.add_scan(scan_id, str(doc.file_path))
-                graph_service.link_document_to_scan(doc_id, scan_id)
-                nodes_added += 1
+                if not graph_service.graph.has_node(scan_id):
+                    graph_service.add_scan(scan_id, str(doc.file_path))
+                    nodes_added += 1
+                if graph_service.graph.has_node(doc_id):
+                    graph_service.link_document_to_scan(doc_id, scan_id)
 
             except Exception as e:
                 logger.error("Failed to ingest %s to graph: %s", doc_id, e)
