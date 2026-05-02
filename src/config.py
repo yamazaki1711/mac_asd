@@ -133,6 +133,21 @@ class Settings(BaseSettings):
     # --- Performance ---
     RAM_BUDGET_GB: int = int(os.getenv("RAM_BUDGET_GB", "78"))
 
+    # --- Google Workspace ---
+    GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv(
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        str(Path(__file__).parent.parent / "credentials" / "google_service_account.json"),
+    )
+    GOOGLE_DRIVE_PROJECTS_FOLDER: str = os.getenv("GOOGLE_DRIVE_PROJECTS_FOLDER", "")
+    GOOGLE_DRIVE_TEMPLATES_FOLDER: str = os.getenv("GOOGLE_DRIVE_TEMPLATES_FOLDER", "")
+    GOOGLE_DRIVE_CONTRACTS_FOLDER: str = os.getenv("GOOGLE_DRIVE_CONTRACTS_FOLDER", "")
+    GOOGLE_DOCS_AOSR_TEMPLATE: str = os.getenv("GOOGLE_DOCS_AOSR_TEMPLATE", "")
+    GOOGLE_DOCS_AOOK_TEMPLATE: str = os.getenv("GOOGLE_DOCS_AOOK_TEMPLATE", "")
+    GOOGLE_DOCS_PROTOCOL_TEMPLATE: str = os.getenv("GOOGLE_DOCS_PROTOCOL_TEMPLATE", "")
+    GOOGLE_SHEETS_VOR_TEMPLATE: str = os.getenv("GOOGLE_SHEETS_VOR_TEMPLATE", "")
+    GOOGLE_SHEETS_ESTIMATE_TEMPLATE: str = os.getenv("GOOGLE_SHEETS_ESTIMATE_TEMPLATE", "")
+    GOOGLE_DRIVE_VOR_FOLDER: str = os.getenv("GOOGLE_DRIVE_VOR_FOLDER", "")
+
     # -------------------------------------------------------------------------
     # Computed properties
     # -------------------------------------------------------------------------
@@ -200,6 +215,30 @@ class Settings(BaseSettings):
         # Use profile defaults
         profile_config = PROFILE_MODELS.get(self.ASD_PROFILE, PROFILE_MODELS["dev_linux"])
         return profile_config.get(agent, {"engine": "ollama", "model": "gemma4:31b-cloud"})
+
+    @property
+    def google_configured(self) -> bool:
+        """True если файл Google-кредов существует."""
+        return Path(self.GOOGLE_APPLICATION_CREDENTIALS).exists()
+
+    def get_drive_folder(self, folder_type: str) -> str:
+        """Возвращает ID папки Google Drive по типу."""
+        folder_map = {
+            "vor": self.GOOGLE_DRIVE_VOR_FOLDER,
+            "projects": self.GOOGLE_DRIVE_PROJECTS_FOLDER,
+            "templates": self.GOOGLE_DRIVE_TEMPLATES_FOLDER,
+            "contracts": self.GOOGLE_DRIVE_CONTRACTS_FOLDER,
+        }
+        return folder_map.get(folder_type, "")
+
+    def get_docs_template(self, template_type: str) -> str:
+        """Возвращает ID шаблона Google Docs по типу."""
+        template_map = {
+            "aosr": self.GOOGLE_DOCS_AOSR_TEMPLATE,
+            "aook": self.GOOGLE_DOCS_AOOK_TEMPLATE,
+            "protocol": self.GOOGLE_DOCS_PROTOCOL_TEMPLATE,
+        }
+        return template_map.get(template_type, "")
 
     @property
     def is_mac_studio(self) -> bool:

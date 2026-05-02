@@ -138,28 +138,33 @@ class TestModelRequestQueue:
             await asyncio.sleep(delay)
             return "ok"
 
-        # First submit grabs the semaphore (max_concurrent=1)
+        block_drain = asyncio.Event()  # holds semaphore until we're ready
+
+        async def blocker():
+            await block_drain.wait()
+            return "ok"
+
+        # First submit grabs semaphore (max_concurrent=1), waits on Event
         t1 = asyncio.create_task(
-            queue.submit(agent="a", model_key="m1", func=slow, delay=0.2)
+            queue.submit(agent="a", model_key="m1", func=blocker)
         )
+        await asyncio.sleep(0.03)
 
-        # Give time for t1 to acquire semaphore and start executing
-        await asyncio.sleep(0.02)
-
-        # These two queue up (queue_size=2 allows 2 waiting)
+        # These two queue up via submit (queue_size=2 allows 2 waiting)
         t2 = asyncio.create_task(
             queue.submit(agent="b", model_key="m1", func=slow, delay=0.1)
         )
-        await asyncio.sleep(0.01)
         t3 = asyncio.create_task(
             queue.submit(agent="c", model_key="m1", func=slow, delay=0.1)
         )
+        await asyncio.sleep(0.03)
 
-        # This one should be rejected — queue is full (2 waiting + 1 active)
+        # Queue is now full (2 waiting). This one must be rejected.
         with pytest.raises(QueueFullError):
             await queue.submit(agent="d", model_key="m1", func=slow, delay=0.1)
 
-        # Clean up
+        # Clean up: release blocker, let everything drain
+        block_drain.set()
         await asyncio.gather(t1, t2, t3)
 
     @pytest.mark.asyncio
