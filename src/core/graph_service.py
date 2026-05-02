@@ -45,6 +45,7 @@ class NodeType(str, Enum):
     SUPPLIER = "Supplier"
     TTN = "TTN"
     SCAN = "Scan"
+    EMBEDDED_REFERENCE = "EmbeddedReference"  # Документ, упомянутый внутри другого PDF
 
 
 class EdgeType(str, Enum):
@@ -179,6 +180,45 @@ class GraphService:
         """Добавляет узел-документ (устаревший API, совместимость)."""
         self.graph.add_node(doc_id, type=NodeType.DOCUMENT.value, **metadata)
         self.save_graph()
+
+    def add_embedded_reference(
+        self,
+        ref_type: str,
+        identifier: str,
+        found_in_file: str,
+        date: str = "",
+        page: str = "",
+    ) -> str:
+        """
+        Добавляет узел встроенной ссылки — документ, упомянутый внутри другого PDF,
+        но отсутствующий как отдельный файл.
+
+        Args:
+            ref_type: тип документа ("certificate", "executive_scheme", "act", ...)
+            identifier: идентификатор ("Сертификат №21514", "ИС №6", ...)
+            found_in_file: в каком файле найден
+            date: дата (если извлечена)
+            page: страница
+
+        Returns:
+            node_id созданного узла
+        """
+        safe_id = identifier.replace(" ", "_").replace("/", "-").replace(".", "-")[:80]
+        node_id = f"embedded_{ref_type}_{safe_id}"
+
+        self.graph.add_node(
+            node_id,
+            type=NodeType.EMBEDDED_REFERENCE.value,
+            ref_type=ref_type,
+            identifier=identifier,
+            found_in=found_in_file,
+            date=date,
+            page=page,
+            status="missing",  # отсутствует как отдельный файл
+        )
+        self.save_graph()
+        logger.info("Embedded reference added: %s (%s) in %s", identifier, ref_type, found_in_file)
+        return node_id
 
     def add_normative_act(self, act_id: str, title: str):
         """Добавляет узел нормативного акта."""

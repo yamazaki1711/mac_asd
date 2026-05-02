@@ -30,7 +30,7 @@ def run_inventory(folder: Path, project_id: str = ""):
 
     # ── Шаг 1: Сканирование + OCR + Классификация ──────────────────────────
     t0 = time.time()
-    pipeline = IngestionPipeline()
+    pipeline = IngestionPipeline(enable_vlm=args.vlm if hasattr(args, 'vlm') else True)
 
     # Очищаем граф перед запуском (предотвращает накопление между тестами)
     graph_service.graph.clear()
@@ -50,9 +50,9 @@ def run_inventory(folder: Path, project_id: str = ""):
     t0 = time.time()
     forensic_findings = []
     try:
-        from src.core.auditor import auditor
-        audit_result = auditor.run_all_checks()
-        forensic_findings = audit_result.get("findings", [])
+        from src.core.graph_service import graph_service
+        forensic_raw = graph_service.run_all_forensic_checks()
+        forensic_findings = forensic_raw if isinstance(forensic_raw, list) else forensic_raw.get("findings", [])
         logger.info("Шаг 3 (Forensic): %d находок", len(forensic_findings))
     except Exception as e:
         logger.warning("Forensic checks skipped: %s", e)
@@ -103,6 +103,20 @@ def run_inventory(folder: Path, project_id: str = ""):
     print(f"  Время:     {report['timing']['total_seconds']} сек")
     print(f"  Узлов:     {report['graph']['total_nodes']}")
     print(f"  Связей:    {report['graph']['total_edges']}")
+
+    # VLM stats
+    vlm_stats = report.get("vlm_stats", {})
+    if vlm_stats:
+        print(f"\n  VLM-анализ:")
+        print(f"    Сканов обнаружено:  {vlm_stats.get('scanned_detected', 0)}")
+        print(f"    VLM-классифицировано: {vlm_stats.get('vlm_classified', 0)}")
+        er_count = vlm_stats.get('embedded_reference_count', 0)
+        if er_count:
+            print(f"    Встроенных ссылок: {er_count} (документы, упомянутые внутри PDF)")
+            for ref in vlm_stats.get('embedded_references', []):
+                print(f"      ↳ [{ref.get('type', '?')}] {ref.get('identifier', '?')[:80]}")
+                print(f"         в: {ref.get('found_in', '?')}")
+
     print(f"  Находок:   {report['forensic_findings']['total']} "
           f"(крит: {report['forensic_findings']['critical']}, "
           f"выс: {report['forensic_findings']['high']}, "
@@ -113,7 +127,7 @@ def run_inventory(folder: Path, project_id: str = ""):
         bar = "█" * min(info["count"], 40)
         marker = ""
         if info["low_conf"] > info["count"] * 0.5:
-            marker = " ⚠ низкая уверенность"
+            marker = " [низкая уверенность]"
         print(f"    {dt:<25s} {info['count']:>4d}  {bar}{marker}")
 
     unknown = report.get("unknown_docs", [])
@@ -140,7 +154,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ASD Inventory Runner")
     parser.add_argument("folder", help="Путь к папке с документами")
     parser.add_argument("--project-id", default="", help="ID проекта")
+    parser.add_argument("--vlm", action="store_true", default=True,
+                       help="Использовать VLM для сканированных PDF (по умолчанию: да)")
+    parser.add_argument("--no-vlm", action="store_true",
+                       help="Отключить VLM-классификацию")
     args = parser.parse_args()
+
+    if args.no_vlm:
+        args.vlm = False
 
     folder = Path(args.folder)
     if not folder.exists():

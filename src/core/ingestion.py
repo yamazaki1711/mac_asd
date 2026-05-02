@@ -257,6 +257,12 @@ class ExtractedDocument:
     page_count: int = 1
     processed_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
+    # VLM-поля (для сканированных документов)
+    vlm_classified: bool = False          # классифицирован через VLM, а не keyword
+    scan_info: Optional[Dict[str, Any]] = None  # ScanInfo as dict
+    embedded_refs: List[Dict[str, str]] = field(default_factory=list)
+    # embedded_refs: [{"type": "certificate", "identifier": "№21514", ...}]
+
 
 # =============================================================================
 # Document Classifier
@@ -571,12 +577,31 @@ class IngestionPipeline:
     5. Заполнение NetworkX-графа
     """
 
-    def __init__(self):
+    def __init__(self, enable_vlm: bool = True):
         self.classifier = DocumentClassifier()
         self.extractor = EntityExtractor()
         self.ocr = OCREngine()
         self.documents: List[ExtractedDocument] = []
         self.stats: Dict[str, Any] = {}
+
+        # VLM-интеграция
+        self.enable_vlm = enable_vlm
+        self._scan_detector = None
+        self._vlm_classifier = None
+
+    @property
+    def scan_detector(self):
+        if self._scan_detector is None:
+            from src.core.scan_detector import scan_detector
+            self._scan_detector = scan_detector
+        return self._scan_detector
+
+    @property
+    def vlm_classifier(self):
+        if self._vlm_classifier is None:
+            from src.core.vlm_classifier import vlm_classifier
+            self._vlm_classifier = vlm_classifier
+        return self._vlm_classifier
 
     def scan_folder(
         self,
@@ -651,9 +676,18 @@ class IngestionPipeline:
     def process_single(self, file_path: Path) -> ExtractedDocument:
         """
         Обработать один файл: OCR → classify → extract.
+        Сканированные PDF направляются на VLM-классификацию.
         """
         # Шаг 1: OCR
         text, page_count = self.ocr.extract_text(file_path)
+
+        # Шаг 1.5: Детекция скана (для статистики)
+        scan_info = None
+        vlm_classified = False
+        embedded_refs = []
+
+        if file_path.suffix.lower() == '.pdf':
+            scan_info = self.scan_detector.detect(file_path, text)
 
         if not text.strip():
             return ExtractedDocument(
@@ -663,6 +697,10 @@ class IngestionPipeline:
                 raw_text=text,
                 page_count=page_count,
                 errors=["No text extracted"],
+                scan_info={
+                    "is_scanned": scan_info.is_scanned if scan_info else False,
+                    "file_size_kb": scan_info.file_size_bytes // 1024 if scan_info else 0,
+                } if scan_info else None,
             )
 
         # Шаг 2: Классификация (keyword, затем опциональный LLM fallback)
@@ -679,6 +717,25 @@ class IngestionPipeline:
         except Exception:
             pass  # Keyword classification wins
 
+        # VLM fallback: если keyword-классификатор не уверен — пробуем VLM
+        if self.enable_vlm and confidence < 0.5 and file_path.suffix.lower() == '.pdf':
+            logger.info("Low keyword confidence (%.2f) for %s — trying VLM",
+                       confidence, file_path.name)
+            try:
+                import asyncio
+                vlm_result = asyncio.run(
+                    self.vlm_classifier.classify_document(file_path)
+                )
+                if vlm_result.doc_type and vlm_result.doc_type != "Неизвестно":
+                    doc_type = self._map_vlm_type(vlm_result.doc_type)
+                    confidence = vlm_result.confidence
+                    vlm_classified = True
+                    embedded_refs = vlm_result.embedded_refs
+                    logger.info("VLM fallback: %s → %s (confidence: %.2f)",
+                               file_path.name, doc_type.value, confidence)
+            except Exception as e:
+                logger.warning("VLM fallback failed for %s: %s", file_path.name, e)
+
         # Шаг 3: Извлечение сущностей
         entities = self.extractor.extract(text, doc_type)
 
@@ -689,7 +746,34 @@ class IngestionPipeline:
             raw_text=text[:2000],  # Первые 2000 символов — для отладки
             entities=entities,
             page_count=page_count,
+            scan_info={
+                "is_scanned": scan_info.is_scanned if scan_info else False,
+                "file_size_kb": scan_info.file_size_bytes // 1024 if scan_info else 0,
+                "text_chars": scan_info.text_chars if scan_info else len(text),
+            } if scan_info else None,
         )
+
+    def _map_vlm_type(self, vlm_type: str) -> DocumentType:
+        """Преобразовать строку типа от VLM в DocumentType enum."""
+        type_map = {
+            "АОСР": DocumentType.AOSR,
+            "АООК": DocumentType.AOOK,
+            "КС-2": DocumentType.KS2,
+            "КС-3": DocumentType.KS3,
+            "КС-6а": DocumentType.KS2,  # КС-6а — журнал учёта, ближе к КС-2
+            "Сертификат": DocumentType.CERTIFICATE,
+            "Паспорт": DocumentType.CERTIFICATE,
+            "Счёт": DocumentType.UPD,
+            "УПД": DocumentType.UPD,
+            "Договор": DocumentType.CONTRACT,
+            "Протокол": DocumentType.CLAIM,
+            "Журнал": DocumentType.JOURNAL,
+            "Исполнительная схема": DocumentType.EXECUTIVE_SCHEME,
+            "Чертёж": DocumentType.DRAWING,
+            "Письмо": DocumentType.LETTER,
+            "Неизвестно": DocumentType.UNKNOWN,
+        }
+        return type_map.get(vlm_type, DocumentType.UNKNOWN)
 
     def _first_str(self, value, default: str = "") -> str:
         """Извлечь первую строку из значения (может быть list или str)."""
@@ -806,11 +890,26 @@ class IngestionPipeline:
         """
         Сформировать отчёт об инвентаризации:
         что найдено, в каком состоянии, чего не хватает.
+        Включает данные VLM-классификации и встроенные ссылки.
         """
         doc_types_found = {}
         for doc in self.documents:
             dt = doc.doc_type.value
             doc_types_found[dt] = doc_types_found.get(dt, 0) + 1
+
+        # Сбор VLM-данных
+        vlm_classified_count = sum(1 for d in self.documents if d.vlm_classified)
+        scanned_count = sum(
+            1 for d in self.documents
+            if d.scan_info and d.scan_info.get("is_scanned")
+        )
+        all_embedded_refs = []
+        for d in self.documents:
+            for ref in d.embedded_refs:
+                all_embedded_refs.append({
+                    **ref,
+                    "found_in": str(d.file_path),
+                })
 
         return {
             "total_processed": len(self.documents),
@@ -825,6 +924,13 @@ class IngestionPipeline:
                 if d.doc_type == DocumentType.UNKNOWN
             ],
             "stats": self.stats,
+            # VLM-данные
+            "vlm_stats": {
+                "vlm_classified": vlm_classified_count,
+                "scanned_detected": scanned_count,
+                "embedded_references": all_embedded_refs,
+                "embedded_reference_count": len(all_embedded_refs),
+            },
         }
 
 
