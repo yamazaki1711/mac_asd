@@ -72,8 +72,8 @@ PROFILE_MODELS: Dict[str, Dict[str, Dict[str, str]]] = {
         "archive":     {"engine": "deepseek", "model": "deepseek-chat"},
         # Embeddings — bge-m3 через Ollama (DeepSeek не предоставляет эмбеддинги)
         "embed":       {"engine": "ollama",   "model": "bge-m3"},
-        # Vision — не поддерживается DeepSeek (тех.долг)
-        "vision":      {"engine": "ollama",   "model": "minicpm-v"},
+        # Vision — Gemma 4 31B через Ollama Cloud Free (DeepSeek не поддерживает VLM)
+        "vision":      {"engine": "ollama",   "model": "gemma4:31b-cloud"},
     },
 }
 
