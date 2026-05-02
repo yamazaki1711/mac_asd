@@ -63,8 +63,11 @@ python -m mcp_servers.asd_core.server
 | БЛС | `traps/default_traps.yaml` | 58 ловушек субподрядчика в 10 категориях + pgvector RAG |
 | Lessons Learned | `src/core/lessons_service.py` | Институциональная память: БД → RAG-инъекция → Skill Mutation |
 | Knowledge Engine | `src/core/knowledge/` | Инвалидация знаний, реестр шаблонов (149 DOCX из id-prosto), загрузчик |
-| Journal Restorer | `src/core/services/journal_restorer.py` | Forensic-восстановление ОЖР по косвенным документам |
-| Completeness Matrix | `src/core/completeness_matrix.py` | Матрица комплектности ИД по 344/пр (13 позиций) + замечания |
+|| Journal Restorer | `src/core/services/journal_restorer.py` | Forensic-восстановление ОЖР по косвенным документам |
+|| **Chain Builder** | `src/core/chain_builder.py` | **Package 11**. Цепочки MaterialBatch→Cert→AOSR→KS-2, разрывы, confidence |
+|| **HITL System** | `src/core/hitl_system.py` | **Package 11**. Вопросы оператору, приоритеты, обновление графа |
+|| **Journal Reconstructor v2** | `src/core/journal_reconstructor.py` | **Package 11**. 5 этапов, цветовая разметка, вывод JSON/таблица |
+|| Completeness Matrix | `src/core/completeness_matrix.py` | Матрица комплектности ИД по 344/пр (13 позиций) + замечания |
 | Batch ID Generator | `src/core/services/batch_id_generator.py` | Сквозная нумерация документов АОСР-{project}-{seq:04d} |
 | Telegram Scout | `src/core/telegram_scout.py` | Мониторинг Telegram-каналов: тендеры, поставщики, стройки |
 | Container (DI) | `src/core/container.py` | Dependency Injection: единая точка сборки компонентов |
@@ -115,6 +118,8 @@ src/
 ├── core/
 │   ├── evidence_graph.py, inference_engine.py   # Evidence Graph v2 (НОВОЕ)
 │   ├── project_loader.py                        # Нулевой слой: ПД/РД → baseline (НОВОЕ)
+│   ├── chain_builder.py, hitl_system.py          # Package 11: цепочки, HITL (НОВОЕ)
+│   ├── journal_reconstructor.py                  # Package 11: реконструкция ОЖР (НОВОЕ)
 │   ├── scan_detector.py, vlm_classifier.py      # VLM-интеграция (НОВОЕ)
 │   ├── ingestion.py, output_pipeline.py         # Пайплайны
 │   ├── graph_service.py, auditor.py        # Forensic KAG
@@ -138,7 +143,7 @@ tests/                # 493 теста (478 passed, 15 skipped)
 agents/               # Промпты агентов (Markdown)
 traps/                # БЛС — 58 ловушек (YAML)
 infrastructure/       # Docker Compose
-library/              # ГОСТы, СП, шаблоны (локально, не в Git)
+library/              # 271 файл, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
 ```
 
 ## Документация

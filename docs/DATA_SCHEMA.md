@@ -1,7 +1,7 @@
 # АСД v12.0 — СХЕМА ДАННЫХ
 
 **Дата:** 20 апреля 2026
-**Статус:** Активная разработка (Package 1 завершён, Package 4 частично реализован)
+**Статус:** Активная разработка (Package 1, 5, 11 завершены, Package 4 частично реализован)
 **СУБД:** PostgreSQL 16 + pgvector + pg_trgm
 **Модели:** Gemma 4 31B 4-bit (ПТО/Юрист/Сметчик/Закупщик/Логист), Gemma 4 E4B 4-bit (Делопроизводитель), Llama 3.3 70B 4-bit (Руководитель проекта/PM), bge-m3-mlx-4bit (embeddings)
 
@@ -807,7 +807,7 @@ $$ LANGUAGE plpgsql;
 | documents | ~200 | 50 MB | ~20 MB |
 | chunks | ~8000 | 500 MB (вкл. embeddings) | ~200 MB |
 | contracts | ~10 | 1 MB | ~0.5 MB |
-| traps | ~21 | 1 MB | ~0.5 MB |
+| traps | 58 | 1 MB | ~0.5 MB |
 | trap_matches | ~200 | 5 MB | ~2 MB |
 | claims | ~5 | 1 MB | ~0.5 MB |
 | lawsuits | ~2 | 1 MB | ~0.5 MB |
@@ -870,10 +870,10 @@ alembic upgrade head  # Применить все миграции
 | Документ | Описание | Связь с DATA_SCHEMA |
 |----------|----------|---------------------|
 | `docs/PROMPTS_GEMMA4.md` | Системные промпты агентов | Промпты извлечения реквизитов → таблица contracts (ProtocolPartyInfo); промпты ловушек → таблица traps (10 категорий); промпты ВОР → vor_items; промпты смет → estimate_items |
-| `docs/ARCHITECTURE.md` | Архитектура АСД v12.0 | LLMEngine → профили mac_studio (Gemma 4 31B), dev_linux (Gemma 4 31B), hermes_pm (Llama 3.3 70B); shared memory → таблицы projects, contracts |
-| `docs/MCP_TOOLS.md` | Спецификация MCP-инструментов | Каждый инструмент читает/пишет в определённые таблицы; asd_analyze_contract → contracts + trap_matches; asd_generate_protocol → contracts.ProtocolPartyInfo |
-| `docs/BLS_LIBRARY.md` | Библиотека ловушек субподрядчика | 58 ловушек, 10 категорий → таблица traps; YAML-файлы → source_file |
-| `docs/DEPLOYMENT.md` | Развёртывание | PostgreSQL 16 + pgvector; VRAM оценки; конфигурация LLMEngine |
+| `docs/COMPONENT_ARCHITECTURE.md` | Архитектура АСД v12.0 | LLMEngine → профили mac_studio (Gemma 4 31B), dev_linux (Gemma 4 31B), hermes_pm (Llama 3.3 70B); shared memory → таблицы projects, contracts |
+| `docs/MCP_TOOLS_SPEC.md` | Спецификация MCP-инструментов | Каждый инструмент читает/пишет в определённые таблицы; asd_analyze_contract → contracts + trap_matches; asd_generate_protocol → contracts.ProtocolPartyInfo |
+| `traps/default_traps.yaml` | Библиотека ловушек субподрядчика | 58 ловушек, 10 категорий → таблица traps; YAML-файлы → source_file |
+| `docs/DEPLOYMENT_PLAN.md` | Развёртывание | PostgreSQL 16 + pgvector; VRAM оценки; конфигурация LLMEngine |
 
 ---
 

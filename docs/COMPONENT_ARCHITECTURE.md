@@ -2,7 +2,7 @@
 
 **Дата:** 20 апреля 2026
 **Платформа:** Mac Studio M4 Max 128GB Unified Memory
-**Статус:** Активная разработка (Package 1 завершён, Package 4 частично реализован)
+**Статус:** Активная разработка (Package 1 ✅, Package 5 ✅ Evidence Graph/Inference/ProjectLoader, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2)
 
 ---
 
@@ -11,7 +11,7 @@
 Этот документ описывает внутреннюю архитектуру каждого компонента АСД v12.0:
 классы, методы, потоки данных, зависимости между модулями. Документ не содержит
 рабочего кода — только проектирование. Все описания соответствуют текущему состоянию
-реализации в репозитории `/home/z/my-project/mac_asd/`.
+реализации в репозитории `/home/oleg/MAC_ASD/`.
 
 Модельный ряд v12.0:
 
@@ -20,8 +20,8 @@
 | Llama 3.3 70B 4-bit (Руководитель проекта) | Оркестратор (pm) | ~40 GB | MLX |
 | Gemma 4 31B 4-bit | 5 рабочих агентов (shared, 128K контекст) | ~23 GB | MLX-VLM |
 | Gemma 4 E4B 4-bit | Делопроизводитель (archive) | ~3 GB | MLX-VLM |
-| bge-m3 | Embeddings | ~0.3 GB | Ollama |
-| Gemma 4 31B VLM | Vision/OCR (on-demand) | ~5 GB | Ollama |
+| bge-m3-mlx-4bit | Embeddings | ~0.3 GB | MLX |
+| Gemma 4 31B VLM | Vision/OCR (on-demand) | ~5 GB | MLX |
 
 **Ключевое архитектурное решение v12.0:** Все 5 рабочих агентов (pto, smeta, legal,
 procurement, logistics) используют единую копию Gemma 4 31B (128K контекст) через shared memory.
@@ -122,7 +122,7 @@ mcp_servers/asd_core/server.py
   2. Подключение к PostgreSQL (SQLAlchemy, порт 5433)
   3. Инициализация LLMEngine
      ├── Определение профиля (ASD_PROFILE=mac_studio или dev_linux)
-     ├── Создание MLXBackend и OllamaBackend
+     ├── Создание MLXBackend
      └── Проверка доступности MLX (mac_studio) / Ollama (dev_linux)
   4. Инициализация ParserEngine, RAGService, GraphService
   5. Инициализация RamManager (бюджет RAM_BUDGET_GB)
@@ -180,9 +180,9 @@ mcp_servers/asd_core/server.py
 ### 3.1. Роль
 
 LLMEngine — единый интерфейс ко всем LLM-операциям в АСД. Заменяет OllamaClient
-из ранних версий. Поддерживает два бэкенда: Ollama (для embeddings и vision) и
-MLX-VLM (для тяжёлых LLM на Mac Studio). Агент указывается по имени, модель и бэкенд
-определяются автоматически через профиль конфигурации.
+из ранних версий. Поддерживает основной бэкенд MLX (Mac Studio) для всех операций
+(chat, embeddings, vision) и Ollama как fallback для dev-окружения. Агент указывается
+по имени, модель и бэкенд определяются автоматически через профиль конфигурации.
 
 Ключевой принцип: вызывающий код не знает, какая модель и какой бэкенд используется.
 Он просто вызывает `llm_engine.chat("legal", messages)` — а LLMEngine через
@@ -229,17 +229,17 @@ LLMEngine(profile="auto")
 ├── vision(agent, image_base64, prompt, temperature=0.2, keep_alive="5m")
 │   → str (ответ vision модели)
 │   │
-│   ├── config = settings.get_model_config("vision") → {"engine": "ollama", "model": "Gemma 4 31B VLM"}
+│   ├── config = settings.get_model_config("vision") → {"engine": "mlx", "model": "Gemma 4 31B VLM"}
 │   ├── image_base64: base64-кодированное изображение
 │   ├── prompt: текстовая инструкция для модели
 │   └── Использует Gemma 4 31B VLM — уже загружена (shared model)
 │
 ├── embed(text, model=None)
-│   → List[float] (embedding вектор, 1024 dim для bge-m3)
+│   → List[float] (embedding вектор, 1024 dim для bge-m3-mlx-4bit)
 │   │
-│   ├── Всегда через OllamaBackend (bge-m3)
+│   ├── Через MLXBackend (bge-m3-mlx-4bit)
 │   ├── model = settings.get_model_config("embed")["model"] если не указан
-│   └── POST /api/embeddings (Ollama backend)
+│   └── Вызов MLX API embeddings
 │
 ├── generate(model, prompt, keep_alive=0)
 │   → Dict[str, Any] (низкоуровневый generate endpoint)
@@ -253,13 +253,13 @@ LLMEngine(profile="auto")
     │   ├── pm  → MLX,  Meta-Llama-3.3-70B-Instruct-4bit
     │   ├── pto/smeta/legal/procurement/logistics → MLX-VLM, gemma-4-31b-it-4bit ← shared (128K контекст)
     │   ├── archive → MLX-VLM, gemma-4-e4b-it-4bit
-    │   ├── embed → Ollama, bge-m3
-    │   └── vision → Ollama, Gemma 4 31B VLM
+    │   ├── embed → MLX, bge-m3-mlx-4bit
+    │   └── vision → MLX, Gemma 4 31B VLM
     │
     ├── Профиль "dev_linux":
     │   ├── Все агенты → Ollama, qwen3:32b (кроме archive → qwen3:8b)
-    │   ├── embed → Ollama, bge-m3
-    │   └── vision → Ollama, Gemma 4 31B VLM
+    │   ├── embed → MLX, bge-m3-mlx-4bit
+    │   └── vision → MLX, Gemma 4 31B VLM
     │
     └── Выбор бэкенда: MlxBackend.is_available() ? MLX : Ollama (fallback)
 ```
@@ -353,10 +353,10 @@ Show your reasoning process."""
   │     → Gemma 4 E4B 4-bit (MLX-VLM)
   │
   ├── vision (Vision/OCR)
-  │     → Gemma 4 31B VLM (Ollama, подгружается по требованию)
+  │     → Gemma 4 31B VLM (MLX, подгружается по требованию)
   │
   └── embed (Embeddings)
-        → bge-m3 (Ollama, всегда загружена)
+        → bge-m3-mlx-4bit (MLX, всегда загружена)
 ```
 
 **Таблица Task → Agent (ModelRouter.TASK_TO_AGENT):**
@@ -394,7 +394,7 @@ Gemma 4 31B недоступна (5 рабочих агентов)
   → Llama 3.3 70B (сниженное качество анализа, повышенный расход RAM)
     → safe_chat fallback_response (гарантированный возврат)
 
-bge-m3 недоступна (embed)
+bge-m3-mlx-4bit недоступна (embed)
   → Полнотекстовый поиск pg_trgm (без embeddings)
     → Ошибка "Поиск временно недоступен"
 
@@ -437,7 +437,7 @@ RamManager
 │   → float (GB использовано)
 │   │
 │   └── psutil.virtual_memory().used / (1024 ** 3)
-│       Учитывает всю память системы, включая модели MLX и Ollama
+│       Учитывает всю память системы, включая модели MLX
 │
 ├── check_memory_health()
 │   → bool (True если память в норме, False если критически мала)
@@ -446,7 +446,7 @@ RamManager
 │   └── Логирует CRITICAL при превышении бюджета
 │
 ├── unload_model(model_name)
-│   → None (принудительная выгрузка модели из Ollama)
+│   → None (принудительная выгрузка модели)
 │   │
 │   ├── llm_engine.generate(model=model_name, prompt="", keep_alive=0)
 │   ├── Удаление из self.active_models
@@ -466,7 +466,7 @@ RamManager
     ├── llama-3.3-70b-4bit:    40.0 GB  (оркестратор, всегда загружен)
     ├── gemma-4-31b-it-4bit:   23.0 GB  (5 агентов shared, 128K контекст, всегда загружен)
     ├── gemma-4-e4b-it-4bit:    3.0 GB  (архивариус, всегда загружен)
-    ├── bge-m3:                 0.3 GB  (embeddings, всегда загружен)
+    ├── bge-m3-mlx-4bit:         0.3 GB  (embeddings, всегда загружен)
     └── Gemma 4 31B VLM:              5.0 GB  (vision/OCR, подгружается по требованию)
 ```
 
@@ -476,7 +476,7 @@ RamManager
 
 | Давление памяти | % RAM | GB | Действие |
 |----------------|-------|-----|----------|
-| **low** | < 70% | < 90 GB | Llama 70B + Gemma 4 31B + Gemma 4 E4B + bge-m3 загружены, Gemma 4 31B VLM по требованию |
+| **low** | < 70% | < 90 GB | Llama 70B + Gemma 4 31B + Gemma 4 E4B + bge-m3-mlx-4bit загружены, Gemma 4 31B VLM по требованию |
 | **medium** | 70-80% | 90-102 GB | Нормально, пик контекста укладывается, лог-предупреждение |
 | **high** | 80-90% | 102-115 GB | Gemma 4 31B VLM выгружается, задачи завершаются последовательно |
 | **critical** | > 90% | > 115 GB | Новые задачи отклоняются (MEMORY_CRITICAL), возможна выгрузка Gemma 4 31B |
@@ -486,7 +486,7 @@ RamManager
 При Map-Reduce анализе большого документа через LegalService:
 
 ```
-Модели (4-bit, базово):    66.3 GB  (Llama 70B + Gemma 4 31B + Gemma 4 E4B + bge-m3)
+Модели (4-bit, базово):    66.3 GB  (Llama 70B + Gemma 4 31B + Gemma 4 E4B + bge-m3-mlx-4bit)
 Система (macOS + PG + App): 18.0 GB
 ────────────────────────────────────
 Занято базово:             84.3 GB
@@ -575,7 +575,7 @@ PyMuPDF: extract text per page
         Gemma 4 31B VLM уже загружена (shared, 23 GB)
           │
           ▼
-        Ollama Vision API (Gemma 4 31B VLM, Q4_K_M)
+        MLX Vision API (Gemma 4 31B VLM)
           ├── Рендеринг страницы: 300 DPI → PNG
           ├── Base64 кодирование изображения
           ├── Вызов Gemma 4 31B VLM с OCR-промптом
@@ -1492,7 +1492,7 @@ StateGraph
 ## 15. СТРУКТУРА ПРОЕКТА
 
 ```
-/home/z/my-project/mac_asd/
+/home/oleg/MAC_ASD/
 │
 ├── src/
 │   ├── agents/
@@ -1506,13 +1506,19 @@ StateGraph
 │   │   ├── llm_engine.py        # LLMEngine — единый интерфейс к LLM
 │   │   ├── backends/
 │   │   │   ├── mlx_backend.py   # MLX-VLM бэкенд (Mac Studio, Gemma 4 31B + Gemma 4 E4B + Llama 70B)
-│   │   │   └── ollama_backend.py # OllamaBackend (embeddings, vision, dev_linux)
+│   │   │   └── ollama_backend.py # OllamaBackend (dev_linux fallback)
 │   │   ├── ollama_client.py     # Legacy OllamaClient (обратная совместимость)
 │   │   ├── model_router.py      # ModelRouter — тип задачи → агент → модель
 │   │   ├── ram_manager.py       # RamManager — управление 128GB Unified Memory
 │   │   ├── parser_engine.py     # ParserEngine — парсинг PDF/XLSX/JSON
 │   │   ├── rag_service.py       # RAGService — векторный + гибридный поиск
 │   │   ├── graph_service.py     # GraphService — NetworkX граф знаний
+│   │   ├── evidence_graph.py    # **Evidence Graph v2** — 7 типов узлов, 11 связей, confidence
+│   │   ├── inference_engine.py  # **Inference Engine** — 6 symbolic-правил
+│   │   ├── project_loader.py    # **ProjectLoader** — ПД/РД → baseline WorkUnit'ов
+│   │   ├── chain_builder.py     # **Chain Builder (Pkg 11)** — цепочки документов
+│   │   ├── hitl_system.py       # **HITL System (Pkg 11)** — вопросы оператору
+│   │   ├── journal_reconstructor.py # **Journal Reconstructor v2 (Pkg 11)** — 5 этапов
 │   │   ├── event_manager.py     # StateGraph — конечный автомат проекта
 │   │   ├── services/
 │   │   │   └── legal_service.py # LegalService — юридический анализ (Package 4)
@@ -1588,7 +1594,7 @@ StateGraph
 │   └── default_traps.yaml       # 58 ловушек
 │
 ├── infrastructure/
-│   ├── docker-compose.yml       # PostgreSQL + pgvector + Redis
+│   ├── docker-compose.yml       # PostgreSQL + pgvector
 │   └── setup_mac.sh            # Настройка Mac Studio
 │
 ├── scripts/
@@ -1601,7 +1607,7 @@ StateGraph
 │
 ├── docs/
 │   ├── COMPONENT_ARCHITECTURE.md  # Этот документ
-│   ├── CONCEPT_v12.md             # Концепция АСД v11
+│   ├── CONCEPT_v12.md             # Концепция АСД v12
 │   ├── MODEL_STRATEGY.md          # Модельная стратегия
 │   ├── DATA_SCHEMA.md             # Схема данных
 │   ├── MCP_TOOLS_SPEC.md          # Спецификация MCP инструментов
@@ -1654,7 +1660,7 @@ GoogleWorkspaceService (src/core/integrations/google.py) позволяет вс
 ---
 
 *Этот документ описывает внутреннюю архитектуру всех компонентов АСД v12.0.
-Документ актуализирован 20 апреля 2026. LLMEngine и профили реализованы в Package 1,
-LegalService — в Package 4 (частично). БЛС переведена на гибридный режим (YAML + RAG/pgvector).
-Все 5 рабочих агентов используют единую копию Gemma 4 31B (128K контекст) через shared memory,
-Делопроизводитель использует Gemma 4 E4B.*
+Документ актуализирован 2 мая 2026. Package 5 (Evidence Graph v2, Inference Engine, ProjectLoader)
+и Package 11 (Chain Builder, HITL System, Journal Reconstructor v2) — реализованы.
+Библиотека: 271 файл, 101 MB. Все 5 рабочих агентов используют единую копию Gemma 4 31B
+(128K контекст) через shared memory, Делопроизводитель использует Gemma 4 E4B.*

@@ -5,7 +5,7 @@
 | **Документ** | Архитектура единого конвейера генерации ИД |
 | **Версия** | 1.0 |
 | **Дата** | 29 апреля 2026 |
-| **Статус** | Обсуждение |
+| **Статус** | Активная разработка (Package 5 и 11 реализованы) |
 | **Родительский проект** | MAC_ASD v12.0 |
 | **Связанные документы** | `docs/STRATEGY.md`, `docs/ppr_generator.md` |
 
@@ -354,9 +354,11 @@ class Recoverability(str, Enum):
     NOT_RECOVERABLE = "not_recoverable"   # Невосстановим (редкий случай)
 ```
 
-### 6.2. Journal Reconstructor (Обратный ход)
+### 6.2. Journal Reconstructor (Обратный ход) ✅ Реализован (Package 11)
 
 Самый сложный сценарий: журнал работ утрачен или не заполнен за период. Система реконструирует его из косвенных данных.
+
+> **Детали реализации:** см. `docs/CORE_LOGIC_DESIGN.md` §9 — Journal Reconstructor v2 с интеграцией Evidence Graph v2 и HITL System.
 
 **Прямой ход** (журнал есть):
 ```
@@ -415,9 +417,11 @@ class JournalReconstructor:
       → Статус: DRAFT, отправлен на REVIEW
 ```
 
-### 6.3. Chain Builder (Цепочечная генерация АОСР)
+### 6.3. Chain Builder (Цепочечная генерация АОСР) ✅ Реализован (Package 11)
 
 АОСР генерируются не поштучно, а цепочками по ТТК — с автоматической связкой «предыдущий этап → следующий этап».
+
+> **Детали реализации:** см. `docs/CORE_LOGIC_DESIGN.md` — Chain Builder с поддержкой цепочечной генерации и валидации через Evidence Graph v2.
 
 ```python
 class AOSRChainBuilder:
@@ -740,14 +744,14 @@ Inventory Engine:
 - Интеграция с существующим KAG (graph_service.py)
 - Тесты
 
-### Этап 2: АОСР + АВК (2 недели)
+### Этап 2: АОСР + АВК ✅ Завершён (Package 11)
 - `id_pipeline/generators/aosr_chain/` — ChainBuilder
 - `id_pipeline/generators/incoming_control/` — AVKGenerator
 - Рефакторинг output_pipeline → обёртка поверх ChainBuilder
 - Связь ТТК Registry ↔ ChainBuilder
 - Тесты цепочечной генерации
 
-### Этап 3: Журнал + Лаборатория (2 недели)
+### Этап 3: Журнал + Лаборатория ✅ Завершён (Package 11)
 - `id_pipeline/generators/journal/` — JournalReconstructor
 - `id_pipeline/generators/lab/` — LabProtocolGenerator + NeedCalculator
 - `id_pipeline/hitl/interview_collector.py` — сбор данных от опросов
