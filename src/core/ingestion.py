@@ -71,14 +71,24 @@ DOCUMENT_KEYWORDS: Dict[DocumentType, List[Dict[str, Any]]] = {
          "must_have": ["ответственных", "конструкций"]},
     ],
     DocumentType.KS2: [
-        {"keywords": ["кс-2", "акт о приёмке выполненных работ", "форма № кс-2",
-                      "выполненных работ"], "weight": 10,
-         "must_have": ["кс-2"]},
+        {"keywords": ["кс-2", "kc-2", "акт о приёмке выполненных работ", "форма № кс-2",
+                      "выполненных работ", "акт о приемке"],
+         "weight": 10,
+         "must_have": ["кс-2", "kc-2", "акт о приёмке выполненных работ", "акт о приемке выполненных работ"]},
+        # Fallback без must_have для плохого OCR (Tesseract искажает заголовки КС-форм)
+        {"keywords": ["акт о приёмке", "выполненных работ", "сметная стоимость",
+                      "единичная расценка", "позиция по смете", "всего по акту"],
+         "weight": 8},
     ],
     DocumentType.KS3: [
-        {"keywords": ["кс-3", "справка о стоимости", "форма № кс-3",
-                      "справка о стоимости выполненных работ"], "weight": 10,
-         "must_have": ["кс-3"]},
+        {"keywords": ["кс-3", "kc-3", "справка о стоимости", "форма № кс-3",
+                      "справка о стоимости выполненных работ"],
+         "weight": 10,
+         "must_have": ["кс-3", "kc-3", "справка о стоимости"]},
+        # Fallback без must_have для плохого OCR
+        {"keywords": ["справка о стоимости", "выполненных работ и затрат",
+                      "справка", "с начала проведения работ", "с начала года"],
+         "weight": 8},
     ],
     DocumentType.CERTIFICATE: [
         {"keywords": ["сертификат качества", "паспорт качества", "сертификат соответствия",
@@ -718,7 +728,18 @@ class IngestionPipeline:
             pass  # Keyword classification wins
 
         # VLM fallback: если keyword-классификатор не уверен — пробуем VLM
-        if self.enable_vlm and confidence < 0.5 and file_path.suffix.lower() == '.pdf':
+        # VLM fallback #1: keyword confidence < 0.5
+        # VLM fallback #2: filename содержит КС-формы (кс2/кс3/кс6/кс-2/кс-3/кс-6, латиница тоже)
+        #   КС-формы почти всегда сканированы с плохим OCR, keyword путает с contract
+        vlm_trigger = (
+            self.enable_vlm and file_path.suffix.lower() == '.pdf' and (
+                confidence < 0.5 or
+                any(kw in file_path.name.lower() for kw in
+                    ['кс-2', 'кс-3', 'кс-6а', 'кс-6', 'кс2', 'кс3', 'кс6а', 'кс6',
+                     'ks-2', 'ks-3', 'ks-6', 'ks2', 'ks3', 'ks6'])
+            )
+        )
+        if vlm_trigger:
             logger.info("Low keyword confidence (%.2f) for %s — trying VLM",
                        confidence, file_path.name)
             try:
@@ -746,6 +767,8 @@ class IngestionPipeline:
             raw_text=text[:2000],  # Первые 2000 символов — для отладки
             entities=entities,
             page_count=page_count,
+            vlm_classified=vlm_classified,
+            embedded_refs=embedded_refs,
             scan_info={
                 "is_scanned": scan_info.is_scanned if scan_info else False,
                 "file_size_kb": scan_info.file_size_bytes // 1024 if scan_info else 0,
