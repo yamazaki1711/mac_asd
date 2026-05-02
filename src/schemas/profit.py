@@ -16,7 +16,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # =============================================================================
@@ -105,8 +105,8 @@ class PositionCost(BaseModel):
         description="Уверенность в расчёте позиции"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "position_code": "01-01-001-01",
                 "position_name": "Разработка грунта I группы в отвал экскаваторами",
@@ -122,6 +122,7 @@ class PositionCost(BaseModel):
                 "confidence": 0.9,
             }
         }
+    )
 
 
 # =============================================================================
@@ -293,8 +294,8 @@ class ProfitModel(BaseModel):
         description="Примечания и оговорки"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "lot_id": "T-2026-0451",
                 "nmck": 55000000.0,
@@ -313,6 +314,7 @@ class ProfitModel(BaseModel):
                 "recommended_discount_pct": 5.5,
             }
         }
+    )
 
 
 # =============================================================================

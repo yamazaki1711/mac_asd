@@ -244,3 +244,24 @@ _mock_deepseek_backend = MagicMock()
 sys.modules["src.core.backends.ollama_backend"] = MagicMock()
 sys.modules["src.core.backends.mlx_backend"] = MagicMock()
 sys.modules["src.core.backends.deepseek_backend"] = MagicMock()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DI Container test fixtures
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import pytest
+from src.core.container import container as global_container
+
+
+@pytest.fixture(autouse=True)
+def reset_container_overrides():
+    """Reset DI container overrides after each test."""
+    yield
+    global_container.reset_overrides()
+
+
+@pytest.fixture
+def clean_container():
+    """Return a completely fresh ServiceContainer for isolated testing."""
+    from src.core.container import ServiceContainer
+    return ServiceContainer()

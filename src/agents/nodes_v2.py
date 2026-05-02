@@ -46,6 +46,8 @@ from src.core.exceptions import (
     LLMUnavailableError,
     LLMResponseError,
     NetworkError,
+    QueueFullError,
+    RAMRejectedError,
 )
 from src.agents.state import (
     AgentState,
@@ -210,8 +212,8 @@ async def agent_executor_node(state: AgentState) -> Dict[str, Any]:
 
     try:
         result = await node_func(state)
-    except (LLMUnavailableError, NetworkError) as e:
-        logger.error("Agent %s unavailable: %s", agent_name, e)
+    except (LLMUnavailableError, NetworkError, QueueFullError, RAMRejectedError) as e:
+        logger.error("Agent %s unavailable/rejected: %s", agent_name, e)
         ram_manager.register_task_end(agent_name)
         state["task_description"] = original_task
         fail_step(state, step_id, str(e))
@@ -562,8 +564,8 @@ async def agent_worker_node(state: AgentState) -> Dict[str, Any]:
 
     try:
         result = await node_func(state)
-    except (LLMUnavailableError, NetworkError) as e:
-        logger.error("Worker %s unavailable: %s", agent_name, e)
+    except (LLMUnavailableError, NetworkError, QueueFullError, RAMRejectedError) as e:
+        logger.error("Worker %s unavailable/rejected: %s", agent_name, e)
         ram_manager.register_task_end(agent_name)
         fail_step(state, step_id, str(e))
         return {

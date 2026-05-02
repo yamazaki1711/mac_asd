@@ -14,7 +14,7 @@ v12.0.0 changes:
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # =============================================================================
@@ -139,8 +139,8 @@ class LegalFinding(BaseModel):
         description="ID совпадения из БЛС (если найдена известная ловушка)"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "category": "trap",
                 "severity": "high",
@@ -153,6 +153,7 @@ class LegalFinding(BaseModel):
                 "blc_match": "payment_01",
             }
         }
+    )
 
 
 # =============================================================================

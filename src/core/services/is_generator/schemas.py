@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 # ─── Перечисления ──────────────────────────────────────────────────────────────
@@ -197,9 +197,7 @@ class RDSheetInfo(BaseModel):
     registered_at: str = ""    # Дата регистрации
     registered_by: str = ""    # Кто зарегистрировал
 
-    class Config:
-        # Разрешаем использовать RDFormat как строку
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ─── Результат генерации ИС ───────────────────────────────────────────────────

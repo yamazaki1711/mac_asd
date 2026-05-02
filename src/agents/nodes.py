@@ -21,21 +21,11 @@ from typing import Dict, Any, List, Optional
 from src.core.llm_engine import llm_engine
 from src.core.exceptions import (
     LLMUnavailableError,
-    LLMResponseError,
     NetworkError,
     DocumentParseError,
+    QueueFullError,
 )
-from src.core.pm_agent import (
-    compute_weighted_score,
-    check_veto_rules,
-    extract_legal_signal,
-    extract_smeta_signal,
-    extract_pto_signal,
-    extract_procurement_signal,
-    extract_logistics_signal,
-    calculate_risk_level,
-    DEFAULT_VETO_RULES,
-)
+
 import docx
 import fitz  # PyMuPDF
 import os
@@ -77,7 +67,7 @@ async def _safe_agent_chat(
     try:
         response = await llm_engine.chat(agent, messages, **kwargs)
         return response
-    except (LLMUnavailableError, NetworkError) as e:
+    except (LLMUnavailableError, NetworkError, QueueFullError) as e:
         logger.warning(
             "LLM unavailable for agent %s: %s. Using fallback response.",
             agent, str(e)
@@ -272,107 +262,6 @@ def _extract_work_type(state: Dict[str, Any]) -> str:
     intermediate = state.get("intermediate_data", {})
     # Извлекаем из intermediate_data или из описания задачи
     return intermediate.get("work_type", "*")
-
-
-# =============================================================================
-# PM Orchestrator Node — routing + verdict (v12.0: merged from HermesRouter)
-# =============================================================================
-
-async def hermes_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    [DEPRECATED] Legacy static router — superseded by PM-driven nodes_v2.
-
-    This node uses a static routing map (archive→procurement→pto→smeta→legal→logistics)
-    instead of the dynamic WorkPlan/TaskNode dispatch in pm_dispatch_router.
-
-    Use pm_planning_node + pm_fan_out_router from nodes_v2.py instead.
-
-    v12.0: Uses PM Agent logic (merged from HermesRouter):
-      1. Weighted scoring (agent weights: Legal 0.35, Smeta 0.25, PTO 0.20, Procurement 0.12, Logistics 0.08)
-      2. LLM reasoning for grey zone (0.3–0.7)
-      3. Veto rules (legal DANGEROUS, margin<10%, critical_traps>=3, НМЦК<70%)
-
-    Pipeline flow:
-      start -> archive -> procurement -> pto -> smeta -> legal -> logistics -> verdict
-    """
-    import warnings
-    warnings.warn(
-        "hermes_node is deprecated. Use pm_planning_node + pm_fan_out_router from nodes_v2.py",
-        DeprecationWarning, stacklevel=2,
-    )
-    logger.info("PM Orchestrator Router (v12.0) — DEPRECATED")
-    next_step = state.get("next_step", "start")
-
-    # Simple routing map for pipeline flow
-    routing_map = {
-        "start": "archive",
-        "archive": "procurement",
-        "procurement": "pto",
-        "pto": "smeta",
-        "smeta": "legal",
-        "legal": "logistics",
-    }
-
-    if next_step in routing_map:
-        return {
-            "next_step": routing_map[next_step],
-            "current_step": next_step,
-        }
-    elif next_step == "logistics":
-        # All agents done -> compute verdict via weighted scoring + veto rules
-
-        if state.get("_llm_fallback_triggered"):
-            fallback_agents = state.get("_llm_fallback_agents", [])
-            logger.warning(
-                "LLM fallback detected for agents: %s. Verdict may be unreliable.",
-                ", ".join(fallback_agents),
-            )
-
-        try:
-            # Collect signals from all agents
-            signals = [
-                extract_legal_signal(state),
-                extract_smeta_signal(state),
-                extract_pto_signal(state),
-                extract_procurement_signal(state),
-                extract_logistics_signal(state),
-            ]
-            scoring = compute_weighted_score(signals)
-            veto_id, veto_rules = check_veto_rules(state, DEFAULT_VETO_RULES)
-            risk_level = calculate_risk_level(state, scoring)
-
-            verdict = {
-                "weighted_score": scoring.normalized_score,
-                "zone": scoring.zone,
-                "risk_level": risk_level.value if risk_level else "unknown",
-                "veto_triggered": veto_id,
-                "agent_signals": {s.agent_name: s.signal for s in signals},
-                "agent_contributions": scoring.agent_contributions,
-            }
-
-            if veto_id:
-                logger.warning("VETO triggered: %s — forcing no_go", veto_id)
-                verdict["verdict"] = "no_go"
-            elif scoring.zone == "go_zone":
-                verdict["verdict"] = "go"
-            elif scoring.zone == "no_go_zone":
-                verdict["verdict"] = "no_go"
-            else:
-                verdict["verdict"] = "grey_zone"
-
-            return {
-                "next_step": "complete",
-                "current_step": "verdict",
-                "hermes_decision": verdict,
-            }
-        except (LLMUnavailableError, ValueError, KeyError) as e:
-            logger.error(f"PM verdict computation failed: {e}")
-            return {
-                "next_step": "complete",
-                "current_step": "verdict_fallback",
-            }
-    else:
-        return {"next_step": "complete", "is_complete": True}
 
 
 # =============================================================================

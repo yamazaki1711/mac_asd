@@ -42,16 +42,18 @@ class LLMEngine:
     In mac_studio profile — MLX for heavy models, Ollama for embeddings.
     """
 
-    def __init__(self):
+    def __init__(self, model_queue: Optional["ModelRequestQueue"] = None):
         self._profile = settings.ASD_PROFILE
         self._ollama = OllamaBackend()
         self._mlx = MLXBackend()
         self._deepseek = DeepSeekBackend()
         self._fallback_to_ollama = True  # Always allow Ollama fallback
+        self._model_queue = model_queue
 
         logger.info(
             f"LLMEngine initialized with profile: {self._profile}. "
-            f"MLX available: {self._mlx.is_available()}"
+            f"MLX available: {self._mlx.is_available()}. "
+            f"Model queue: {'enabled' if model_queue else 'disabled'}"
         )
 
     def _get_backend(self, engine: str):
@@ -117,6 +119,23 @@ class LLMEngine:
             num_ctx = self._default_context(agent)
 
         logger.debug(f"[LLMEngine] chat: agent={agent}, model={model}, engine={config['engine']}")
+
+        # Route through model queue if configured
+        if self._model_queue is not None:
+            from src.core.model_queue import derive_model_key
+            model_key = derive_model_key(agent)
+            return await self._model_queue.submit(
+                agent=agent,
+                model_key=model_key,
+                func=backend.chat,
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                num_ctx=num_ctx,
+                stream=stream,
+                keep_alive=keep_alive,
+                priority=self._default_priority(agent),
+            )
 
         return await backend.chat(
             model=model,
@@ -266,6 +285,21 @@ class LLMEngine:
     # -------------------------------------------------------------------------
     # Defaults per agent
     # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _default_priority(agent: str) -> "RequestPriority":
+        """Default queue priority per agent role."""
+        from src.core.model_queue import RequestPriority
+        priorities = {
+            "pm": RequestPriority.CRITICAL,
+            "legal": RequestPriority.HIGH,
+            "smeta": RequestPriority.HIGH,
+            "pto": RequestPriority.NORMAL,
+            "procurement": RequestPriority.NORMAL,
+            "archive": RequestPriority.NORMAL,
+            "logistics": RequestPriority.LOW,
+        }
+        return priorities.get(agent, RequestPriority.NORMAL)
 
     @staticmethod
     def _default_temperature(agent: str) -> float:

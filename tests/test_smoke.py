@@ -353,54 +353,91 @@ class TestWorkflowSmoke:
         sequential_graph = create_sequential_workflow()
         assert sequential_graph is not None
 
-    async def test_hermes_node_routing_start_to_archive(self, base_state):
-        """Verify Hermes routes start → archive."""
-        from src.agents.nodes import hermes_node
+    async def test_pm_planning_creates_plan_and_routes(self, base_state):
+        """PM planning node creates a WorkPlan and dispatches first agent."""
+        import src.agents.nodes_v2 as nodes_v2
+        from src.agents.nodes_v2 import _plan_cache
+        from unittest.mock import patch, AsyncMock
 
-        result = await hermes_node(base_state)
-        assert result["next_step"] == "archive"
+        _plan_cache.clear()
 
-    async def test_hermes_node_full_routing_chain(self, base_state):
-        """Verify Hermes routes full chain: archive → procurement → pto → smeta → legal → logistics → verdict."""
-        from src.agents.nodes import hermes_node
+        plan_json = json.dumps({
+            "plan": {
+                "goal": "Smoke test routing",
+                "reasoning": "Single task test",
+                "estimated_hours": 0.1,
+                "tasks": [{
+                    "task_id": "task_1", "task_type": "archive_register",
+                    "description": "Register docs", "agent": "archive",
+                    "depends_on": [], "priority": 10, "confidence_required": 0.5,
+                }],
+            }
+        })
 
-        routing_chain = [
-            ("start", "archive"),
-            ("archive", "procurement"),
-            ("procurement", "pto"),
-            ("pto", "smeta"),
-            ("smeta", "legal"),
-            ("legal", "logistics"),
-        ]
+        with patch.object(
+            nodes_v2.llm_engine, "chat", return_value=plan_json
+        ):
+            result = await nodes_v2.pm_planning_node(base_state)
+            assert "work_plan" in result
+            assert result.get("current_agent") == "archive"
+            assert result.get("next_step") == "archive"
 
-        for from_step, expected_next in routing_chain:
-            state = {**base_state, "next_step": from_step}
-            result = await hermes_node(state)
-            assert result["next_step"] == expected_next, f"from {from_step} expected {expected_next}, got {result['next_step']}"
+    async def test_pm_dispatch_router_selects_agent_from_plan(self, base_state):
+        """PM dispatch router selects the correct agent from WorkPlan."""
+        from src.agents.nodes_v2 import pm_dispatch_router, _plan_cache
+        from src.core.pm_agent import WorkPlan, TaskNode
 
-    async def test_hermes_node_verdict_fallback_detection(self, base_state):
-        """Verify Hermes detects LLM fallback before computing verdict."""
-        from src.agents.nodes import hermes_node
-        import logging
+        _plan_cache.clear()
 
+        task = TaskNode(
+            task_id="task_1", task_type="archive_register",
+            description="Register", agent="archive",
+            depends_on=[], priority=10,
+        )
+        plan = WorkPlan(
+            plan_id="PLAN-SMOKE", project_id=base_state["project_id"],
+            goal="Test dispatch", tasks=[task],
+        )
+        _plan_cache[base_state["project_id"]] = plan
+        state = {**base_state, "work_plan": plan.to_dict(), "current_agent": "archive"}
+
+        route = pm_dispatch_router(state)
+        assert route == "archive"
+
+    async def test_pm_evaluate_handles_low_confidence(self, base_state):
+        """PM evaluation handles low-confidence agent results without crashing."""
+        from src.agents.nodes_v2 import _plan_cache
+        from src.core.pm_agent import WorkPlan, TaskNode, PlanStatus
+
+        _plan_cache.clear()
+
+        task = TaskNode(
+            task_id="task_1", task_type="archive_register",
+            description="Register docs", agent="archive",
+            depends_on=[], priority=10, confidence_required=0.6,
+            max_retries=2,
+        )
+        plan = WorkPlan(
+            plan_id="PLAN-FALLBACK", project_id=base_state["project_id"],
+            goal="Test fallback handling", tasks=[task],
+        )
+        _plan_cache[base_state["project_id"]] = plan
         state = {
             **base_state,
-            "next_step": "logistics",
+            "work_plan": plan.to_dict(),
+            "current_agent": "archive",
+            "current_task_id": "task_1",
+            "confidence_scores": {"archive": 0.0},
             "_llm_fallback_triggered": True,
-            "_llm_fallback_agents": ["pto", "smeta"],
-            "legal_result": {"verdict": "approved", "critical_count": 0, "high_count": 0},
-            "smeta_result": {"profit_margin_pct": 25},
-            "vor_result": {"total_positions": 10, "unit_mismatches": [], "confidence_score": 0.0},
-            "procurement_result": {"decision": "bid", "nmck_vs_market": 5, "competitor_count": 3},
-            "logistics_result": {"vendors_found": 0, "delivery_available": True},
-            "confidence_scores": {
-                "legal": 0.8, "smeta": 0.0, "pto": 0.0, "procurement": 0.7, "logistics": 0.1,
-            },
+            "_llm_fallback_agents": ["archive"],
+            "intermediate_data": {},
+            "workflow_mode": "lot_search",
         }
 
-        # Should not crash even with fallback flags set
-        result = await hermes_node(state)
+        from src.agents.nodes_v2 import pm_evaluate_node
+        result = await pm_evaluate_node(state)
         assert "next_step" in result
+        assert "work_plan" in result
 
 
 # =============================================================================

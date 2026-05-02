@@ -15,7 +15,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # =============================================================================
@@ -245,8 +245,8 @@ class VerdictReport(BaseModel):
         description="Версия схемы отчёта"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "report_id": "a1b2c3d4",
                 "lot_id": "T-2026-0451",
@@ -290,6 +290,7 @@ class VerdictReport(BaseModel):
                 "protocol_items_count": 7,
             }
         }
+    )
 
 
 # =============================================================================

@@ -57,6 +57,11 @@ class LLMResponseError(ASDError):
     pass
 
 
+class QueueFullError(ASDError):
+    """Model request queue is at capacity and request was rejected."""
+    pass
+
+
 # --- Storage ---
 
 class StorageError(ASDError):
