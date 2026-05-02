@@ -143,6 +143,29 @@
 
 ## 4. МОДУЛИ И MCP ИНСТРУМЕНТЫ
 
+### 4.0. Evidence Graph v2 — единый граф для двух режимов (✅ Реализован)
+
+**Фундаментальный принцип:** ПД/РД есть всегда. ASD не начинает «с пожара» — она начинает с того, что должно быть построено.
+
+```
+ProjectLoader (нулевой слой):
+  ПД/РД → WorkUnit'ы PLANNED → Volume → Location → MaterialBatch → REFERENCED-документы
+
+Сопровождение:                   Антикризис:
+  PLANNED → IN_PROGRESS           Inference Engine:
+    → COMPLETED (агенты)            ТТН + typical_rate → даты работ
+  confidence = 1.0                  КС-2 → WorkUnit существовал
+                                    Фото → DateEvent
+                                    confidence = 0.4–0.85 → HITL → 1.0
+```
+
+**7 типов узлов:** WorkUnit, MaterialBatch, Document, Person, DateEvent, Volume, Location.
+**11 типов связей:** USED_IN, CONFIRMED_BY, REFERENCES, TEMPORAL_BEFORE/AFTER, LOCATED_AT, SUPPLIED_BY, SIGNED_BY, DERIVED_FROM, HAS_EVENT, DEFINES_VOLUME.
+**Inference Engine:** 6 symbolic-правил (не LLM) для вывода дат и фактов из улик.
+**Confidence framework:** 🟢 0.8–1.0 → 🟡 0.6–0.79 → 🔴 0.4–0.59 на каждом узле и ребре.
+
+Модули: `src/core/evidence_graph.py`, `src/core/inference_engine.py`, `src/core/project_loader.py`.
+
 ### 4.1. Юрист (6 инструментов) — Package 4 (частично реализован)
 
 Полный юридический цикл: экспертиза → протокол разногласий → претензия → арбитраж. Агент Юрист работает на модели Gemma 4 31B (shared, MLX-VLM) с thinking mode для задач, требующих глубокого анализа. Благодаря 128K контексту Gemma 4 31B, Map-Reduce НЕ нужен для большинства договоров (до ~300K символов документ анализируется целиком).

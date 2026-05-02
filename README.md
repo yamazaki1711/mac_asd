@@ -46,8 +46,11 @@ python -m mcp_servers.asd_core.server
 
 | Модуль | Файл | Что делает |
 |--------|------|------------|
-| Ingestion Pipeline | `src/core/ingestion.py` | Сканы → OCR → классификация (18 типов) → извлечение сущностей |
-| Forensic KAG | `src/core/graph_service.py` | NetworkX-граф: документы → партии → сертификаты → АОСР |
+| Ingestion Pipeline | `src/core/ingestion.py` | Сканы → OCR → классификация (18 типов) → извлечение сущностей → VLM fallback |
+| **Evidence Graph v2** | `src/core/evidence_graph.py` | **Новый**. Единый граф: 7 типов узлов, 11 типов связей, confidence на всём |
+| **Inference Engine** | `src/core/inference_engine.py` | **Новый**. Symbolic inference: 6 правил вывода дат/фактов из улик |
+| **ProjectLoader** | `src/core/project_loader.py` | **Новый**. Нулевой слой: парсинг ПД/РД → baseline WorkUnit'ов |
+| Forensic KAG | `src/core/graph_service.py` | Оригинальный граф (12 типов узлов) — обратная совместимость |
 | Auditor | `src/core/auditor.py` | Адверсариальный аудит: LLM ищет противоречия ГОСТ/СП в выводах агентов → APPROVED / NOTES / REJECT |
 | Output Pipeline | `src/core/output_pipeline.py` | Генерация DOCX по 344/пр (АОСР, Times New Roman 12pt, нумерация) |
 | Hybrid Classifier | `src/core/hybrid_classifier.py` | Классификация документов: keyword + LLM fallback + Guidance System |
@@ -68,9 +71,13 @@ python -m mcp_servers.asd_core.server
 | Google Workspace | `src/core/integrations/google.py` | Drive, Sheets, Docs, Gmail через OAuth2/Service Account |
 | Document Repository | `src/core/document_repository.py` | Абстракция хранилища документов (локальные + Google Drive) |
 
-### Forensic-проверки — методология
+### Evidence Graph v2 — два режима, один граф
 
-Система не перебирает список из N проверок — она строит сетевую модель документов (KAG) и проверяет её на нарушения по четырём осям:
+**Сопровождение:** ProjectLoader создаёт baseline из ПД/РД → агенты ведут стройку: PLANNED → IN_PROGRESS → COMPLETED, confidence=1.0.
+
+**Антикризис (forensic):** ProjectLoader создаёт baseline → Inference Engine восстанавливает хронологию из улик (ТТН, сертификаты, КС-2, фото) → дельта = план − улики.
+
+Четыре оси forensic-проверок:
 
 **Документарная целостность.** Полнота и непротиворечивость цепочек: АОСР → акты освидетельствования скрытых работ → исполнительные схемы → сертификаты и паспорта → ТТН → журнал входного контроля → акты лабораторных испытаний. Любой разрыв или несоответствие — нарушение.
 
@@ -106,7 +113,10 @@ src/
 ├── agents/          # LangGraph: граф (workflow.py), узлы (nodes.py), состояние (state.py)
 │   └── skills/      # WorkTypeRegistry, work_spec, contract_risks, rate_lookup
 ├── core/
-│   ├── ingestion.py, output_pipeline.py    # Пайплайны
+│   ├── evidence_graph.py, inference_engine.py   # Evidence Graph v2 (НОВОЕ)
+│   ├── project_loader.py                        # Нулевой слой: ПД/РД → baseline (НОВОЕ)
+│   ├── scan_detector.py, vlm_classifier.py      # VLM-интеграция (НОВОЕ)
+│   ├── ingestion.py, output_pipeline.py         # Пайплайны
 │   ├── graph_service.py, auditor.py        # Forensic KAG
 │   ├── hybrid_classifier.py                # Classifier + Guidance
 │   ├── completeness_matrix.py              # Матрица комплектности ИД
