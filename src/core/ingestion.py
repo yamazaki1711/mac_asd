@@ -465,11 +465,11 @@ class OCREngine:
         return ("\n".join(full_text), page_count)
 
     def _ocr_page(self, page) -> str:
-        """OCR одной страницы. Приоритет: Tesseract (rus+eng) → RapidOCR (GPU)."""
+        """OCR страницы. Tesseract (rus+eng) primary для кириллицы. RapidOCR GPU — fallback."""
         pix = page.get_pixmap(dpi=200)
         img_bytes = pix.tobytes("png")
 
-        # Primary: Tesseract CLI (лучше для кириллицы, чем китайские OCR-модели)
+        # Primary: Tesseract (native Cyrillic support, slower but accurate)
         import tempfile, subprocess
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             f.write(img_bytes)
@@ -480,7 +480,7 @@ class OCREngine:
                 capture_output=True, text=True, timeout=30
             )
             text = result.stdout.strip()
-            if len(text) > 20:  # minimum meaningful text
+            if len(text) > 20:
                 return text
         except Exception as e:
             logger.debug("Tesseract failed: %s", e)
@@ -490,7 +490,9 @@ class OCREngine:
             except OSError:
                 pass
 
-        # Fallback: RapidOCR (GPU-ускорение через onnxruntime)
+        # Fallback: RapidOCR GPU (onnxruntime-gpu, CUDA/TensorRT)
+        # NOTE: Chinese-optimized model misreads Cyrillic as Latin.
+        # PaddleOCR v5 with native Cyrillic will replace this.
         try:
             from rapidocr import RapidOCR
             engine = RapidOCR()
@@ -500,7 +502,7 @@ class OCREngine:
         except ImportError:
             pass
         except Exception as e:
-            logger.warning("RapidOCR failed for page: %s", e)
+            logger.debug("RapidOCR failed: %s", e)
 
         return ""
 
