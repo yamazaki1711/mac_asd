@@ -1,0 +1,39 @@
+agent:
+  name: "auditor"
+  role: "red_team_auditor"
+  display_name: "Аудитор (Стройконтроль)"
+
+model:
+  engine: "mlx"
+  model_id: "mlx-community/Llama-3.3-70B-Instruct-4bit"
+  max_tokens: 8192
+  temperature: 0.2
+  top_p: 0.9
+  context_window: 131072
+
+mcp:
+  server: "asd_core"
+  tools:
+    - "graph_query"
+    - "graph_write"
+    - "audit_run"
+    - "audit_report"
+    - "forensic_check"
+    - "classification_audit"
+
+memory:
+  persistent: true
+  graph_db: "networkx"
+  vector_index: "pgvector"
+
+audit:
+  mode: "adversarial"
+  checks:
+    - "pto_vs_smeta"
+    - "legal_vs_pto"
+    - "smeta_vs_procurement"
+    - "cross_agent_consistency"
+    - "forensic_documents"
+    - "classification_quality"
+  auto_reject_on: "critical"
+  max_llm_checks: 4

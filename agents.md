@@ -9,7 +9,7 @@
 
 ---
 
-## 1. Реестр агентов (7 специализированных ролей)
+## 1. Реестр агентов (8 специализированных ролей)
 
 | #  | Агент             | Роль                    | Модель                          | Движок   | Память ~ |
 |----|-------------------|-------------------------|---------------------------------|----------|----------|
@@ -32,6 +32,7 @@
 | Закупщик          | `agents/procurement/` | `agents/procurement/`| procurement, rag, graph, lab  |
 | Логист            | `agents/logistics/`   | `agents/logistics/`  | logistics, graph, lab         |
 | Делопроизводитель | `agents/archive/`     | `agents/archive/`    | archive, graph, google, lab   |
+| Аудитор (RedTeam) | `agents/auditor/`     | `agents/auditor/`    | graph, audit, forensic        |
 
 ---
 
