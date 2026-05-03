@@ -293,20 +293,24 @@ class KnowledgeBase:
         """
         Generate bge-m3 embedding (1024 dim).
 
-        Falls back to deterministic pseudo-embedding if model unavailable.
-        """
-        try:
-            # Try using sentence-transformers
-            from sentence_transformers import SentenceTransformer
-            model = SentenceTransformer("BAAI/bge-m3")
-            embedding = model.encode(text[:8192], normalize_embeddings=True)
-            return embedding.tolist()
-        except ImportError:
-            logger.debug("sentence-transformers not installed — using hash embedding")
-        except Exception as e:
-            logger.warning("bge-m3 embedding failed: %s — using hash fallback", e)
+        Uses sentence-transformers if model is cached. Falls back to
+        deterministic hash embedding on first run (model download is 2.2 GB).
 
-        # Deterministic pseudo-embedding from text hash
+        Set ASD_BGE_MODEL=1 to force model download.
+        """
+        import os
+        if os.environ.get("ASD_BGE_MODEL") == "1":
+            try:
+                from sentence_transformers import SentenceTransformer
+                model = SentenceTransformer("BAAI/bge-m3")
+                embedding = model.encode(text[:8192], normalize_embeddings=True)
+                return embedding.tolist()
+            except ImportError:
+                logger.debug("sentence-transformers not installed")
+            except Exception as e:
+                logger.warning("bge-m3 embedding failed: %s", e)
+
+        # Deterministic hash fallback
         return self._hash_embedding(text)
 
     @staticmethod

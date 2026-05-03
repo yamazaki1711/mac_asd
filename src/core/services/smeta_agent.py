@@ -414,5 +414,28 @@ class SmetaAgent:
 
         return estimate, validity_warnings
 
+    # =========================================================================
+    # Knowledge Base RAG
+    # =========================================================================
+
+    def ask_kb(
+        self, query: str, top_k: int = 5, min_weight: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Search knowledge base for smeta-relevant traps, prices, norms.
+
+        Args:
+            query: Search query (e.g. "ФЕР на бетонирование", "индексы Минстроя")
+        Returns:
+            List of KB entries
+        """
+        from src.core.knowledge.knowledge_base import knowledge_base
+
+        results = knowledge_base.search(
+            query=query, domain="smeta", top_k=top_k, min_weight=min_weight,
+        )
+        logger.info("Smeta ask_kb: '%s' → %d results", query[:60], len(results))
+        return results
+
 
 smeta_agent = SmetaAgent()
