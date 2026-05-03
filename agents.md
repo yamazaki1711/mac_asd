@@ -25,14 +25,14 @@
 
 | Агент             | config.yaml           | prompt.md            | Группа инструментов MCP       |
 |-------------------|-----------------------|----------------------|-------------------------------|
-| PM                | `agents/pm/`          | `agents/pm/`         | graph, task, artifact, google |
-| ПТО               | `agents/pto/`         | `agents/pto/`        | vision, graph, pto, lab       |
+| PM                | `agents/pm/`          | `agents/pm/`         | graph, task, artifact, google, work_entry |
+| ПТО               | `agents/pto/`         | `agents/pto/`        | vision, graph, pto, lab, work_entry |
 | Сметчик           | `agents/smeta/`       | `agents/smeta/`      | smeta, graph, google          |
 | Юрист             | `agents/legal/`       | `agents/legal/`      | legal, rag, graph             |
 | Закупщик          | `agents/procurement/` | `agents/procurement/`| procurement, rag, graph, lab  |
 | Логист            | `agents/logistics/`   | `agents/logistics/`  | logistics, graph, lab         |
 | Делопроизводитель | `agents/archive/`     | `agents/archive/`    | archive, graph, google, lab   |
-| Аудитор (RedTeam) | `agents/auditor/`     | `agents/auditor/`    | graph, audit, forensic        |
+| Аудитор (RedTeam) | `agents/auditor/`     | `agents/auditor/`    | graph, audit, forensic, legal, vision, artifact |
 
 ---
 
@@ -60,9 +60,11 @@
 ### 2.3. ЭТАП 3: Производство и Исполнительная документация (ИД)
 
 **Триггер:** Событие `OJPEntryClosed` (В ОЖР закрыта запись о выполнении работ)
-1. **ПТО** получает сигнал. Ищет связанные сертификаты материалов (от Логиста) и чертежи РД.
-2. **ПТО** вызывает `asd_generate_act` для создания АОСР (Акта скрытых работ).
-3. **Делопроизводитель** присваивает АОСР номер и сохраняет в реестр ИД.
+1. **WorkEntry** запись поступает через парсер (Telegram ingest cron или ручной ввод).
+2. **ПТО** получает сигнал. Ищет связанные сертификаты материалов (от Логиста) и чертежи РД.
+3. **WorkEntry → ConstructionElement → IDRequirementsRegistry → NormativeGuard → AOSR** — автоматическая цепочка генерации акта.
+4. **ПТО** вызывает `asd_generate_act` для создания АОСР (Акта скрытых работ).
+5. **Делопроизводитель** присваивает АОСР номер и сохраняет в реестр ИД.
 
 ### 2.4. ЭТАП 4: Коммерческое закрытие (Ежемесячно)
 
@@ -109,6 +111,7 @@ lab_pipeline:
 | Ситуация                           | Действие PM / Система                                      |
 |------------------------------------|--------------------------------------------------------------|
 | Нет сертификата на материал в БД   | Делопроизводитель блокирует создание АОСР, уведомляет РП.    |
+| WorkEntry не прошёл валидацию      | NormativeGuard возвращает ошибку, запись помечается для ручной проверки. |
 | Смета ≠ ВОР                        | Конфликт фиксируется, Сметчик возвращает задачу в ПТО.       |
 | Юрист нашёл критическую ловушку    | Остановка подписания контракта (Уровень риска: HIGH).        |
 | Логист не нашел КП с нужной ценой  | Эскалация на PM для пересмотра бюджета или отказа.         |
@@ -120,12 +123,14 @@ lab_pipeline:
 ## 4. Хранение состояния
 
 * **NetworkX** — граф проектов, документов, событий (in-memory + файловая сериализация в data/graphs/).
-* **PostgreSQL (pgvector)** — реляционные данные, векторные эмбеддинги, БЛС (61 ловушка в 10 категориях), прайс-листы.
+* **PostgreSQL (pgvector)** — реляционные данные, векторные эмбеддинги, БЛС (61 ловушка в 10 категориях), прайс-листы, WorkEntry, ConstructionElement/Zone, ElementDocument.
 * **Redis** — УДАЛЁН. Заменён in-process кэшем (cachetools). Экономия 2GB RAM.
 * **LLMEngine** — единый интерфейс к MLX-бэкенду (Mac Studio M4 Max).
 * **Artifact Store** — файлы сохраняются в `./data/artifacts/`.
 * **Google Workspace** — Sheets (табличные данные, ВОР, журналы), Docs (шаблоны актов), Drive (файловое хранилище).
 * **Registry** — `data/artifacts/{project_id}/registry.json`
+* **NormativeGuard** — SSOT-валидация через `library/normative/normative_index.json`
+* **IDRequirementsRegistry** — реестр 33 типов работ (`config/id_requirements.yaml`)
 
 ---
 

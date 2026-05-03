@@ -1,7 +1,7 @@
 # АСД v12.0 — ПЛАН РАЗВЁРТЫВАНИЯ
 
-**Дата:** 20 апреля 2026
-**Статус:** Активная разработка (Package 1, 5, 11 завершены, Mac Studio M4 Max 128GB)
+| **Дата:** 3 мая 2026
+| **Статус:** Активная разработка (Package 1, 5, 11 завершены, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, Mac Studio M4 Max 128GB)
 **Цель:** Пошаговая инструкция по развертыванию ASD на Mac Studio M4 Max 128GB
 
 ---
@@ -366,6 +366,19 @@ MLX обеспечивает нативную производительност
   # Ожидаемый вывод: "Загружено 61 ловушка БЛС (10 категорий)"
   ```
 
+- [ ] Загрузить нормативный индекс (SSOT)
+  ```bash
+  # normative_index.json — SSOT для NormativeGuard
+  # Находится в library/normative/normative_index.json
+  python scripts/load_normative_index.py library/normative/normative_index.json
+  ```
+
+- [ ] Загрузить реестр требований ИД
+  ```bash
+  # id_requirements.yaml — 33 типа работ с требованиями к документам
+  python scripts/load_id_requirements.py config/id_requirements.yaml
+  ```
+
 - [ ] Сидинг данных для Логиста (Поставщики, Каталог ТМЦ)
   ```bash
   # seed_logistics удалён — данные загружаются через Procurement Agent
@@ -717,6 +730,8 @@ MLX обеспечивает нативную производительност
 - [ ] Tesseract установлен
 - [ ] TrueType-шрифты установлены (для PDF v3)
 - [ ] GOST PDF шрифты настроены (GOST type A/B, `data/fonts/gost/`)
+- [ ] Нормативный индекс загружен (`library/normative/normative_index.json`) — NormativeGuard SSOT
+- [ ] Реестр требований ИД загружен (`config/id_requirements.yaml`) — 33 типа работ
 - [ ] Скрипты загрузки Meganorm развёрнуты (`scripts/meganorm/download.sh`)
 - [ ] Проект скопирован, venv создан
 - [ ] MCP сервер запускается

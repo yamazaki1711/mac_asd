@@ -1,6 +1,6 @@
 # АСД v12.0 — ДЕТАЛЬНЫЙ ДИЗАЙН CORE LOGIC & WORKFLOW
 
-**Дата:** 20 апреля 2026
+**Дата:** 3 мая 2026
 **Версия:** v12.0
 
 ---
@@ -141,6 +141,46 @@ Evidence Graph v2 — центральная структура данных ASD
 
 
 ## 6. Lifecycle Workflow (LangGraph)
+
+## 7. WorkEntry → AOSR Trigger Flow (v12.0, май 2026)
+
+Триггерная цепочка WorkEntry → AOSR автоматизирует создание актов освидетельствования скрытых работ на основе записей журнала работ.
+
+### 7.1. Архитектура цепочки
+
+```
+WorkEntry (запись в журнале)
+  → WorkEntryService.parse() — парсинг записи, извлечение дат, объёмов, типа работ
+  → ConstructionElement — привязка к элементу строительства (через element_id)
+  → IDRequirementsRegistry.check(work_type) — определение требований к документам для данного типа работ (33 типа)
+  → NormativeGuard.validate() — SSOT-валидация через library/normative/normative_index.json
+  → AOSR генерация (asd_generate_act) — создание акта с автозаполнением из WorkEntry и ConstructionElement
+  → ElementDocument — сохранение связи документа с элементом
+```
+
+### 7.2. Компоненты
+
+| Компонент | Файл | Роль |
+|-----------|------|------|
+| WorkEntryService | `src/core/services/work_entry.py` | Парсинг записей журнала, извлечение структурированных данных |
+| WorkEntry (DB) | `src/db/models.py` | Модель БД для хранения записей |
+| ConstructionElement (DB) | `src/db/models.py` | Модель БД для элементов строительства |
+| ConstructionZone (DB) | `src/db/models.py` | Модель БД для зон строительства |
+| ElementDocument (DB) | `src/db/models.py` | Связь документов с элементами |
+| IDRequirementsRegistry | `src/core/services/id_requirements.py` | Реестр требований к ИД (33 типа работ, config/id_requirements.yaml) |
+| NormativeGuard | `src/core/services/legal_service.py` | SSOT-валидация (library/normative/normative_index.json) |
+
+### 7.3. Статусы WorkEntry
+
+| Статус | Описание | Действие |
+|--------|----------|----------|
+| `recorded` | Запись создана, не проверена | Ожидает верификации |
+| `verified` | Запись проверена оператором | Готовность к генерации АОСР |
+| `aosr_generated` | АОСР создан по данной записи | Флаг aosr_triggered = true |
+
+### 7.4. Telegram Ingest
+
+WorkEntry может быть создан через Telegram-бота (cron-скрипт `scripts/telegram_ingest_cron.py`), принимающего сообщения о выполненных работах в формате "дата: описание: объём". Сообщения парсятся и создают WorkEntry записи, которые затем проходят через цепочку AOSR-генерации.
 
 ### 4.3. Tier 3 (Complex): Специализированные Fine-tuned модели
 

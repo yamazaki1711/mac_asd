@@ -1,7 +1,7 @@
 # АСД v12.0 — СХЕМА ДАННЫХ
 
-**Дата:** 20 апреля 2026
-**Статус:** Активная разработка (Package 1, 5, 11 завершены, Package 4 частично реализован)
+| **Дата:** 3 мая 2026
+| **Статус:** Активная разработка (Package 1, 5, 11 завершены, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, Package 4 частично реализован)
 **СУБД:** PostgreSQL 16 + pgvector + pg_trgm
 **Модели:** Gemma 4 31B 4-bit (ПТО/Юрист/Сметчик/Закупщик/Логист), Gemma 4 E4B 4-bit (Делопроизводитель), Llama 3.3 70B 4-bit (Руководитель проекта/PM), bge-m3-mlx-4bit (embeddings)
 
@@ -661,8 +661,99 @@ CREATE INDEX idx_audit_tool_name ON audit_log(tool_name);
 CREATE INDEX idx_audit_created_at ON audit_log(created_at);
 CREATE INDEX idx_audit_status ON audit_log(status);
 
--- Партиционирование по времени для больших объёмов (опционально)
+--- Партиционирование по времени для больших объёмов (опционально)
 -- PARTITION BY RANGE (created_at)
+```
+
+### 3.24. construction_zones
+
+Строительные зоны — группировка элементов строительства по локациям (захватки, участки, этажи). Каждая зона привязана к проекту и содержит иерархический путь для организации ConstructionElement'ов.
+
+```sql
+CREATE TABLE construction_zones (
+    id              SERIAL PRIMARY KEY,
+    project_id      INTEGER      NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name            VARCHAR(200) NOT NULL,                   -- "Захватка 1", "Этаж 2"
+    zone_path       VARCHAR(500),                            -- "prichaly/zahvatka_1" — иерархический путь
+    description     TEXT,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_construction_zones_project_id ON construction_zones(project_id);
+CREATE UNIQUE INDEX idx_construction_zones_path ON construction_zones(project_id, zone_path);
+```
+
+### 3.25. construction_elements
+
+Элементы строительства — конкретные конструктивные элементы в зоне (ростверк, свая, колонна, плита). Каждый элемент привязан к зоне и имеет тип, отражающий вид конструкции. Связан с WorkUnit'ами Evidence Graph.
+
+```sql
+CREATE TABLE construction_elements (
+    id              SERIAL PRIMARY KEY,
+    zone_id         INTEGER      NOT NULL REFERENCES construction_zones(id) ON DELETE CASCADE,
+    project_id      INTEGER      REFERENCES projects(id) ON DELETE SET NULL,
+    element_type    VARCHAR(50)  NOT NULL,                   -- "rostverk", "svaya", "kolonna", "plita", "balka"
+    name            VARCHAR(200) NOT NULL,                   -- "Ростверк Р-1", "Свая С-15"
+    design_code     VARCHAR(100),                            -- код по проекту
+    planned_volume  NUMERIC(12,3),
+    volume_unit     VARCHAR(20),                             -- "м³", "п.м.", "шт"
+    location_path   VARCHAR(500),                            -- иерархический путь в проекте
+    metadata        JSONB,                                   -- дополнительные атрибуты
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_construction_elements_zone_id ON construction_elements(zone_id);
+CREATE INDEX idx_construction_elements_type ON construction_elements(element_type);
+CREATE INDEX idx_construction_elements_project_id ON construction_elements(project_id);
+```
+
+### 3.26. work_entries
+
+Записи журнала работ (WorkEntry) — фиксация факта выполнения работ на ConstructionElement. Содержит дату, описание работ, объём, исполнителя и статус. Парсится WorkEntryService и триггерит создание АОСР через цепочку WorkEntry → ConstructionElement → AOSR.
+
+```sql
+CREATE TABLE work_entries (
+    id              SERIAL PRIMARY KEY,
+    element_id      INTEGER      NOT NULL REFERENCES construction_elements(id) ON DELETE CASCADE,
+    project_id      INTEGER      REFERENCES projects(id) ON DELETE SET NULL,
+    work_date       DATE         NOT NULL,
+    description     TEXT         NOT NULL,
+    work_type       VARCHAR(50),                             -- "бетонирование", "армирование", "монтаж"
+    volume          NUMERIC(12,3),
+    volume_unit     VARCHAR(20),
+    executor        VARCHAR(200),                            -- исполнитель (бригада/подрядчик)
+    status          VARCHAR(20)  NOT NULL DEFAULT 'recorded', -- "recorded" | "verified" | "aosr_generated"
+    aosr_triggered  BOOLEAN      NOT NULL DEFAULT false,     -- флаг: АОСР сгенерирован
+    metadata        JSONB,                                   -- дополнительные данные записи
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_work_entries_element_id ON work_entries(element_id);
+CREATE INDEX idx_work_entries_date ON work_entries(work_date);
+CREATE INDEX idx_work_entries_status ON work_entries(status);
+CREATE INDEX idx_work_entries_project_id ON work_entries(project_id);
+```
+
+### 3.27. element_documents
+
+Документы, привязанные к ConstructionElement. Реализует связь многие-ко-многим между документами и элементами строительства. Позволяет отслеживать полный документальный шлейф каждого элемента: сертификаты, АОСР, исполнительные схемы.
+
+```sql
+CREATE TABLE element_documents (
+    id              SERIAL PRIMARY KEY,
+    element_id      INTEGER      NOT NULL REFERENCES construction_elements(id) ON DELETE CASCADE,
+    document_id     INTEGER      NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    doc_role        VARCHAR(30)  NOT NULL,                   -- "aosr", "certificate", "executive_scheme", "passport", "protocol"
+    is_primary      BOOLEAN      NOT NULL DEFAULT false,     -- основной документ для элемента
+    linked_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_element_documents_element_id ON element_documents(element_id);
+CREATE INDEX idx_element_documents_document_id ON element_documents(document_id);
+CREATE UNIQUE INDEX idx_element_documents_unique ON element_documents(element_id, document_id, doc_role);
 ```
 
 ---
@@ -681,10 +772,16 @@ projects (1) ──── (N) registrations
 projects (1) ──── (N) wiki_articles
 projects (1) ──── (N) shipments
 projects (1) ──── (N) contracts
+projects (1) ──── (N) construction_zones
 
 documents (1) ──── (N) chunks
 documents (1) ──── (1) contracts
 documents (1) ──── (N) trap_matches
+
+construction_zones (1) ──── (N) construction_elements
+construction_elements (1) ──── (N) work_entries
+construction_elements (1) ──── (N) element_documents
+documents (1) ──── (N) element_documents
 
 contracts (1) ──── (N) claims        [ProtocolPartyInfo → шапки документов]
 contracts (1) ──── (N) vor
@@ -854,6 +951,8 @@ migrations/
 │   ├── 001_initial.py           # Все таблицы, индексы, расширения
 │   ├── 002_add_supplements.py   # Если добавляем supplements
 │   ├── 003_add_registrations.py # Если добавляем регистрации
+│   ├── 004_add_construction_elements.py # ConstructionElement + ConstructionZone
+│   ├── 005_add_work_entries.py    # WorkEntry + ElementDocument
 │   └── ...
 ├── env.py
 └── script.py.mako
@@ -873,7 +972,9 @@ alembic upgrade head  # Применить все миграции
 | `docs/COMPONENT_ARCHITECTURE.md` | Архитектура АСД v12.0 | LLMEngine → профили mac_studio (Gemma 4 31B), dev_linux (Gemma 4 31B), hermes_pm (Llama 3.3 70B); shared memory → таблицы projects, contracts |
 | `docs/MCP_TOOLS_SPEC.md` | Спецификация MCP-инструментов | Каждый инструмент читает/пишет в определённые таблицы; asd_analyze_contract → contracts + trap_matches; asd_generate_protocol → contracts.ProtocolPartyInfo |
 | `traps/default_traps.yaml` | Библиотека ловушек субподрядчика | 61 ловушка, 10 категорий → таблица traps; YAML-файлы → source_file |
-| `docs/DEPLOYMENT_PLAN.md` | Развёртывание | PostgreSQL 16 + pgvector; VRAM оценки; конфигурация LLMEngine |
+| `docs/DEPLOYMENT_PLAN.md` | Развёртывание | PostgreSQL 16 + pgvector; VRAM оценки; конфигурация LLMEngine; normative_index.json загрузка; id_requirements.yaml загрузка |
+| `library/normative/normative_index.json` | Нормативный индекс (SSOT) | NormativeGuard валидация; 283 файла, 101 MB библиотека |
+| `config/id_requirements.yaml` | Реестр требований ИД | IDRequirementsRegistry — 33 типа работ с требованиями к документам |
 
 ---
 

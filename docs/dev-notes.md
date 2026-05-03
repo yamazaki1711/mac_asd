@@ -1,9 +1,28 @@
 # Dev Notes — MAC_ASD v12.0
 
-## DeepSeek API — временный backend для разработки
+## Последние обновления (3 мая 2026)
 
-**Дата**: 2026-05-02
-**Статус**: Активно (временно)
+### Новые компоненты (с момента последнего обновления docs)
+
+- **Auditor agent** (agents/auditor/config.yaml + prompt.md) — 8-й агент, rule-based (не LLM), RedTeam-аудит
+- **NormativeGuard** — SSOT-валидация в legal_service.py, проверка документов через library/normative/normative_index.json
+- **IDRequirementsRegistry** — реестр требований к ИД по 33 типам работ (config/id_requirements.yaml + src/core/services/id_requirements.py)
+- **ConstructionElement** — модель БД: элементы строительства (ростверки, сваи, колонны, плиты)
+- **ConstructionZone** — модель БД: строительные зоны (захватки, участки, этажи)
+- **ElementDocument** — модель БД: связь документов с элементами строительства
+- **WorkEntry** — модель БД + парсер + сервис (src/core/services/work_entry.py): записи журнала работ
+- **MCP tools заполнены**: artifact_tools, legal_tools, vision_tools (были stubs, теперь реализованы)
+- **Telegram ingest cron** — скрипт приёма WorkEntry через Telegram
+
+### Текущий статус
+
+- **Агенты**: 8 (PM, ПТО, Сметчик, Юрист, Закупщик, Логист, Делопроизводитель, Аудитор)
+- **MCP инструментов**: 82+
+- **БЛС**: 61 ловушка в 10 категориях
+- **Библиотека**: 283 файла, 101 MB
+- **Тесты**: 478/493 пройдено (97%)
+- **Нормативная база**: normative_index.json в library/normative/
+- **Виды работ**: 33 типа (IDRequirementsRegistry)
 
 ### Package 5 (завершён)
 - Evidence Graph v2: граф связей документов с отслеживанием целостности комплекта ИД
@@ -15,9 +34,9 @@
 - HITL System: сбор и валидация данных от оператора (human-in-the-loop)
 - Journal Reconstructor v2: восстановление журналов работ по косвенным данным
 
-### Библиотека
-- Расширена до 271 файла, 101 MB
-- Добавлены скрипты загрузки нормативов Meganorm
+### WorkEntry → AOSR Trigger Flow (новое)
+- WorkEntryService парсит записи журнала → ConstructionElement → IDRequirementsRegistry → NormativeGuard → AOSR
+- Telegram ingest cron для приёма записей
 
 ### DeepSeek API — временный backend для разработки
 пока недоступно целевое железо:

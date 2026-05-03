@@ -1,8 +1,8 @@
 # АСД v12.0 — ДЕТАЛЬНАЯ АРХИТЕКТУРА КОМПОНЕНТОВ
 
-**Дата:** 20 апреля 2026
-**Платформа:** Mac Studio M4 Max 128GB Unified Memory
-**Статус:** Активная разработка (Package 1 ✅, Package 5 ✅ Evidence Graph/Inference/ProjectLoader, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2)
+| **Дата:** 3 мая 2026
+| **Платформа:** Mac Studio M4 Max 128GB Unified Memory
+| **Статус:** Активная разработка (Package 1 ✅, Package 5 ✅ Evidence Graph/Inference/ProjectLoader, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅)
 
 ---
 
@@ -35,7 +35,7 @@ procurement, logistics) используют единую копию Gemma 4 31B
 
 ### 2.1. Роль
 
-Единая точка входа для Руководитель проекта Agent. Регистрирует 23 инструмента,
+Единая точка входа для Руководитель проекта Agent. Регистрирует 30+ инструментов,
 маршрутизирует вызовы к соответствующим модулям. Управляет жизненным циклом
 через StateGraph и LangGraph. Сервер построен на фреймворке FastMCP и
 поддерживает stdio-транспорт для интеграции с Claude Code и HTTP-транспорт
@@ -56,7 +56,7 @@ mcp_servers/asd_core/server.py
 │   ├── Версия: "12.0.0"
 │   └── Транспорт: stdio (продакшен) / http (тесты)
 │
-├── Регистрация инструментов (23 штуки)
+├── Регистрация инструментов (30+ штук)
 │   ├── Юрист: tools/jurist_tools.py (7)
 │   │   ├── asd_upload_document
 │   │   ├── asd_analyze_contract
@@ -87,10 +87,28 @@ mcp_servers/asd_core/server.py
 │   │   ├── asd_tender_search
 │   │   └── asd_analyze_lot_profitability
 │   │
-│   ├── Логист: tools/logistics_tools.py (3)
+│   └── Логист: tools/logistics_tools.py (3)
 │   │   ├── asd_source_vendors
 │   │   ├── asd_add_price_list
 │   │   └── asd_compare_quotes
+│   │
+│   ├── Evidence Graph: tools/evidence_tools.py (6)
+│   │   ├── asd_evidence_query
+│   │   ├── asd_evidence_get_chain
+│   │   ├── asd_evidence_summary
+│   │   ├── asd_inference_run
+│   │   ├── asd_inference_results
+│   │   └── asd_project_load
+│   │
+│   ├── Chain Builder: tools/chain_tools.py (3)
+│   ├── HITL: tools/hitl_tools.py (3)
+│   ├── Journal: tools/journal_tools.py (3)
+│   │
+│   ├── Artifact: tools/artifact_tools.py (✅ заполнены)
+│   ├── Legal: tools/legal_tools.py (✅ заполнены)
+│   ├── Vision: tools/vision_tools.py (✅ заполнены)
+│   │
+│   ├── WorkEntry: tools/work_entry_tools.py (parsing + AOSR trigger)
 │   │
 │   └── Общий: tools/general_tools.py (1)
 │       └── asd_get_system_status
@@ -108,6 +126,13 @@ mcp_servers/asd_core/server.py
 │   ├── RamManager() → управление 128GB Unified Memory
 │   ├── StateGraph() → конечный автомат проекта
 │   ├── LegalService() → юридический анализ (Package 4)
+│   │   ├── NormativeGuard → SSOT-валидация (normative_index.json)
+│   │   └── IDRequirementsRegistry → реестр видов работ (id_requirements.yaml, 33 типа)
+│   ├── EvidenceGraphService() → граф доказательств (Package 5)
+│   ├── ChainBuilder() → цепочки документов (Package 11)
+│   ├── HITLSystem() → Human-in-the-Loop (Package 11)
+│   ├── JournalReconstructor() → реконструкция ОЖР (Package 11)
+│   ├── WorkEntryService() → обработка записей журнала работ
 │   └── GoogleWorkspaceService() → Gmail, Drive, Sheets
 │
 └── Entry point
@@ -127,7 +152,7 @@ mcp_servers/asd_core/server.py
   4. Инициализация ParserEngine, RAGService, GraphService
   5. Инициализация RamManager (бюджет RAM_BUDGET_GB)
   6. Инициализация LegalService, StateGraph
-  7. Регистрация 23 инструментов в FastMCP
+  7. Регистрация 30+ инструментов в FastMCP
   8. Запуск stdio транспорта (блокирующий вызов)
 
 Остановка:
