@@ -861,6 +861,33 @@ class PTOAgent:
 
         return f"Неизвестный вид работ: {work_type}"
 
+    # =========================================================================
+    # Knowledge Base RAG
+    # =========================================================================
+
+    def ask_kb(
+        self, query: str, top_k: int = 5, min_weight: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Search PTO domain knowledge base for construction norms, practices, traps.
+
+        Args:
+            query: Search query (e.g. "исполнительная схема свайного поля")
+            top_k: Number of results
+            min_weight: Minimum weight (0-100)
+
+        Returns:
+            List of {id, title, description, source, mitigation, similarity, ...}
+        """
+        from src.core.knowledge.knowledge_base import knowledge_base
+
+        # Search both PTO and procurement domains (PTO часто пересекается)
+        results = knowledge_base.search(
+            query=query, domain="pto", top_k=top_k, min_weight=min_weight,
+        )
+        logger.info("PTO ask_kb: '%s' → %d results", query[:60], len(results))
+        return results
+
 
 # Синглтон
 pto_agent = PTOAgent()

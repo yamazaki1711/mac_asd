@@ -583,6 +583,76 @@ class LegalService:
         })
 
 
+    # =========================================================================
+    # Knowledge Base RAG
+    # =========================================================================
+
+    def ask_kb(
+        self, query: str, top_k: int = 5, min_weight: int = 20
+    ) -> List[Dict[str, Any]]:
+        """
+        Search legal domain knowledge base for relevant traps, cases, insights.
+
+        Uses pgvector + bge-m3 embeddings with keyword fallback.
+
+        Args:
+            query: Search query in Russian (e.g. "сроки оплаты субподрядчику")
+            top_k: Number of results
+            min_weight: Minimum importance weight (0-100)
+
+        Returns:
+            List of {id, title, description, source, mitigation, similarity, ...}
+        """
+        from src.core.knowledge.knowledge_base import knowledge_base
+
+        results = knowledge_base.search(
+            query=query, domain="legal", top_k=top_k, min_weight=min_weight,
+        )
+
+        logger.info("ask_kb: '%s' → %d results", query[:60], len(results))
+        return results
+
+    def enrich_prompt_with_kb(
+        self, prompt: str, query: str, max_chars: int = 2000
+    ) -> str:
+        """
+        Enrich an LLM prompt with relevant knowledge base entries.
+
+        Args:
+            prompt: Original LLM prompt
+            query: What to search for
+            max_chars: Max characters of KB context to inject
+
+        Returns:
+            Prompt with injected KB context
+        """
+        results = self.ask_kb(query, top_k=3, min_weight=30)
+        if not results:
+            return prompt
+
+        kb_block = "\n\n[ЗНАНИЯ ИЗ БАЗЫ ДОМЕННЫХ ЛОВУШЕК]\n"
+        chars_used = 0
+        for i, r in enumerate(results[:3], 1):
+            entry = (
+                f"{i}. {r['title']}\n"
+                f"   {r['description'][:300]}\n"
+            )
+            if r.get("mitigation"):
+                entry += f"   Защита: {r['mitigation'][:200]}\n"
+            if r.get("court_cases"):
+                entry += f"   Дела: {', '.join(r['court_cases'][:3])}\n"
+            if chars_used + len(entry) > max_chars:
+                break
+            kb_block += entry
+            chars_used += len(entry)
+
+        # Inject after first sentence of prompt (before main content)
+        parts = prompt.split("\n", 2)
+        if len(parts) >= 2:
+            return f"{parts[0]}\n{kb_block}\n{parts[1]}\n" + ("\n".join(parts[2:]) if len(parts) > 2 else "")
+        return prompt + kb_block
+
+
 # Singleton
 legal_service = LegalService()
 
