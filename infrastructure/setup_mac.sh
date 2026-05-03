@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# setup_mac.sh — Автоматическая настройка Mac Studio M4 Max для ASD v11
+# setup_mac.sh — Автоматическая настройка Mac Studio M4 Max для ASD v12.0
 # =============================================================================
-# Проверяет и устанавливает: Homebrew, Miniforge, MLX, PostgreSQL, Redis
+# Проверяет и устанавливает: Homebrew, Miniforge, MLX, PostgreSQL
 # Запускается один раз. Требует прав sudo для brew install.
 # =============================================================================
 
@@ -64,14 +64,14 @@ setup_mlx_env() {
     conda activate "$env_name"
     pip install mlx-lm fastmcp[cli] numpy Pillow httpx pydantic-settings
     pip install psycopg2-binary sqlalchemy pgvector asyncpg
-    pip install google-api-python-client google-auth-2 google-auth-oauthlib
+    pip install google-api-python-client google-auth google-auth-oauthlib
     conda deactivate
     log "Окружение $env_name готово"
   fi
 }
 
 # ---------------------------------------------------------------------------
-# 4. PostgreSQL + Redis (через Docker)
+# 4. PostgreSQL (через Docker)
 # ---------------------------------------------------------------------------
 check_docker() {
   if command -v docker &>/dev/null; then
@@ -93,7 +93,7 @@ start_infrastructure() {
     fail "docker-compose.yml не найден в $script_dir"
   fi
 
-  log "Запускаю PostgreSQL + Redis через Docker Compose..."
+  log "Запускаю PostgreSQL через Docker Compose..."
   docker compose -f "$compose_file" up -d
   log "Сервисы запущены. Проверка..."
   sleep 5
@@ -120,7 +120,7 @@ check_google_credentials() {
 # Main
 # ---------------------------------------------------------------------------
 main() {
-  log "=== ASD v11 — Настройка Mac Studio M4 Max ==="
+  log "=== ASD v12.0 — Настройка Mac Studio M4 Max ==="
   log "Архитектура: $(uname -m)"
   log "macOS: $(sw_vers -productVersion)"
 
@@ -138,7 +138,7 @@ main() {
   log "  2. Загрузите MLX-модели (автоматически при первом запуске)"
   log "  3. Запустите MCP-сервер: python -m mcp_servers.asd_core.server"
   log "  4. PostgreSQL: localhost:5433 (oleg / asd_password)"
-  log "  5. Redis: localhost:6379"
+  log "  Кэш: cachetools in-process (TTL + LRU)"
   log ""
 }
 

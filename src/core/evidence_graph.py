@@ -85,7 +85,7 @@ class DocType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class DocStatus(str, Enum):
+class EvidenceDocStatus(str, Enum):
     ORIGINAL = "original"            # Оригинал с подписями
     SCAN = "scan"                    # Скан (может быть без подписей)
     RECONSTRUCTED = "reconstructed"  # Восстановлен системой
@@ -398,7 +398,7 @@ class EvidenceGraph:
         signatures_present: bool = False,
         stamps_present: bool = False,
         confidence: float = 1.0,
-        status: DocStatus = DocStatus.ORIGINAL,
+        status: EvidenceDocStatus = EvidenceDocStatus.ORIGINAL,
         work_unit_id: Optional[str] = None,
         signed_by: Optional[List[str]] = None,
         node_id: Optional[str] = None,
@@ -623,7 +623,7 @@ class EvidenceGraph:
             {"id": nid, **data}
             for nid, data in self.graph.nodes(data=True)
             if data.get("node_type") == "Document"
-            and data.get("status") == DocStatus.REFERENCED.value
+            and data.get("status") == EvidenceDocStatus.REFERENCED.value
         ]
 
     def get_work_unit_chain(self, wu_id: str, depth: int = 3) -> Dict[str, Any]:

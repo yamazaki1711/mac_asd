@@ -19,14 +19,13 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
+import os
 import re
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from src.db.init_db import SessionLocal
 from src.db.models import DomainTrap
@@ -54,14 +53,18 @@ class KnowledgeBase:
     def __init__(self):
         self._vector_available = None
 
+    @staticmethod
+    def _get_session():
+        """Create a new database session. SessionLocal handles connection pooling internally."""
+        return SessionLocal()
+
     @property
     def vector_available(self) -> bool:
         """Check if pgvector extension is installed."""
         if self._vector_available is None:
             try:
-                db: Session = SessionLocal()
-                db.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"))
-                db.close()
+                with self._get_session() as db:
+                    db.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"))
                 self._vector_available = True
             except Exception:
                 self._vector_available = False
@@ -100,91 +103,84 @@ class KnowledgeBase:
         self, query: str, domain: Optional[str], top_k: int, min_weight: int,
     ) -> List[Dict[str, Any]]:
         """pgvector similarity search."""
-        # Generate embedding via bge-m3 (fallback: pseudo-embedding from keywords)
         embedding = self._generate_embedding(query)
 
-        db: Session = SessionLocal()
-        try:
-            # pgvector cosine similarity search
-            params = {
-                "embedding": embedding,
-                "top_k": top_k,
-                "min_weight": min_weight,
-            }
-            domain_filter = ""
-            if domain:
-                domain_filter = "AND domain = :domain"
-                params["domain"] = domain
+        with self._get_session() as db:
+            try:
+                params = {
+                    "embedding": embedding,
+                    "top_k": top_k,
+                    "min_weight": min_weight,
+                }
+                domain_filter = ""
+                if domain:
+                    domain_filter = "AND domain = :domain"
+                    params["domain"] = domain
 
-            sql = text(f"""
-                SELECT id, domain, title, description, source, channel,
-                       category, weight, court_cases, mitigation,
-                       1 - (embedding <=> :embedding) AS similarity
-                FROM domain_traps
-                WHERE weight >= :min_weight
-                  {domain_filter}
-                  AND embedding IS NOT NULL
-                ORDER BY embedding <=> :embedding
-                LIMIT :top_k
-            """)
+                sql = text(f"""
+                    SELECT id, domain, title, description, source, channel,
+                           category, weight, court_cases, mitigation,
+                           1 - (embedding <=> :embedding) AS similarity
+                    FROM domain_traps
+                    WHERE weight >= :min_weight
+                      {domain_filter}
+                      AND embedding IS NOT NULL
+                    ORDER BY embedding <=> :embedding
+                    LIMIT :top_k
+                """)
 
-            result = db.execute(sql, params)
-            rows = result.fetchall()
-            return [self._row_to_dict(row) for row in rows]
+                result = db.execute(sql, params)
+                rows = result.fetchall()
+                return [self._row_to_dict(row) for row in rows]
 
-        except Exception as e:
-            logger.warning("Vector search failed: %s — falling back to keyword", e)
-            return self._keyword_search(query, domain, top_k, min_weight)
-        finally:
-            db.close()
+            except Exception as e:
+                logger.warning("Vector search failed: %s — falling back to keyword", e)
+                return self._keyword_search(query, domain, top_k, min_weight)
 
     def _keyword_search(
         self, query: str, domain: Optional[str], top_k: int, min_weight: int,
     ) -> List[Dict[str, Any]]:
         """Keyword search fallback using ILIKE."""
-        db: Session = SessionLocal()
-        try:
-            # Build ILIKE patterns from query words
-            words = [w for w in re.split(r'\s+', query.strip()) if len(w) >= 3]
-            if not words:
-                words = [query]
+        words = [w for w in re.split(r'\s+', query.strip()) if len(w) >= 3]
+        if not words:
+            words = [query]
 
-            conditions = []
-            params: Dict[str, Any] = {"top_k": top_k, "min_weight": min_weight}
-            for i, word in enumerate(words):
-                param_name = f"word_{i}"
-                conditions.append(
-                    f"(title ILIKE '%' || :{param_name} || '%' OR "
-                    f"description ILIKE '%' || :{param_name} || '%')"
-                )
-                params[param_name] = word
+        conditions = []
+        params: Dict[str, Any] = {"top_k": top_k, "min_weight": min_weight}
+        for i, word in enumerate(words):
+            param_name = f"word_{i}"
+            conditions.append(
+                f"(title ILIKE '%' || :{param_name} || '%' OR "
+                f"description ILIKE '%' || :{param_name} || '%')"
+            )
+            params[param_name] = word
 
-            domain_filter = ""
-            if domain:
-                domain_filter = "AND domain = :domain"
-                params["domain"] = domain
+        domain_filter = ""
+        if domain:
+            domain_filter = "AND domain = :domain"
+            params["domain"] = domain
 
-            sql = text(f"""
-                SELECT id, domain, title, description, source, channel,
-                       category, weight, court_cases, mitigation,
-                       0.5 AS similarity
-                FROM domain_traps
-                WHERE weight >= :min_weight
-                  {domain_filter}
-                  AND ({" OR ".join(conditions)})
-                ORDER BY weight DESC
-                LIMIT :top_k
-            """)
+        with self._get_session() as db:
+            try:
+                sql = text(f"""
+                    SELECT id, domain, title, description, source, channel,
+                           category, weight, court_cases, mitigation,
+                           0.5 AS similarity
+                    FROM domain_traps
+                    WHERE weight >= :min_weight
+                      {domain_filter}
+                      AND ({" OR ".join(conditions)})
+                    ORDER BY weight DESC
+                    LIMIT :top_k
+                """)
 
-            result = db.execute(sql, params)
-            rows = result.fetchall()
-            return [self._row_to_dict(row) for row in rows]
+                result = db.execute(sql, params)
+                rows = result.fetchall()
+                return [self._row_to_dict(row) for row in rows]
 
-        except Exception as e:
-            logger.error("Keyword search failed: %s", e)
-            return []
-        finally:
-            db.close()
+            except Exception as e:
+                logger.error("Keyword search failed: %s", e)
+                return []
 
     # =========================================================================
     # Indexing
@@ -228,32 +224,30 @@ class KnowledgeBase:
         # Generate embedding
         embedding = self._generate_embedding(f"{title}\n\n{description}")
 
-        db: Session = SessionLocal()
-        try:
-            trap = DomainTrap(
-                domain=domain,
-                title=title,
-                description=description,
-                source=source or "manual",
-                channel=channel or "",
-                category=category or "",
-                weight=weight,
-                court_cases=court_cases or [],
-                mitigation=mitigation or "",
-                embedding=embedding,
-            )
-            db.add(trap)
-            db.commit()
-            db.refresh(trap)
-            logger.info("Indexed trap #%d: %s [%s]", trap.id, title[:60], domain)
-            return trap.id
+        with self._get_session() as db:
+            try:
+                trap = DomainTrap(
+                    domain=domain,
+                    title=title,
+                    description=description,
+                    source=source or "manual",
+                    channel=channel or "",
+                    category=category or "",
+                    weight=weight,
+                    court_cases=court_cases or [],
+                    mitigation=mitigation or "",
+                    embedding=embedding,
+                )
+                db.add(trap)
+                db.commit()
+                db.refresh(trap)
+                logger.info("Indexed trap #%d: %s [%s]", trap.id, title[:60], domain)
+                return trap.id
 
-        except Exception as e:
-            db.rollback()
-            logger.error("Failed to index trap: %s", e)
-            return None
-        finally:
-            db.close()
+            except Exception as e:
+                db.rollback()
+                logger.error("Failed to index trap: %s", e)
+                return None
 
     def index_batch(
         self, traps: List[Dict[str, Any]]
@@ -289,53 +283,116 @@ class KnowledgeBase:
     # Embedding generation
     # =========================================================================
 
+    # Cache for embeddings to avoid re-computing identical texts
+    _embedding_cache: Dict[str, List[float]] = {}
+    _embedding_cache_max_size = 1000
+
     def _generate_embedding(self, text: str) -> List[float]:
         """
         Generate bge-m3 embedding (1024 dim).
 
-        Uses sentence-transformers if model is cached. Falls back to
-        deterministic hash embedding on first run (model download is 2.2 GB).
-
-        Set ASD_BGE_MODEL=1 to force model download.
+        Tries in order:
+          1. Ollama embeddings API (bge-m3) — primary for dev_linux
+          2. sentence-transformers (bge-m3) — primary for mac_studio / ASD_BGE_MODEL=1
+          3. Deterministic hash fallback — only when nothing else works
         """
-        import os
-        if os.environ.get("ASD_BGE_MODEL") == "1":
-            try:
-                from sentence_transformers import SentenceTransformer
-                model = SentenceTransformer("BAAI/bge-m3")
-                embedding = model.encode(text[:8192], normalize_embeddings=True)
-                return embedding.tolist()
-            except ImportError:
-                logger.debug("sentence-transformers not installed")
-            except Exception as e:
-                logger.warning("bge-m3 embedding failed: %s", e)
+        # Truncate and normalize for embedding
+        text_for_embed = text[:8192].strip()
+        if not text_for_embed:
+            text_for_embed = " "
 
-        # Deterministic hash fallback
-        return self._hash_embedding(text)
+        # Check cache
+        cache_key = text_for_embed
+        if cache_key in self._embedding_cache:
+            return self._embedding_cache[cache_key]
+
+        embedding = None
+
+        # Tier 1: Ollama embeddings API (Linux, dev_linux profile)
+        embedding = self._ollama_embed(text_for_embed)
+
+        # Tier 2: sentence-transformers (Mac Studio, or explicit opt-in)
+        if embedding is None and os.environ.get("ASD_BGE_MODEL") == "1":
+            embedding = self._sentence_transformers_embed(text_for_embed)
+
+        # Tier 3: Deterministic hash fallback (last resort)
+        if embedding is None:
+            embedding = self._hash_embedding(text_for_embed)
+
+        # Cache
+        if len(self._embedding_cache) < self._embedding_cache_max_size:
+            self._embedding_cache[cache_key] = embedding
+
+        return embedding
+
+    @staticmethod
+    def _ollama_embed(text: str) -> Optional[List[float]]:
+        """Generate embedding via Ollama API (bge-m3)."""
+        try:
+            import json
+            import urllib.request
+
+            body = json.dumps({"model": "bge-m3", "prompt": text}).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:11434/api/embeddings",
+                data=body,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                embedding = data.get("embedding")
+                if embedding and len(embedding) == 1024:
+                    return embedding
+                logger.debug("Ollama embedding returned dim=%d, expected 1024",
+                           len(embedding) if embedding else 0)
+        except Exception:
+            pass  # Silently fall through to next tier
+        return None
+
+    @staticmethod
+    def _sentence_transformers_embed(text: str) -> Optional[List[float]]:
+        """Generate embedding via sentence-transformers (bge-m3)."""
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer("BAAI/bge-m3")
+            embedding = model.encode(text, normalize_embeddings=True)
+            return embedding.tolist()
+        except ImportError:
+            logger.debug("sentence-transformers not installed")
+        except Exception as e:
+            logger.warning("sentence-transformers embedding failed: %s", e)
+        return None
 
     @staticmethod
     def _hash_embedding(text: str) -> List[float]:
         """
-        Fallback: deterministic embedding from text hash.
+        Fallback: deterministic pseudo-random embedding from text hash.
 
-        NOT semantically meaningful, but allows pgvector to function.
-        Real bge-m3 embeddings will be loaded when sentence-transformers
-        is installed on the production machine (Mac Studio).
+        Uses SHA-256 to seed a simple PRNG that generates 1024 independent floats.
+        NOT semantically meaningful — use bge-m3 for real embeddings.
         """
         import hashlib
+        import struct
 
-        # Generate 1024 deterministic floats from text hash
         h = hashlib.sha256(text.encode("utf-8")).digest()
+        # Use the hash as a 32-byte seed for a simple xorshift PRNG
+        seed = int.from_bytes(h[:8], "big")
+        state = seed & 0xFFFFFFFFFFFFFFFF
+        if state == 0:
+            state = 0xDEADBEEFCAFEBABE
+
         floats = []
-        for i in range(0, min(len(h), 128), 4):
-            val = int.from_bytes(h[i:i + 4], "big") / (2 ** 32)
-            floats.append(val * 2 - 1)  # Normalize to [-1, 1]
+        for _ in range(1024):
+            # xorshift64*
+            state ^= (state >> 12) & 0xFFFFFFFFFFFFFFFF
+            state ^= (state << 25) & 0xFFFFFFFFFFFFFFFF
+            state ^= (state >> 27) & 0xFFFFFFFFFFFFFFFF
+            # Extract high 32 bits as a random uint32, normalize to [-1, 1]
+            rnd = ((state * 0x2545F4914F6CDD1D) >> 32) & 0xFFFFFFFF
+            val = rnd / 0xFFFFFFFF
+            floats.append(val * 2 - 1)
 
-        # Pad to 1024 dimensions
-        while len(floats) < 1024:
-            floats.append(floats[len(floats) % len(floats)] * 0.5)
-
-        return floats[:1024]
+        return floats
 
     # =========================================================================
     # Stats
@@ -343,8 +400,7 @@ class KnowledgeBase:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get knowledge base statistics."""
-        db: Session = SessionLocal()
-        try:
+        with self._get_session() as db:
             total = db.query(DomainTrap).count()
             by_domain = {}
             for domain in ["legal", "pto", "smeta", "logistics", "procurement"]:
@@ -363,8 +419,6 @@ class KnowledgeBase:
                 "vector_available": self.vector_available,
                 "timestamp": datetime.now().isoformat(),
             }
-        finally:
-            db.close()
 
     # =========================================================================
     # Helpers

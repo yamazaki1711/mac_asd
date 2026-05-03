@@ -127,12 +127,21 @@ SMETA_PATTERNS: List[re.Pattern] = [
     re.compile(r'\b(заработная плата|трудозатраты|чел\.-час|чел\.-день|машино-час|эксплуатация машин|материалы|стоимость материалов)\b', re.IGNORECASE),
 ]
 
-# ---- PROCUREMENT / LOGISTICS — закупки и логистика ----
+# ---- PROCUREMENT — закупки и тендеры ----
 PROCUREMENT_PATTERNS: List[re.Pattern] = [
-    re.compile(r'\b(поставщик|поставк[аи]|логистик[аи]|транспортная компания|доставка|фрахт|перевозчик|склад|хранение|отгрузка|приёмка ТМЦ|накладная|ТОРГ-12|УПД)\b', re.IGNORECASE),
-    re.compile(r'\b(материал[ыа]|оборудование|труба|арматура|металлопрокат|железобетон|бетон|кирпич|щебень|песок|цемент|кабель|светильник)\b', re.IGNORECASE),
     re.compile(r'\b(тендер|аукцион|госзакупк[аи]|электронная площадка|закупк[аи]|конкурентная закупка|единственный поставщик|коммерческое предложение|техническое задание|ТЗ)\b', re.IGNORECASE),
     re.compile(r'\b(завод|производитель|дистрибьютор|дилер|оптов[аы][яй]|розниц[аы]|отсрочка платежа|предоплата|аванс|аккредитив|банковская гарантия)\b', re.IGNORECASE),
+    re.compile(r'\b(НМЦК|начальная цена|обоснование цены|контракт|договор поставки|спецификаци[яи]|техническое предложение)\b', re.IGNORECASE),
+    re.compile(r'\b(ФЗ-44|ФЗ-223|электронный аукцион|запрос котировок|запрос предложений|конкурсная документаци[яи]|Сбер А|РТС-тендер|ЕИС)\b', re.IGNORECASE),
+]
+
+# ---- LOGISTICS — логистика и доставка ----
+LOGISTICS_PATTERNS: List[re.Pattern] = [
+    re.compile(r'\b(логистик[аи]|транспортная компания|доставка|фрахт|перевозчик|склад|хранение|отгрузка|приёмка ТМЦ|накладная|ТОРГ-12|УПД|экспедитор)\b', re.IGNORECASE),
+    re.compile(r'\b(маршрут|плечо доставки|тариф перевозки|тонно-километр|погрузка|разгрузка|тяжеловес|негабарит|ж\/д станция|контейнер|фура|трал)\b', re.IGNORECASE),
+    re.compile(r'\b(срок поставки|график поставки|парти[яи]|отгрузочная ведомость|упаковка|маркировка|сопроводительная документаци[яи])\b', re.IGNORECASE),
+    re.compile(r'\b(Платон|весовой контроль|габаритный контроль|таможня|импорт|экспорт|транзит|сертификат происхождения)\b', re.IGNORECASE),
+    re.compile(r'\b(щебень|песок|цемент|арматура|труба|металлопрокат|железобетон|бетон|кирпич|кабель|светильник)\b', re.IGNORECASE),
 ]
 
 
@@ -151,7 +160,13 @@ class DomainClassifier:
     """
 
     # Minimum word count for meaningful classification
-    MIN_WORDS = 15
+    MIN_WORDS = 10
+
+    # Short but domain-significant: regulatory updates, urgent norm changes
+    _SHORT_SIGNIFICANT_PATTERNS: List[re.Pattern] = [
+        re.compile(r'(?:приказ|постановлен|распоряжен|отмен[еи]н|утратил|вступает|опубликован)', re.IGNORECASE),
+        re.compile(r'(?:44-ФЗ|223-ФЗ|СП\s*\d|ГОСТ\s*\d|ФЕР|ТЕР|ГЭСН)', re.IGNORECASE),
+    ]
 
     # Maps domain to its patterns
     DOMAIN_PATTERNS: Dict[str, List[re.Pattern]] = {
@@ -159,12 +174,20 @@ class DomainClassifier:
         "pto": PTO_PATTERNS,
         "smeta": SMETA_PATTERNS,
         "procurement": PROCUREMENT_PATTERNS,
-        "logistics": PROCUREMENT_PATTERNS,  # shares procurement patterns
+        "logistics": LOGISTICS_PATTERNS,
     }
 
     # Known channel → domain mapping (from telegram_channels.yaml)
     _channel_domain_map: Dict[str, str] = {}
     _loaded = False
+
+    # Optional LLM engine for Tier 3 classification (edge cases)
+    _llm_engine = None
+
+    @classmethod
+    def set_llm_engine(cls, llm_engine) -> None:
+        """Inject LLM engine for Tier 3 classification of edge cases."""
+        cls._llm_engine = llm_engine
 
     @classmethod
     def _load_channel_map(cls) -> None:
@@ -218,9 +241,13 @@ class DomainClassifier:
         words = text.split()
         result.word_count = len(words)
         if result.word_count < cls.MIN_WORDS:
-            result.is_noise = True
-            result.noise_type = "too_short"
-            return result
+            # Short but potentially significant: regulatory update, norm change flash
+            if result.word_count >= 5 and cls._is_short_significant(text):
+                result.signals.append("short_significant")
+            else:
+                result.is_noise = True
+                result.noise_type = "too_short"
+                return result
 
         # --- Tier 1: Noise detection (must come first) ---
         noise_hits, noise_type = cls._scan_noise(text, strict_noise)
@@ -277,6 +304,14 @@ class DomainClassifier:
             result.domain = best_domain
             result.is_noise = False
             result.signals = [f"domain:{best_domain}:{best_score}"]
+        elif result.confidence >= 0.20 and cls._llm_engine is not None:
+            # Tier 3: LLM classification for edge cases
+            llm_result = cls._classify_via_llm(text, best_domain, result.confidence)
+            if llm_result:
+                result.domain = llm_result.get("domain", best_domain)
+                result.is_noise = llm_result.get("is_noise", False)
+                result.confidence = llm_result.get("confidence", result.confidence)
+                result.signals.append(f"llm_tier3:{result.domain}")
         elif strict_noise:
             result.is_noise = True
             result.noise_type = "low_confidence"
@@ -375,6 +410,46 @@ class DomainClassifier:
         cls._load_channel_map()
         key = channel.lower().replace("@", "").strip()
         return cls._channel_domain_map.get(key)
+
+    # =========================================================================
+    # Short-content significance & LLM Tier 3
+    # =========================================================================
+
+    _SHORT_SIG_PATTERN = re.compile(
+        r'(?:приказ|постановлен|распоряжен|отмен[еи]н|утратил|вступает|опубликован|'
+        r'44-ФЗ|223-ФЗ|СП\s*\d|ГОСТ\s*\d|ФЕР|ТЕР|ГЭСН)',
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _is_short_significant(cls, text: str) -> bool:
+        """Check if short text contains regulatory/significant content."""
+        return bool(cls._SHORT_SIG_PATTERN.search(text))
+
+    @classmethod
+    def _classify_via_llm(
+        cls, text: str, best_domain: str, confidence: float
+    ) -> Optional[Dict[str, Any]]:
+        """Tier 3: LLM-based classification for edge cases (0.20-0.35 confidence)."""
+        if cls._llm_engine is None:
+            return None
+        try:
+            prompt = (
+                f"Классифицируй текст по домену. Домены: legal, pto, smeta, procurement, logistics.\n"
+                f"Если это шум/реклама — укажи is_noise=true.\n"
+                f"Лучшая keyword-гипотеза: {best_domain} (confidence={confidence:.2f}).\n\n"
+                f"Текст: {text[:2000]}\n\n"
+                f'Ответ: {{"domain": "{best_domain}", "is_noise": false, "confidence": {confidence:.2f}}}'
+            )
+            response = cls._llm_engine.chat("pto", [
+                {"role": "system", "content": "Ты — классификатор строительного контента. Отвечай JSON."},
+                {"role": "user", "content": prompt},
+            ], temperature=0.0)
+            import json as _json
+            return _json.loads(response)
+        except Exception as e:
+            logger.debug("LLM Tier 3 classification failed: %s", e)
+            return None
 
     # =========================================================================
     # Batch

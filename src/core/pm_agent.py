@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -309,6 +310,62 @@ class WorkPlan:
     def update_compliance_delta(self, delta: Dict[str, str]) -> None:
         self.compliance_delta = delta
         self.updated_at = datetime.now(timezone.utc).isoformat()
+
+
+# =============================================================================
+# Input Sanitization (Prompt Injection Guard)
+# =============================================================================
+
+# Patterns that could be used for prompt injection / instruction override
+_INJECTION_PATTERNS = [
+    r"(?i)игнориру\w+\s+(?:все\s+)?(?:предыдущ\w+|выше\w+)\s+инструкци",
+    r"(?i)ignore\s+(?:all\s+)?(?:previous|above)\s+instructions",
+    r"(?i)ты\s+(?:теперь|больше\s+не)\s+(?:руководител|ассистент)",
+    r"(?i)you\s+are\s+(?:now|no\s+longer)",
+    r"(?i)отвечай\s+(?:не\s+)?как\s+(?:будто|если)",
+    r"(?i)system\s*(?:prompt|message|instruction)",
+    r"(?i)<\|.*\|>",  # Special token injection
+    r"(?i)```(?:system|instruction|prompt)",  # Markdown code block injection
+    r"(?i)\[system\]|\[/system\]|<system>|</system>",
+    r"(?i)disregard\s+(?:all\s+)?(?:previous|prior)",
+]
+
+_PATTERN_MAX_USER_LENGTH = 8000  # Truncate excessively long user input
+
+
+def _sanitize_input(text: str, field_name: str = "input") -> str:
+    """Sanitize user/agent-controlled text before insertion into LLM prompts.
+
+    Guards against prompt injection by:
+    1. Truncating excessively long inputs
+    2. Stripping known injection patterns
+    3. Escaping curly braces that could break str.format()
+    """
+    if not text:
+        return ""
+
+    if len(text) > _PATTERN_MAX_USER_LENGTH:
+        logger.warning("PM prompt: %s truncated from %d to %d chars",
+                       field_name, len(text), _PATTERN_MAX_USER_LENGTH)
+        text = text[:_PATTERN_MAX_USER_LENGTH] + "…"
+
+    for pattern in _INJECTION_PATTERNS:
+        if re.search(pattern, text):
+            logger.warning("PM prompt: potential injection detected in %s, sanitizing", field_name)
+            text = re.sub(pattern, "[REDACTED]", text)
+
+    return text
+
+
+def _safe_format(template: str, **kwargs) -> str:
+    """Safe str.format() — sanitizes all values before formatting."""
+    safe_kwargs = {}
+    for key, value in kwargs.items():
+        if isinstance(value, str):
+            safe_kwargs[key] = _sanitize_input(value, key)
+        else:
+            safe_kwargs[key] = value
+    return template.format(**safe_kwargs)
 
 
 # =============================================================================
@@ -834,7 +891,7 @@ class ProjectManager:
                 for agent, summary in agent_results.items()
             )
 
-        prompt = PM_PLANNING_PROMPT.format(
+        prompt = _safe_format(PM_PLANNING_PROMPT,
             goal=task_description,
             project_id=project_id,
             workflow_mode=workflow_mode,
@@ -1070,7 +1127,7 @@ class ProjectManager:
 
         prev_errors_text = "; ".join(previous_errors) if previous_errors else "нет"
 
-        prompt = PM_EVALUATION_PROMPT.format(
+        prompt = _safe_format(PM_EVALUATION_PROMPT,
             agent_name=task.agent,
             task_description=task.description,
             result_summary=result_summary,
@@ -1147,7 +1204,7 @@ class ProjectManager:
             for t in plan.tasks
         )
 
-        prompt = PM_REPLAN_PROMPT.format(
+        prompt = _safe_format(PM_REPLAN_PROMPT,
             failed_task_id=failed_task.task_id,
             retries=failed_task.retry_count,
             failure_reason=failure_reason,

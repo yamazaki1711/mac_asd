@@ -1,34 +1,18 @@
 """
 ASD v12.0 — RAM Manager.
 
-Мониторинг и защита памяти для Mac Studio M4 Max 128GB.
-Архитектура shared-memory (Gemma 4 31B обслуживает 5 агентов) требует
-жёсткого контроля потребления RAM, чтобы избежать OOM.
+Мониторинг и защита памяти. Поддерживает две архитектуры:
+  - Apple Silicon (Mac Studio, unified memory) — 128GB
+  - NVIDIA GPU (Linux, дискретная VRAM) — 8GB VRAM + системная RAM
 
 Уровни защиты:
-  1. Мониторинг — отслеживание текущего потребления через psutil
+  1. Мониторинг — отслеживание системной RAM и GPU VRAM (nvidia-smi)
   2. Квоты — лимиты на агентов (контекст, модель)
   3. OOM-защита — блокировка новых задач при приближении к лимиту
   4. Деградация — автоматический сброс кэша, уменьшение контекста
 
-Бюджет памяти (из MODEL_STRATEGY.md):
-  Llama 3.3 70B 4-bit    ~40 GB   (PM)
-  Gemma 4 31B 4-bit      ~23 GB   (5 agents shared)
-  Gemma 4 E4B 4-bit       ~3 GB   (Делопроизводитель)
-  bge-m3-mlx-4bit         ~0.3 GB (Embeddings)
-  macOS + системные        ~8 GB
-  PostgreSQL 16            ~2 GB
-  MLX runtime              ~6 GB
-  Python (MCP + LightRAG)  ~4 GB
-  ─────────────────────────────
-  ИТОГО базовое           ~86 GB  (при полной загрузке моделей)
-  Свободно                ~42 GB  (из 128 GB)
-
-Пороги:
-  NORMAL:     < 80 GB  — свободный режим
-  WARNING:    80-90 GB — мониторинг, предупреждения
-  CRITICAL:   90-100 GB — блокировка новых тяжёлых задач
-  OOM_DANGER: > 100 GB — сброс кэша, деградация, аварийная остановка
+Адаптивные пороги — вычисляются как доля от общего объёма RAM.
+Для NVIDIA GPU: раздельный учёт VRAM (через nvidia-smi) и системной RAM.
 
 Usage:
     from src.core.ram_manager import ram_manager
@@ -46,6 +30,8 @@ from __future__ import annotations
 import gc
 import logging
 import os
+import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -56,32 +42,87 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Constants — Memory Budget (from MODEL_STRATEGY.md)
+# Platform Detection
 # =============================================================================
 
-# Бюджет загрузки моделей (только сами веса, без контекста)
-MODEL_WEIGHTS_BUDGET: Dict[str, float] = {
-    "pm":          40.0,   # Llama 3.3 70B 4-bit
-    "pto":          0.0,   # Shared (учтён в gemma_31b)
-    "legal":        0.0,   # Shared
-    "smeta":        0.0,   # Shared
-    "procurement":  0.0,   # Shared
-    "logistics":    0.0,   # Shared
-    "gemma_31b":   23.0,   # Gemma 4 31B 4-bit (shared by 5 agents)
-    "archive":      3.0,   # Gemma 4 E4B 4-bit
-    "embed":        0.3,   # bge-m3-mlx-4bit
-}
+def _detect_total_ram_gb() -> float:
+    """Автоопределение общего объёма системной RAM."""
+    try:
+        import psutil
+        return psutil.virtual_memory().total / (1024 ** 3)
+    except ImportError:
+        return float(os.environ.get("ASD_TOTAL_RAM_GB", "32.0"))
 
-# Базовая системная нагрузка (OS, Postgres, MLX runtime, Python)
-BASE_SYSTEM_RAM = 20.0  # GB
 
-# Пороги памяти (GB used)
-NORMAL_THRESHOLD = 80.0
-WARNING_THRESHOLD = 90.0
-CRITICAL_THRESHOLD = 100.0
-OOM_DANGER_THRESHOLD = 110.0  # Аварийный порог
+def _detect_gpu_vram_gb() -> Optional[float]:
+    """Определение VRAM NVIDIA GPU через nvidia-smi."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Convert MB to GB
+            vram_mb = float(result.stdout.strip().split("\n")[0])
+            return vram_mb / 1024.0
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError, IndexError):
+        pass
+    return None
 
-# Коэффициент контекста: ~0.5 GB на 1K токенов для Gemma 4 31B (приблизительно)
+
+_TOTAL_RAM_GB = _detect_total_ram_gb()
+_GPU_VRAM_GB = _detect_gpu_vram_gb()
+_IS_APPLE_SILICON = "arm" in os.uname().machine if hasattr(os, "uname") else False
+
+
+# =============================================================================
+# Constants — Memory Budget (adaptive, computed from total RAM)
+# =============================================================================
+
+# Пороги как доля от общей RAM
+_NORMAL_FRACTION = 0.70    # < 70% — свободный режим
+_WARNING_FRACTION = 0.80   # 70-80% — мониторинг, предупреждения
+_CRITICAL_FRACTION = 0.88  # 80-88% — блокировка новых тяжёлых задач
+_OOM_FRACTION = 0.94       # > 88% — сброс кэша, деградация
+
+# Вычисляемые пороги
+NORMAL_THRESHOLD = _TOTAL_RAM_GB * _NORMAL_FRACTION
+WARNING_THRESHOLD = _TOTAL_RAM_GB * _WARNING_FRACTION
+CRITICAL_THRESHOLD = _TOTAL_RAM_GB * _CRITICAL_FRACTION
+OOM_DANGER_THRESHOLD = _TOTAL_RAM_GB * _OOM_FRACTION
+
+# Бюджет моделей — зависит от платформы
+if _IS_APPLE_SILICON:
+    # Mac Studio M4 Max 128GB — unified memory, все модели загружены одновременно
+    MODEL_WEIGHTS_BUDGET: Dict[str, float] = {
+        "pm":          40.0,   # Llama 3.3 70B 4-bit
+        "pto":          0.0,   # Shared (gemma_31b)
+        "legal":        0.0,   # Shared
+        "smeta":        0.0,   # Shared
+        "procurement":  0.0,   # Shared
+        "logistics":    0.0,   # Shared
+        "gemma_31b":   23.0,   # Gemma 4 31B 4-bit (shared by 5 agents)
+        "archive":      3.0,   # Gemma 4 E4B 4-bit
+        "embed":        0.3,   # bge-m3
+    }
+    BASE_SYSTEM_RAM = 20.0  # macOS + PostgreSQL + MLX + Python
+else:
+    # Linux RTX 5060 — одна модель в VRAM, embeddings на CPU
+    _shared_model_gb = 7.5 if _GPU_VRAM_GB and _GPU_VRAM_GB >= 7.8 else 5.0
+    MODEL_WEIGHTS_BUDGET: Dict[str, float] = {
+        "pm":          0.0,   # Shared (та же модель что и агенты)
+        "pto":          0.0,   # Shared
+        "legal":        0.0,   # Shared
+        "smeta":        0.0,   # Shared
+        "procurement":  0.0,   # Shared
+        "logistics":    0.0,   # Shared
+        "gemma_12b":   _shared_model_gb,  # Gemma 3 12B q4 (все агенты, в VRAM)
+        "archive":      0.0,   # Shared (та же модель)
+        "embed":        1.2,   # bge-m3 (CPU, системная RAM)
+    }
+    BASE_SYSTEM_RAM = 5.0   # Ubuntu + PostgreSQL + Python (без MLX)
+
+# Коэффициент контекста: ~0.5 GB на 1K токенов
 CONTEXT_RAM_PER_1K_TOKENS = 0.0005  # GB
 
 
@@ -156,60 +197,78 @@ class RamManager:
     """
     Менеджер оперативной памяти ASD v12.0.
 
-    Отслеживает потребление RAM на уровне системы и процесса,
+    Отслеживает потребление RAM на уровне системы и GPU VRAM,
     управляет квотами агентов и предотвращает OOM.
+
+    Адаптивные пороги вычисляются как доля от общего объёма RAM.
+    Для NVIDIA GPU: раздельный учёт VRAM (nvidia-smi) + системной RAM.
     """
 
-    def __init__(self, total_ram_gb: float = 128.0):
-        self._total_ram_gb = total_ram_gb
+    def __init__(self, total_ram_gb: Optional[float] = None):
+        self._total_ram_gb = total_ram_gb or _TOTAL_RAM_GB
+        self._gpu_vram_gb = _GPU_VRAM_GB
+        self._is_apple_silicon = _IS_APPLE_SILICON
         self._lock = threading.Lock()
         self._snapshot_interval = 5.0  # секунд между замерами
         self._last_snapshot_time = 0.0
         self._cached_snapshot: Optional[RamSnapshot] = None
 
+        # Контекст адаптируется под платформу
+        if self._is_apple_silicon:
+            default_context = 128000
+            archive_context = 8000
+            pm_ram = 40.0
+            archive_ram = 3.0
+        else:
+            # RTX 5060: Gemma 3 12B — 32K контекст (влезает в 8GB VRAM)
+            default_context = 32768
+            archive_context = 32768  # Та же модель что и все
+            pm_ram = 0.0  # Shared model
+            archive_ram = 0.0  # Shared model
+
         # Квоты агентов
         self._agent_quotas: Dict[str, AgentRamQuota] = {
             "pm": AgentRamQuota(
                 agent_name="pm",
-                max_context_tokens=128000,
+                max_context_tokens=default_context,
                 max_concurrent_tasks=1,
-                reserved_ram_gb=40.0,
+                reserved_ram_gb=pm_ram,
             ),
             "pto": AgentRamQuota(
                 agent_name="pto",
-                max_context_tokens=128000,
+                max_context_tokens=default_context,
                 max_concurrent_tasks=1,
                 reserved_ram_gb=0.0,  # Shared model
             ),
             "legal": AgentRamQuota(
                 agent_name="legal",
-                max_context_tokens=128000,
+                max_context_tokens=default_context,
                 max_concurrent_tasks=1,
                 reserved_ram_gb=0.0,
             ),
             "smeta": AgentRamQuota(
                 agent_name="smeta",
-                max_context_tokens=128000,
+                max_context_tokens=default_context,
                 max_concurrent_tasks=1,
                 reserved_ram_gb=0.0,
             ),
             "procurement": AgentRamQuota(
                 agent_name="procurement",
-                max_context_tokens=128000,
+                max_context_tokens=default_context,
                 max_concurrent_tasks=1,
                 reserved_ram_gb=0.0,
             ),
             "logistics": AgentRamQuota(
                 agent_name="logistics",
-                max_context_tokens=128000,
+                max_context_tokens=default_context,
                 max_concurrent_tasks=1,
                 reserved_ram_gb=0.0,
             ),
             "archive": AgentRamQuota(
                 agent_name="archive",
-                max_context_tokens=8000,   # Gemma 4 E4B — короткий контекст
+                max_context_tokens=archive_context,
                 max_concurrent_tasks=1,
-                reserved_ram_gb=3.0,
+                reserved_ram_gb=archive_ram,
             ),
         }
 
@@ -219,9 +278,11 @@ class RamManager:
         self._task_rejections = 0
 
         logger.info(
-            "RamManager initialized: %.0f GB total, thresholds: "
+            "RamManager initialized: %.0f GB RAM%s, thresholds: "
             "NORMAL<%.0f WARNING<%.0f CRITICAL<%.0f OOM<%.0f",
-            total_ram_gb, NORMAL_THRESHOLD, WARNING_THRESHOLD,
+            self._total_ram_gb,
+            f" + {self._gpu_vram_gb:.0f}GB VRAM" if self._gpu_vram_gb else "",
+            NORMAL_THRESHOLD, WARNING_THRESHOLD,
             CRITICAL_THRESHOLD, OOM_DANGER_THRESHOLD,
         )
 
@@ -232,6 +293,8 @@ class RamManager:
     def get_snapshot(self, force: bool = False) -> RamSnapshot:
         """
         Получить текущий снимок памяти.
+
+        Для NVIDIA GPU дополнительно отслеживает VRAM через nvidia-smi.
 
         Args:
             force: принудительно обновить (игнорировать кэш)
@@ -251,9 +314,9 @@ class RamManager:
             logger.debug("psutil not available — RAM monitoring disabled")
             return RamSnapshot(
                 total_gb=self._total_ram_gb,
-                used_gb=86.0,
-                available_gb=self._total_ram_gb - 86.0,
-                percent_used=67.2,
+                used_gb=0.0,
+                available_gb=self._total_ram_gb,
+                percent_used=0.0,
                 status=RamStatus.NORMAL,
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
             )
@@ -267,6 +330,23 @@ class RamManager:
         percent_used = mem.percent
         process_rss = process.memory_info().rss / (1024 ** 3)
 
+        # GPU VRAM через nvidia-smi
+        gpu_used_gb = 0.0
+        gpu_total_gb = 0.0
+        if self._gpu_vram_gb:
+            try:
+                result = subprocess.run(
+                    ["nvidia-smi", "--query-gpu=memory.used,memory.total",
+                     "--format=csv,noheader,nounits"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    parts = result.stdout.strip().split(",")
+                    gpu_used_gb = float(parts[0].strip()) / 1024.0
+                    gpu_total_gb = float(parts[1].strip()) / 1024.0
+            except (FileNotFoundError, subprocess.TimeoutExpired, ValueError, IndexError):
+                pass
+
         # Оценка Python-объектов через gc
         try:
             gc.collect()
@@ -278,15 +358,31 @@ class RamManager:
         except Exception:
             python_objects_mb = 0.0
 
-        # Определение статуса
-        if used_gb >= OOM_DANGER_THRESHOLD:
-            status = RamStatus.OOM_DANGER
-        elif used_gb >= CRITICAL_THRESHOLD:
-            status = RamStatus.CRITICAL
-        elif used_gb >= WARNING_THRESHOLD:
-            status = RamStatus.WARNING
+        # Определение статуса (с учётом GPU если есть)
+        if self._gpu_vram_gb and gpu_total_gb > 0:
+            # Если GPU VRAM заполнена — CRITICAL даже при свободной RAM
+            gpu_pct = gpu_used_gb / gpu_total_gb * 100 if gpu_total_gb > 0 else 0
+            if gpu_pct > 95:
+                status = RamStatus.CRITICAL
+            elif used_gb >= OOM_DANGER_THRESHOLD:
+                status = RamStatus.OOM_DANGER
+            elif used_gb >= CRITICAL_THRESHOLD:
+                status = RamStatus.CRITICAL
+            elif used_gb >= WARNING_THRESHOLD:
+                status = RamStatus.WARNING
+            else:
+                status = RamStatus.NORMAL
         else:
-            status = RamStatus.NORMAL
+            if used_gb >= OOM_DANGER_THRESHOLD:
+                status = RamStatus.OOM_DANGER
+            elif used_gb >= CRITICAL_THRESHOLD:
+                status = RamStatus.CRITICAL
+            elif used_gb >= WARNING_THRESHOLD:
+                status = RamStatus.WARNING
+            elif used_gb >= NORMAL_THRESHOLD:
+                status = RamStatus.WARNING  # elevated — treat as warning on constrained hardware
+            else:
+                status = RamStatus.NORMAL
 
         snapshot = RamSnapshot(
             total_gb=round(total_gb, 2),
@@ -304,11 +400,12 @@ class RamManager:
             self._last_snapshot_time = now
 
         if status != RamStatus.NORMAL:
+            gpu_info = f", GPU: {gpu_used_gb:.1f}/{gpu_total_gb:.1f}GB" if gpu_total_gb > 0 else ""
             logger.warning(
                 "RAM %s: %.1f/%.1f GB (%.1f%%), available: %.1f GB, "
-                "process RSS: %.1f GB, Python objects: %.1f MB",
+                "process RSS: %.1f GB, Python objects: %.1f MB%s",
                 status.value, used_gb, total_gb, percent_used,
-                available_gb, process_rss, python_objects_mb,
+                available_gb, process_rss, python_objects_mb, gpu_info,
             )
 
         return snapshot
@@ -454,12 +551,34 @@ class RamManager:
         if self._degradation_level > 0:
             logger.info("RAM degradation reset (was level %d)", self._degradation_level)
             self._degradation_level = 0
-            # Восстановить контекст
+
+            # Восстановить контекст под платформу
+            if self._is_apple_silicon:
+                default_ctx, archive_ctx = 128000, 8000
+            else:
+                default_ctx, archive_ctx = 32768, 32768
+
             for agent_name, quota in self._agent_quotas.items():
-                if agent_name == "archive":
-                    quota.max_context_tokens = 8000
-                else:
-                    quota.max_context_tokens = 128000
+                quota.max_context_tokens = archive_ctx if agent_name == "archive" and self._is_apple_silicon else default_ctx
+
+    # -------------------------------------------------------------------------
+    # GPU Memory
+    # -------------------------------------------------------------------------
+
+    def get_gpu_memory_used_gb(self) -> Optional[float]:
+        """Возвращает использованную VRAM в GB (NVIDIA GPU) или None."""
+        if not self._gpu_vram_gb:
+            return None
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return float(result.stdout.strip()) / 1024.0
+        except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+            pass
+        return None
 
     # -------------------------------------------------------------------------
     # Stats
@@ -468,8 +587,13 @@ class RamManager:
     def get_stats(self) -> Dict:
         """Получить статистику RAM Manager."""
         snapshot = self.get_snapshot()
-        return {
+        stats = {
             "snapshot": snapshot.to_dict(),
+            "platform": {
+                "is_apple_silicon": self._is_apple_silicon,
+                "total_ram_gb": self._total_ram_gb,
+                "gpu_vram_gb": self._gpu_vram_gb,
+            },
             "degradation_level": self._degradation_level,
             "cache_clears": self._cache_clears,
             "task_rejections": self._task_rejections,
@@ -483,13 +607,18 @@ class RamManager:
                 for name, q in self._agent_quotas.items()
             },
         }
+        gpu_used = self.get_gpu_memory_used_gb()
+        if gpu_used is not None:
+            stats["gpu"] = {
+                "vram_used_gb": round(gpu_used, 2),
+                "vram_total_gb": self._gpu_vram_gb,
+                "vram_free_gb": round(self._gpu_vram_gb - gpu_used, 2),
+            }
+        return stats
 
 
 # =============================================================================
 # Module-level singleton
 # =============================================================================
-
-# Общий размер RAM определяется из окружения или 128 GB по умолчанию
-_TOTAL_RAM_GB = float(os.environ.get("ASD_TOTAL_RAM_GB", "128.0"))
 
 ram_manager = RamManager(total_ram_gb=_TOTAL_RAM_GB)

@@ -22,7 +22,9 @@ Architecture:
                                             OllamaBackend          MLXBackend
 """
 
+import asyncio
 import logging
+import time
 from typing import List, Dict, Any, Optional
 
 from src.config import settings
@@ -31,6 +33,22 @@ from src.core.backends.mlx_backend import MLXBackend
 from src.core.backends.deepseek_backend import DeepSeekBackend
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration
+MAX_RETRIES = 3
+BASE_DELAY_SECONDS = 1.0
+MAX_DELAY_SECONDS = 30.0
+RETRYABLE_ERRORS = (
+    "connection refused",
+    "connection error",
+    "timeout",
+    "service unavailable",
+    "too many requests",
+    "rate limit",
+    "internal server error",
+    "server error",
+    "model is loading",
+)
 
 
 class LLMEngine:
@@ -261,26 +279,96 @@ class LLMEngine:
         **kwargs,
     ) -> str:
         """
-        Chat with automatic fallback if LLM is unavailable.
-        Replaces the old _safe_ollama_chat() function.
+        Chat with automatic retry and fallback if LLM is unavailable.
+
+        Uses exponential backoff for transient errors, then returns
+        fallback_response if all retries are exhausted.
 
         Args:
             agent: Agent name
             messages: Chat messages
-            fallback_response: Text to return if LLM fails
+            fallback_response: Text to return if LLM fails after all retries
             **kwargs: Additional args passed to chat()
 
         Returns:
-            LLM response text, or fallback_response if error
+            LLM response text, or fallback_response if all retries fail
         """
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                return await self.chat(agent, messages, **kwargs)
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+
+                # Check if error is retryable
+                is_retryable = any(
+                    pattern in error_str
+                    for pattern in RETRYABLE_ERRORS
+                )
+
+                if not is_retryable or attempt == MAX_RETRIES - 1:
+                    break
+
+                delay = min(BASE_DELAY_SECONDS * (2 ** attempt), MAX_DELAY_SECONDS)
+                logger.warning(
+                    "[%s] LLM attempt %d/%d failed: %s. Retrying in %.1fs...",
+                    agent, attempt + 1, MAX_RETRIES, e, delay,
+                )
+                await asyncio.sleep(delay)
+
+        logger.warning(
+            "[%s] LLM unavailable after %d attempts: %s. Using fallback.",
+            agent, MAX_RETRIES, last_error,
+        )
+        return fallback_response
+
+    # -------------------------------------------------------------------------
+    # Health check
+    # -------------------------------------------------------------------------
+
+    async def health_check(self) -> Dict[str, Any]:
+        """
+        Проверить доступность LLM бэкендов.
+
+        Returns:
+            {"status": "ok"|"degraded"|"down", "backends": {...}}
+        """
+        result = {"status": "ok", "backends": {}}
+
+        # Check Ollama
         try:
-            return await self.chat(agent, messages, **kwargs)
+            models = await self._ollama.list_models()
+            result["backends"]["ollama"] = {
+                "available": True,
+                "models": len(models) if models else 0,
+            }
         except Exception as e:
-            logger.warning(
-                f"[{agent}] LLM unavailable: {e}. "
-                f"Using fallback response."
-            )
-            return fallback_response
+            result["backends"]["ollama"] = {"available": False, "error": str(e)}
+            result["status"] = "degraded"
+
+        # Check MLX (always unavailable on non-Mac)
+        result["backends"]["mlx"] = {
+            "available": self._mlx.is_available(),
+        }
+
+        # Check DeepSeek
+        try:
+            if settings.DEEPSEEK_API_KEY:
+                result["backends"]["deepseek"] = {"available": True}
+            else:
+                result["backends"]["deepseek"] = {"available": False, "error": "no API key"}
+        except Exception:
+            result["backends"]["deepseek"] = {"available": False}
+
+        ok_count = sum(
+            1 for b in result["backends"].values()
+            if b.get("available", False)
+        )
+        if ok_count == 0:
+            result["status"] = "down"
+
+        return result
 
     # -------------------------------------------------------------------------
     # Defaults per agent

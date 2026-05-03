@@ -32,16 +32,10 @@ import os
 
 logger = logging.getLogger(__name__)
 from src.db.models import AuditLog
-from src.db.init_db import create_engine
-from sqlalchemy.orm import sessionmaker
-from src.config import settings
+from src.db.init_db import Session
 from src.utils.wiki_loader import load_wiki_page
 from src.core.lessons_service import lessons_service
 from src.core.rag_pipeline import rag_pipeline
-
-# Setup DB session for Audit Logging
-engine = create_engine(settings.database_url)
-Session = sessionmaker(bind=engine)
 
 # Orchestrator logic merged into pm_agent.py — ProjectManager handles
 # weighted scoring + veto rules + LLM reasoning via PM Agent.
@@ -1046,7 +1040,7 @@ async def smeta_compare_node(state: Dict[str, Any]) -> Dict[str, Any]:
 async def delo_registry_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Узел Делопроизводителя: создание и обновление реестра ИД."""
     logger.info("Delo Registry Starting")
-    from src.core.services.delo_agent import delo_agent, DocStatus
+    from src.core.services.delo_agent import delo_agent
 
     intermediate = state.get("intermediate_data", {})
     project_id = state["project_id"]

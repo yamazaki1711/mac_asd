@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -93,7 +93,7 @@ DOC_TYPE_TO_344: Dict[str, ID344Category] = {
 # Data Classes
 # =============================================================================
 
-class DocStatus(str, Enum):
+class PTODocStatus(str, Enum):
     PRESENT = "present"          # Документ найден
     MISSING = "missing"          # Отсутствует
     INCOMPLETE = "incomplete"    # Есть, но не хватает данных
@@ -107,7 +107,7 @@ class TrailItem:
     item_type: str               # "vor", "is_scheme", "certificate", "test_protocol"...
     name: str                    # Человеческое название
     mandatory: bool = True
-    status: DocStatus = DocStatus.PENDING
+    status: PTODocStatus = PTODocStatus.PENDING
     doc_ref: Optional[str] = None  # Ссылка на документ (ID или путь)
     notes: str = ""
 
@@ -124,11 +124,11 @@ class AOSRTrail:
     @property
     def is_complete(self) -> bool:
         mandatory = [i for i in self.items if i.mandatory]
-        return all(i.status == DocStatus.PRESENT for i in mandatory)
+        return all(i.status == PTODocStatus.PRESENT for i in mandatory)
 
     @property
     def missing_mandatory(self) -> List[TrailItem]:
-        return [i for i in self.items if i.mandatory and i.status != DocStatus.PRESENT]
+        return [i for i in self.items if i.mandatory and i.status != PTODocStatus.PRESENT]
 
 
 @dataclass
@@ -377,9 +377,9 @@ class PTOAgent:
                     found = True
                     break
 
-            item.status = DocStatus.PRESENT if found else DocStatus.MISSING
+            item.status = PTODocStatus.PRESENT if found else PTODocStatus.MISSING
             if not found and not item.mandatory:
-                item.status = DocStatus.PENDING  # Необязательные — pending, не missing
+                item.status = PTODocStatus.PENDING  # Необязательные — pending, не missing
 
         return trail
 

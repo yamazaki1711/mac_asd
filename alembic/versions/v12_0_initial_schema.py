@@ -7,7 +7,7 @@ Create Date: 2026-04-27
 Includes:
   - projects, documents, document_chunks (core)
   - audit_logs (Hermes training)
-  - legal_traps (BLS — Contractor Trap Library)
+  - domain_traps (BLS — Contractor Trap Library)
   - vendors, materials_catalog, price_lists, price_list_items (procurement)
   - lab_organizations, lab_requests, lab_samples, lab_contracts, lab_acts, lab_reports, lab_control_plans (lab control)
   - lessons_learned (Опытный контур — Lessons Learned)
@@ -77,7 +77,7 @@ def upgrade() -> None:
 
     # ── BLS (Legal Traps) ──
     op.create_table(
-        "legal_traps",
+        "domain_traps",
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("description", sa.Text, nullable=False),
@@ -273,7 +273,7 @@ def downgrade() -> None:
         "price_lists",
         "materials_catalog",
         "vendors",
-        "legal_traps",
+        "domain_traps",
         "audit_logs",
         "document_chunks",
         "documents",

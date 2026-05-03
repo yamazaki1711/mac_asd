@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import operator
 import uuid
-from datetime import datetime, timezone, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, TypedDict
 

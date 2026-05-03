@@ -49,7 +49,7 @@ class OllamaBackend:
             Assistant response text
         """
         url = f"{self.base_url}/chat"
-        print(f"DEBUG: Ollama Backend CALL -> {url} (model: {model})")
+        logger.debug("Ollama Backend CALL -> %s (model: %s)", url, model)
         payload = {
             "model": model,
             "messages": messages,
@@ -217,3 +217,35 @@ class OllamaBackend:
             response = await client.post(f"{self.base_url}/generate", json=payload)
             response.raise_for_status()
             return response.json()
+
+    async def list_models(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        List models available in Ollama.
+
+        Returns:
+            List of model dicts with name, size, etc., or None if unavailable.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{self.base_url}/../api/tags")
+                response.raise_for_status()
+                data = response.json()
+                return data.get("models", [])
+        except Exception as e:
+            logger.debug("Ollama list_models failed: %s", e)
+            return None
+
+    async def health(self) -> Dict[str, Any]:
+        """
+        Quick health check — tries to reach Ollama API.
+
+        Returns:
+            {"available": True/False, "error": ..., "models_count": int}
+        """
+        try:
+            models = await self.list_models()
+            if models is not None:
+                return {"available": True, "models_count": len(models)}
+            return {"available": False, "error": "no response"}
+        except Exception as e:
+            return {"available": False, "error": str(e)}

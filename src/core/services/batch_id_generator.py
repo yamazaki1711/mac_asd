@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 from src.core.output_pipeline import output_pipeline
 from src.core.services.pto_agent import pto_agent
-from src.core.services.delo_agent import delo_agent, DocStatus
+from src.core.services.delo_agent import delo_agent
 
 
 class BatchIDGenerator:
@@ -236,8 +236,8 @@ class BatchIDGenerator:
                 "profit_pct": self.meta.get("profit_pct", 8),
                 "profit": subtotal * self.meta.get("profit_pct", 8) / 100,
                 "vat_pct": 20,
-                "vat": (subtotal + subtotal * 0.15 + subtotal * 0.08) * 0.20,
-                "grand_total": (subtotal + subtotal * 0.15 + subtotal * 0.08) * 1.20,
+                "vat": (subtotal + subtotal * self.meta.get("overhead_pct", 15) / 100 + subtotal * self.meta.get("profit_pct", 8) / 100) * 0.20,
+                "grand_total": (subtotal + subtotal * self.meta.get("overhead_pct", 15) / 100 + subtotal * self.meta.get("profit_pct", 8) / 100) * 1.20,
             }
             ks2_path, ks3_path = output_pipeline.generate_ks_package(
                 f"PRJ-{self.project_id}", ks2_data

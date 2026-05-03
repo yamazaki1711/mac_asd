@@ -33,14 +33,17 @@ from pydantic_settings import BaseSettings
 # Model mappings per profile
 # =============================================================================
 PROFILE_MODELS: Dict[str, Dict[str, Dict[str, str]]] = {
+    # RTX 5060 8GB VRAM — Gemma 3 12B q4 (~7.5GB, 32K контекст)
+    # Все агенты разделяют одну модель для экономии VRAM.
+    # bge-m3 — на CPU (Ollama загружает в системную RAM).
     "dev_linux": {
-        "pm":          {"engine": "ollama", "model": "gemma4:31b-cloud"},
-        "pto":         {"engine": "ollama", "model": "gemma4:31b-cloud"},
-        "smeta":       {"engine": "ollama", "model": "gemma4:31b-cloud"},
-        "legal":       {"engine": "ollama", "model": "gemma4:31b-cloud"},
-        "procurement": {"engine": "ollama", "model": "gemma4:31b-cloud"},
-        "logistics":   {"engine": "ollama", "model": "gemma4:31b-cloud"},
-        "archive":     {"engine": "ollama", "model": "gemma4:31b-cloud"},
+        "pm":          {"engine": "ollama", "model": "gemma3:12b"},
+        "pto":         {"engine": "ollama", "model": "gemma3:12b"},
+        "smeta":       {"engine": "ollama", "model": "gemma3:12b"},
+        "legal":       {"engine": "ollama", "model": "gemma3:12b"},
+        "procurement": {"engine": "ollama", "model": "gemma3:12b"},
+        "logistics":   {"engine": "ollama", "model": "gemma3:12b"},
+        "archive":     {"engine": "ollama", "model": "gemma3:12b"},
         "embed":       {"engine": "ollama", "model": "bge-m3"},
         "vision":      {"engine": "ollama", "model": "minicpm-v"},
     },
@@ -203,6 +206,7 @@ class Settings(BaseSettings):
             "logistics": self.MODEL_LOGISTICS,
             "archive": self.MODEL_ARCHIVE,
             "vision": self.MODEL_VISION,
+            "embed": self.MODEL_EMBED,
         }
 
         override = override_map.get(agent)

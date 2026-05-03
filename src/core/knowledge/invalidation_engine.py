@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -270,22 +270,52 @@ class InvalidationEngine:
             for k, v in data.get("status", {}).items():
                 self._norm_status[k] = EntryStatus(v)
             self._norm_replacements = data.get("replacements", {})
-            logger.info("Loaded %d changes, %d statuses from invalidation store",
-                        len(self._changes), len(self._norm_status))
+            for k, v in data.get("affected", {}).items():
+                self._affected[k] = []
+                for ae_dict in v:
+                    change_id = ae_dict.get("change_id", "")
+                    change = self._changes.get(change_id)
+                    if change:
+                        self._affected[k].append(AffectedEntry(
+                            entry_type=ae_dict.get("entry_type", ""),
+                            entry_ref=ae_dict.get("entry_ref", ""),
+                            agent_domain=ae_dict.get("agent_domain", ""),
+                            change=change,
+                            new_status=EntryStatus(ae_dict.get("new_status", "active")),
+                            detail=ae_dict.get("detail", ""),
+                        ))
+            logger.info("Loaded %d changes, %d statuses, %d affected from invalidation store",
+                        len(self._changes), len(self._norm_status), len(self._affected))
         except Exception as e:
             logger.warning("Failed to load invalidation store: %s", e)
 
     def _save(self) -> None:
-        """Persist invalidation store to disk."""
+        """Persist invalidation store to disk (atomic write via temp file)."""
+        import os as _os
+        import tempfile as _tempfile
+
         _STORE_DIR.mkdir(parents=True, exist_ok=True)
+        affected_serializable = {}
+        for k, entries in self._affected.items():
+            affected_serializable[k] = [e.to_dict() for e in entries]
         data = {
             "changes": [c.to_dict() for c in self._changes.values()],
             "status": {k: v.value for k, v in self._norm_status.items()},
             "replacements": self._norm_replacements,
+            "affected": affected_serializable,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        with open(_STORE_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        fd, tmp_path = _tempfile.mkstemp(
+            dir=str(_STORE_DIR), suffix=".json", prefix=".tmp_invalidation_"
+        )
+        try:
+            with _os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            _os.replace(tmp_path, _STORE_PATH)
+        except Exception:
+            if _os.path.exists(tmp_path):
+                _os.unlink(tmp_path)
+            raise
 
     # =========================================================================
     # Change Detection
@@ -404,8 +434,18 @@ class InvalidationEngine:
             except Exception as e:
                 logger.debug("LLM extraction fallback failed: %s", e)
 
-        # 5. Create RegulatoryChange record
-        change_id = _hash_id(f"{domain}:{title}:{datetime.now(timezone.utc).isoformat()}")
+        # 5. Check for duplicate — same domain+title+change_type → skip
+        dedup_key = _hash_id(f"{domain}:{change_type.value}:{title}")
+        existing = self._changes.get(dedup_key)
+        if existing:
+            logger.debug("Duplicate change detected, merging: %s", title[:80])
+            existing.affected_norms = list(set(existing.affected_norms + affected_norms))
+            existing.confidence = max(existing.confidence, 0.75 if self._llm else 0.60)
+            self._save()
+            return self._affected.get(title, [])
+
+        # 6. Create RegulatoryChange record
+        change_id = dedup_key
         change = RegulatoryChange(
             change_id=change_id,
             domain=domain,
@@ -418,13 +458,16 @@ class InvalidationEngine:
             confidence=0.75 if self._llm else 0.60,
         )
 
-        # 6. Compute affected entries across all knowledge bases
+        # 7. Compute affected entries across all knowledge bases
         affected = self._compute_affected(change, domains)
 
-        # 7. Persist
+        # 8. Persist — changes AND affected entries
         self._changes[change_id] = change
         for entry in affected:
             self._norm_status[entry.entry_ref] = entry.new_status
+            if entry.entry_ref not in self._affected:
+                self._affected[entry.entry_ref] = []
+            self._affected[entry.entry_ref].append(entry)
             if change_type == ChangeType.REPLACEMENT and change.new_norms:
                 self._norm_replacements[entry.entry_ref] = change.new_norms[0]
         self._save()
@@ -621,22 +664,20 @@ class InvalidationEngine:
             }
         """
         norm_lower = norm_ref.lower().replace(" ", "").replace("_", "")
-        norm_stripped = norm_ref.strip()
 
         # Exact match check
         for ref, status in self._norm_status.items():
             ref_lower = ref.lower().replace(" ", "").replace("_", "")
             if norm_lower in ref_lower or ref_lower in norm_lower:
                 replacement = self._norm_replacements.get(ref)
-                # Find the change that caused this
+                # Look up affected entries directly by ref key
                 change_desc = ""
                 change_date = ""
-                for entry_list in self._affected.values():
-                    for entry in entry_list:
-                        if entry.entry_ref == ref:
-                            change_desc = entry.detail
-                            change_date = entry.change.created_at[:10]
-                            break
+                affected_entries = self._affected.get(ref, [])
+                if affected_entries:
+                    entry = affected_entries[0]
+                    change_desc = entry.detail
+                    change_date = entry.change.created_at[:10]
 
                 warning = self._format_warning(status, replacement, change_desc)
 
@@ -773,7 +814,17 @@ class InvalidationEngine:
         affected_norms = self.extract_norms_from_text(text)
         domains = self.classify_domain(text, domain)
 
-        change_id = _hash_id(f"text:{domain}:{text[:80]}:{datetime.now(timezone.utc).isoformat()}")
+        # Dedup by content hash (without timestamp)
+        dedup_key = _hash_id(f"text:{domain}:{change_type.value}:{text[:120]}")
+        existing = self._changes.get(dedup_key)
+        if existing:
+            logger.debug("Duplicate text change, merging")
+            existing.affected_norms = list(set(existing.affected_norms + affected_norms))
+            existing.confidence = max(existing.confidence, 0.55)
+            self._save()
+            return self._affected.get(text[:120], [])
+
+        change_id = dedup_key
         change = RegulatoryChange(
             change_id=change_id,
             domain=domain,
@@ -791,6 +842,9 @@ class InvalidationEngine:
         self._changes[change_id] = change
         for entry in affected:
             self._norm_status[entry.entry_ref] = entry.new_status
+            if entry.entry_ref not in self._affected:
+                self._affected[entry.entry_ref] = []
+            self._affected[entry.entry_ref].append(entry)
             if change_type == ChangeType.REPLACEMENT and change.new_norms:
                 self._norm_replacements[entry.entry_ref] = change.new_norms[0]
         self._save()

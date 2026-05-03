@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Enums
 # =============================================================================
 
-class DocStatus(str, Enum):
+class DeloDocStatus(str, Enum):
     DRAFT = "draft"                # Черновик — не оформлен
     PREPARED = "prepared"         # Подготовлен — ждёт подписания
     SIGNED_INTERNAL = "signed_internal"  # Подписан Подрядчиком
@@ -53,7 +53,7 @@ class DocRegistryEntry:
     doc_name: str                  # Наименование документа
     category_344: str              # Категория по 344/пр (act_aosr, igs, ...)
     work_type: str = ""            # Вид работ
-    status: DocStatus = DocStatus.DRAFT
+    status: DeloDocStatus = DeloDocStatus.DRAFT
     pages: int = 0
     prepared_date: Optional[str] = None
     submitted_date: Optional[str] = None
@@ -104,11 +104,11 @@ class DocRegistry:
 
     @property
     def accepted_count(self) -> int:
-        return sum(1 for e in self.entries if e.status == DocStatus.ACCEPTED)
+        return sum(1 for e in self.entries if e.status == DeloDocStatus.ACCEPTED)
 
     @property
     def rejected_count(self) -> int:
-        return sum(1 for e in self.entries if e.status == DocStatus.REJECTED)
+        return sum(1 for e in self.entries if e.status == DeloDocStatus.REJECTED)
 
     @property
     def overdue_count(self) -> int:
@@ -120,7 +120,7 @@ class DocRegistry:
             return 0.0
         return round(self.accepted_count / self.total_docs * 100, 1)
 
-    def by_status(self, status: DocStatus) -> List[DocRegistryEntry]:
+    def by_status(self, status: DeloDocStatus) -> List[DocRegistryEntry]:
         return [e for e in self.entries if e.status == status]
 
     def by_category(self, category: str) -> List[DocRegistryEntry]:
@@ -218,7 +218,7 @@ class DeloAgent:
         return entry
 
     def update_status(
-        self, project_id: int, reg_id: str, status: DocStatus, notes: str = ""
+        self, project_id: int, reg_id: str, status: DeloDocStatus, notes: str = ""
     ) -> bool:
         """Обновить статус документа."""
         registry = self._registries.get(project_id)
@@ -228,10 +228,10 @@ class DeloAgent:
             if entry.reg_id == reg_id:
                 entry.status = status
                 now = datetime.now().isoformat()
-                if status == DocStatus.SUBMITTED:
+                if status == DeloDocStatus.SUBMITTED:
                     entry.submitted_date = now
                     entry.deadline = (datetime.now() + timedelta(days=10)).isoformat()
-                elif status == DocStatus.ACCEPTED:
+                elif status == DeloDocStatus.ACCEPTED:
                     entry.accepted_date = now
                 if notes:
                     entry.notes = notes
@@ -259,7 +259,7 @@ class DeloAgent:
         # Отбираем подготовленные, но не отправленные документы
         ready = [
             e for e in registry.entries
-            if e.status in (DocStatus.PREPARED, DocStatus.SIGNED_INTERNAL)
+            if e.status in (DeloDocStatus.PREPARED, DeloDocStatus.SIGNED_INTERNAL)
         ]
 
         if category_filter:
@@ -276,7 +276,7 @@ class DeloAgent:
 
         # Обновляем статусы
         for entry in ready:
-            entry.status = DocStatus.SUBMITTED
+            entry.status = DeloDocStatus.SUBMITTED
             entry.submitted_date = batch.submitted_at
             entry.deadline = batch.response_deadline
 
@@ -310,7 +310,7 @@ class DeloAgent:
         ]
 
         # По статусам
-        for status in DocStatus:
+        for status in DeloDocStatus:
             docs = registry.by_status(status)
             if docs:
                 lines.append(f"\n  [{status.value}] — {len(docs)} док.:")
@@ -340,7 +340,7 @@ class DeloAgent:
             if cat not in by_cat:
                 by_cat[cat] = {"total": 0, "accepted": 0}
             by_cat[cat]["total"] += 1
-            if entry.status == DocStatus.ACCEPTED:
+            if entry.status == DeloDocStatus.ACCEPTED:
                 by_cat[cat]["accepted"] += 1
 
         return {

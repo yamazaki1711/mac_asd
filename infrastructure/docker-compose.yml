@@ -5,10 +5,10 @@ services:
   # PostgreSQL — Vector & Relational DB (документы, метаданные, БЛС, векторы)
   # -------------------------------------------------------------------------
   # Redis УДАЛЁН — заменён на in-process кэширование (cachetools)
-  # Причины: single-user Mac Studio, Redis избыточен, экономия 2GB RAM
+  # Причины: single-user, Redis избыточен, экономия RAM
   # -------------------------------------------------------------------------
   postgres:
-    image: ankane/pgvector:latest
+    image: ankane/pgvector:v0.8.0
     container_name: asd_postgres
     ports:
       - "5433:5432"
@@ -18,12 +18,47 @@ services:
       POSTGRES_DB: asd_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Оптимизация для SSD (effective_io_concurrency=200)
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c effective_cache_size=4GB
+      -c effective_io_concurrency=200
+      -c random_page_cost=1.1
+      -c work_mem=64MB
+      -c maintenance_work_mem=256MB
+      -c max_connections=20
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U oleg -d asd_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
     restart: unless-stopped
+    # Linux: shared memory for PostgreSQL
+    shm_size: "256m"
+
+  # -------------------------------------------------------------------------
+  # Ollama (опционально — обычно запускается на хосте, не в Docker)
+  # -------------------------------------------------------------------------
+  # Раскомментируйте для изолированного запуска Ollama в Docker с GPU:
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: asd_ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:
+  # ollama_data:

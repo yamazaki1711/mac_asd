@@ -18,6 +18,8 @@ Pipeline:
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import logging
 import os
 import re
@@ -28,6 +30,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async_safe(coro):
+    """Run coroutine safely from sync code — handles both sync and async contexts."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    # Inside an active event loop — run in a separate thread
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 
 # =============================================================================
@@ -717,10 +730,9 @@ class IngestionPipeline:
         doc_type, confidence = self.classifier.classify(text)
 
         try:
-            import asyncio
             from src.core.hybrid_classifier import hybrid_classifier
             if hasattr(hybrid_classifier, 'classify'):
-                result = asyncio.run(hybrid_classifier.classify(text, enable_llm=False))
+                result = _run_async_safe(hybrid_classifier.classify(text, enable_llm=False))
                 if result and result.confidence > confidence:
                     doc_type = DocumentType(result.doc_type) if result.doc_type in DocumentType.__members__ else doc_type
                     confidence = result.confidence
@@ -743,8 +755,7 @@ class IngestionPipeline:
             logger.info("Low keyword confidence (%.2f) for %s — trying VLM",
                        confidence, file_path.name)
             try:
-                import asyncio
-                vlm_result = asyncio.run(
+                vlm_result = _run_async_safe(
                     self.vlm_classifier.classify_document(file_path)
                 )
                 if vlm_result.doc_type and vlm_result.doc_type != "Неизвестно":
