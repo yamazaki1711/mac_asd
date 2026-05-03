@@ -81,3 +81,8 @@ data/inventory_*.json
 data/forensic_*.json
 data/pto_analysis_*.json
 data/vlm_analysis_*.json
+
+# Inventory / forensic PDF reports (generated artifacts)
+data/inventory_*.pdf
+data/forensic_*.pdf
+data/inspection_report_*.pdf

@@ -149,7 +149,7 @@ infrastructure:
 
   docx_generation:
     engine: docxtpl        # Jinja2 + python-docx, стандарт для шаблонов
-    templates_path: data/templates/
+    templates_path: library/templates/
 
   # IS Generator — Исполнительные Схемы (2 пути)
   is_generator:

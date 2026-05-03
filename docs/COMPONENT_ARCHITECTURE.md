@@ -843,7 +843,7 @@ BLSChecker
 ловушек, обновляемый вручную. Начиная с v12.0 реализован гибридный подход:
 
 **YAML (статические ловушки):**
-- Файл `traps/default_traps.yaml` — 58 ловушек
+- Файл `traps/default_traps.yaml` — 61 ловушка
 - Быстрый pattern matching (regex)
 - Надёжные, проверенные паттерны
 - Обновляются только вручную
@@ -1114,7 +1114,7 @@ LegalAnalysisResult
 LegalService использует 4-шаговую гибридную проверку для каждого чанка:
 
 **Шаг 1: Pattern matching** — быстрый regex-поиск по известным ловушкам из YAML.
-Выполняется мгновенно, покрывает заведомо известные паттерны (58 ловушек).
+Выполняется мгновенно, покрывает заведомо известные паттерны (61 ловушка).
 Не требует LLM, работает даже при недоступности модели.
 
 **Шаг 2: Semantic search** — pgvector поиск по embeddings ранее обнаруженных
@@ -1591,7 +1591,7 @@ StateGraph
 │   └── graphs/                  # NetworkX графы (knowledge_graph.gpickle)
 │
 ├── traps/                       # YAML файлы БЛС
-│   └── default_traps.yaml       # 58 ловушек
+│   └── default_traps.yaml       # 61 ловушка
 │
 ├── infrastructure/
 │   ├── docker-compose.yml       # PostgreSQL + pgvector

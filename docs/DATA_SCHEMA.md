@@ -161,7 +161,7 @@ CREATE INDEX idx_contracts_number ON contracts(number);
 
 ### 3.5. traps (БЛС)
 
-Ловушки субподрядчика (Библиотека Ловушек Субподрядчика). В v12.0 библиотека содержит 58 ловушек, сгруппированных по 10 категориям: payment, penalty, acceptance, scope, warranty, subcontractor, liability, corporate_policy, termination, insurance. Две новые категории (termination и insurance) добавлены для выявления рисков расторжения договора и страховых/гарантийных обязательств.
+Ловушки субподрядчика (Библиотека Ловушек Субподрядчика). В v12.0 библиотека содержит 61 ловушка, сгруппированных по 10 категориям: payment, penalty, acceptance, scope, warranty, subcontractor, liability, corporate_policy, termination, insurance. Две новые категории (termination и insurance) добавлены для выявления рисков расторжения договора и страховых/гарантийных обязательств.
 
 ```sql
 CREATE TABLE traps (
@@ -872,7 +872,7 @@ alembic upgrade head  # Применить все миграции
 | `docs/PROMPTS_GEMMA4.md` | Системные промпты агентов | Промпты извлечения реквизитов → таблица contracts (ProtocolPartyInfo); промпты ловушек → таблица traps (10 категорий); промпты ВОР → vor_items; промпты смет → estimate_items |
 | `docs/COMPONENT_ARCHITECTURE.md` | Архитектура АСД v12.0 | LLMEngine → профили mac_studio (Gemma 4 31B), dev_linux (Gemma 4 31B), hermes_pm (Llama 3.3 70B); shared memory → таблицы projects, contracts |
 | `docs/MCP_TOOLS_SPEC.md` | Спецификация MCP-инструментов | Каждый инструмент читает/пишет в определённые таблицы; asd_analyze_contract → contracts + trap_matches; asd_generate_protocol → contracts.ProtocolPartyInfo |
-| `traps/default_traps.yaml` | Библиотека ловушек субподрядчика | 58 ловушек, 10 категорий → таблица traps; YAML-файлы → source_file |
+| `traps/default_traps.yaml` | Библиотека ловушек субподрядчика | 61 ловушка, 10 категорий → таблица traps; YAML-файлы → source_file |
 | `docs/DEPLOYMENT_PLAN.md` | Развёртывание | PostgreSQL 16 + pgvector; VRAM оценки; конфигурация LLMEngine |
 
 ---
