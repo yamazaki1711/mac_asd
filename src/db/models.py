@@ -340,3 +340,97 @@ class ReferenceData(Base):
     __table_args__ = (
         Index('ix_ref_domain_code', 'domain', 'code', unique=True),
     )
+
+
+# =============================================================================
+# v12.0: Физическая структура объекта строительства
+# =============================================================================
+
+class ConstructionZone(Base):
+    """Захватка / участок объекта строительства."""
+    __tablename__ = "construction_zones"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(255), nullable=False)          # "Причал №9", "Захватка 3"
+    code = Column(String(50))                            # "ZONE-9", "PR-9"
+    description = Column(Text)
+    parent_zone_id = Column(Integer, ForeignKey("construction_zones.id"), nullable=True)  # Иерархия захваток
+    order_index = Column(Integer, default=0)             # Порядок в проекте
+    status = Column(String(50), default="planned")       # planned, in_progress, completed
+    created_at = Column(DateTime, server_default=func.now())
+
+    project = relationship("Project")
+    elements = relationship("ConstructionElement", back_populates="zone")
+    work_entries = relationship("WorkEntry", back_populates="zone")
+
+
+class ConstructionElement(Base):
+    """Конструктивный элемент объекта."""
+    __tablename__ = "construction_elements"
+
+    id = Column(Integer, primary_key=True)
+    zone_id = Column(Integer, ForeignKey("construction_zones.id"), nullable=False)
+    name = Column(String(255), nullable=False)          # "Ростверк осей 1-5", "Свайное поле ряд А-В"
+    element_type = Column(String(100))                   # foundation, wall, column, beam, slab, roof, pile_field
+    work_type = Column(String(100))                      # Из WorkType enum ("foundation_pile", "concrete")
+    specification = Column(JSON)                          # {"dimensions": "3x5x0.8m", "concrete_grade": "B25", "reinforcement": "A500C"}
+    status = Column(String(50), default="planned")       # planned, in_progress, completed, accepted
+    planned_volume = Column(JSON)                         # {"unit": "m³", "quantity": 45.0}
+    actual_volume = Column(JSON)                          # Фактические объёмы (заполняется по АОСР)
+    order_index = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+
+    zone = relationship("ConstructionZone", back_populates="elements")
+    documents = relationship("Document", secondary="element_documents")
+
+
+class ElementDocument(Base):
+    """Связь many-to-many: конструктивный элемент ↔ документы (АОСР, ИС, сертификаты)."""
+    __tablename__ = "element_documents"
+
+    element_id = Column(Integer, ForeignKey("construction_elements.id"), primary_key=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), primary_key=True)
+    document_role = Column(String(50))  # aosr, executive_scheme, certificate, test_report
+    added_at = Column(DateTime, server_default=func.now())
+
+
+# =============================================================================
+# v12.0: Цифровой ввод данных о выполненных работах (замена бумажному ОЖР)
+# =============================================================================
+
+class WorkEntry(Base):
+    """Запись о выполненной работе — цифровой аналог строки в ОЖР."""
+    __tablename__ = "work_entries"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    zone_id = Column(Integer, ForeignKey("construction_zones.id"), nullable=False)
+    element_id = Column(Integer, ForeignKey("construction_elements.id"), nullable=True)
+
+    work_type = Column(String(100), nullable=False)       # Из WorkType enum
+    description = Column(Text, nullable=False)             # "Бетонирование ростверка, ось 1-5"
+    performed_by = Column(String(255))                     # Кто выполнил (прораб, бригадир)
+    performed_at = Column(DateTime)                        # Дата фактического выполнения
+
+    # Количественные показатели
+    volume = Column(JSON)                                  # {"unit": "m³", "quantity": 12.0}
+    materials_used = Column(JSON)                          # [{"name": "бетон B25", "batch": "B-2026-001", "quantity": 12}]
+
+    # Метаданные
+    source = Column(String(50), default="telegram")        # telegram, api, manual
+    source_message_id = Column(String(100))                # ID сообщения в Telegram
+    raw_text = Column(Text)                                # Исходный текст сообщения
+    parsed_ok = Column(Boolean, default=True)              # Успешно распаршено
+
+    # Статус обработки
+    status = Column(String(50), default="pending")         # pending, processed, aosr_generated, error
+    aosr_document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now())
+    processed_at = Column(DateTime)
+
+    project = relationship("Project")
+    zone = relationship("ConstructionZone", back_populates="work_entries")
+    element = relationship("ConstructionElement")
+    aosr_document = relationship("Document")

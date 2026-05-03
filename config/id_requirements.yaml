@@ -1,0 +1,308 @@
+version: '12.0'
+basis: Приказ Минстроя 344/пр от 16.05.2023
+base_trail:
+  id_requirements:
+    gro_act:
+      name: Акт ГРО
+      required: true
+      quantity: 1
+      form: 344/пр прил.1
+      signers:
+      - застройщик
+      - ЛОС
+      - проектировщик
+    axis_layout:
+      name: Разбивка осей
+      required: true
+      quantity: 1
+      form: 344/пр прил.2
+    executive_schemes:
+      name: Исполнительные схемы
+      required: true
+      quantity: ≥1 по этапу
+      form: ГОСТ Р 51872-2024
+    test_reports:
+      name: Протоколы испытаний
+      required: true
+      quantity: ≥1
+      signers:
+      - лаборатория
+      - стройконтроль
+    lab_conclusions:
+      name: Заключения лаборатории
+      required: true
+      quantity: по числу партий
+      signers:
+      - лаборатория
+    input_control:
+      name: Входной контроль
+      required: true
+      quantity: по числу партий ТМЦ
+      form: ЖВК + сертификаты + паспорта
+    inspection_notes:
+      name: Замечания стройконтроля
+      required: false
+work_types:
+  earthwork_excavation:
+    display_name: Earthwork excavation
+    aosr_count: ≥1 на слой/захватку
+    aook: false
+    special_journals:
+    - журнал земляных работ
+    typical_tests:
+    - уплотнение грунта
+    input_control_materials:
+    - геотекстиль
+    - щебень
+    - песок
+  earthwork_backfill:
+    display_name: Earthwork backfill
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: &id001
+    - ОЖР
+    typical_tests: &id002
+    - по проекту
+    input_control_materials: &id003
+    - согласно спецификации
+  foundation_monolithic:
+    display_name: Foundation monolithic
+    aosr_count: ≥1 на захватку
+    aook: true
+    special_journals:
+    - журнал бетонных работ
+    - журнал арматурных работ
+    typical_tests:
+    - прочность бетона
+    - арматура (сертификат)
+    input_control_materials:
+    - арматура
+    - бетонная смесь
+  foundation_precast:
+    display_name: Foundation precast
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  foundation_pile:
+    display_name: Foundation pile
+    aosr_count: ≥1 на сваю/группу
+    aook: true
+    special_journals:
+    - журнал погружения шпунта/свай
+    - журнал бетонных работ
+    typical_tests:
+    - несущая способность
+    - сплошность ствола
+    input_control_materials:
+    - сваи/шпунт (сертификат+паспорт)
+    - бетонная смесь
+    executive_schemes_detail: свайное поле с отклонениями
+  concrete:
+    display_name: Concrete
+    aosr_count: ≥1 на элемент
+    aook: true
+    special_journals:
+    - журнал бетонных работ
+    typical_tests:
+    - прочность
+    - морозостойкость
+    input_control_materials:
+    - бетонная смесь
+    - арматура
+  metal_structures:
+    display_name: Metal structures
+    aosr_count: ≥1 на монтажный узел
+    aook: true
+    special_journals:
+    - журнал сварочных работ
+    - журнал монтажа
+    typical_tests:
+    - УЗК/рентген сварных швов
+    input_control_materials:
+    - металлопрокат
+    - электроды
+    - болты
+  masonry:
+    display_name: Masonry
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  finishing_floors:
+    display_name: Finishing floors
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  finishing_walls_ceilings:
+    display_name: Finishing walls ceilings
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  finishing_windows_doors:
+    display_name: Finishing windows doors
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  water_supply:
+    display_name: Water supply
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  sewerage:
+    display_name: Sewerage
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  external_networks_vk:
+    display_name: External networks vk
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  heating:
+    display_name: Heating
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  ventilation:
+    display_name: Ventilation
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  air_conditioning:
+    display_name: Air conditioning
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  electrical_internal:
+    display_name: Electrical internal
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  electrical_external:
+    display_name: Electrical external
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  communication_networks:
+    display_name: Communication networks
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  anticorrosive:
+    display_name: Anticorrosive
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  hdd_drilling:
+    display_name: Hdd drilling
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  fire_extinguishing:
+    display_name: Fire extinguishing
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  process_pipelines:
+    display_name: Process pipelines
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  process_equipment:
+    display_name: Process equipment
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  tanks:
+    display_name: Tanks
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  automation:
+    display_name: Automation
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  fire_alarm:
+    display_name: Fire alarm
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  elevators:
+    display_name: Elevators
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  heat_pipelines:
+    display_name: Heat pipelines
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  roads:
+    display_name: Roads
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  demolition:
+    display_name: Demolition
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
+  steam_boiler:
+    display_name: Steam boiler
+    aosr_count: ≥1 на этап
+    aook: false
+    special_journals: *id001
+    typical_tests: *id002
+    input_control_materials: *id003
