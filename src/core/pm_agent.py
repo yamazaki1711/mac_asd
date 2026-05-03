@@ -28,7 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -166,11 +166,11 @@ class TaskNode:
 
     def mark_started(self) -> None:
         self.status = TaskStatus.IN_PROGRESS.value
-        self.started_at = datetime.utcnow().isoformat()
+        self.started_at = datetime.now(timezone.utc).isoformat()
 
     def mark_completed(self, summary: str = "") -> None:
         self.status = TaskStatus.COMPLETED.value
-        self.completed_at = datetime.utcnow().isoformat()
+        self.completed_at = datetime.now(timezone.utc).isoformat()
         self.result_summary = summary
 
     def mark_failed(self, reason: str = "") -> None:
@@ -218,7 +218,7 @@ class WorkPlan:
         self.compliance_delta: Dict[str, str] = {}
         self.estimated_duration_hours = estimated_duration_hours
         self.pm_reasoning = pm_reasoning
-        self.created_at = datetime.utcnow().isoformat()
+        self.created_at = datetime.now(timezone.utc).isoformat()
         self.updated_at = self.created_at
 
     def to_dict(self) -> Dict[str, Any]:
@@ -308,7 +308,7 @@ class WorkPlan:
 
     def update_compliance_delta(self, delta: Dict[str, str]) -> None:
         self.compliance_delta = delta
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = datetime.now(timezone.utc).isoformat()
 
 
 # =============================================================================
@@ -890,7 +890,7 @@ class ProjectManager:
             tasks.append(task)
 
         plan_id = hashlib.sha256(
-            f"{project_id}:{datetime.utcnow().isoformat()}".encode()
+            f"{project_id}:{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:12]
 
         return WorkPlan(
@@ -976,7 +976,7 @@ class ProjectManager:
             return None
 
         next_task.mark_started()
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
 
         logger.info(
             "PM dispatching: agent=%s task=%s priority=%d",
@@ -1005,7 +1005,7 @@ class ProjectManager:
         """
         if confidence >= task.confidence_required:
             task.mark_completed(result_summary)
-            plan.updated_at = datetime.utcnow().isoformat()
+            plan.updated_at = datetime.now(timezone.utc).isoformat()
             return EvaluationVerdict.ACCEPT
 
         if confidence < 0.1:
@@ -1044,7 +1044,7 @@ class ProjectManager:
         # Быстрый путь: уверенность выше требуемой → ACCEPT
         if confidence >= task.confidence_required:
             task.mark_completed(result_summary)
-            plan.updated_at = datetime.utcnow().isoformat()
+            plan.updated_at = datetime.now(timezone.utc).isoformat()
             logger.info(
                 "PM auto-accepted task %s (confidence %.2f >= required %.2f)",
                 task.task_id, confidence, task.confidence_required,
@@ -1112,7 +1112,7 @@ class ProjectManager:
             plan.status = PlanStatus.ABORTED.value
             task.mark_failed(f"ABORT: {eval_data.get('reasoning', '')}")
 
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
 
         return verdict
 
@@ -1212,7 +1212,7 @@ class ProjectManager:
             failed_task.result_summary = f"SKIPPED after {failed_task.retry_count} retries: {failure_reason}"
 
         plan.status = PlanStatus.ADAPTED.value
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
 
         return plan
 

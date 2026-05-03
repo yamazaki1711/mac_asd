@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from langgraph.types import Send
@@ -285,7 +285,7 @@ async def pm_evaluate_node(state: AgentState) -> Dict[str, Any]:
     if intermediate.get(f"{agent_name}_ram_rejected"):
         task.status = TaskStatus.PENDING.value  # Вернуть в очередь
         logger.info("PM: task %s requeued (RAM rejection)", task_id)
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
         state["work_plan"] = plan.to_dict()
         return _dispatch_next(state, plan)
 
@@ -298,7 +298,7 @@ async def pm_evaluate_node(state: AgentState) -> Dict[str, Any]:
             # Исчерпаны попытки — адаптируем план
             plan = await _pm.replan(plan, task, error_msg)
             _update_plan_cache(state, plan)
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
         state["work_plan"] = plan.to_dict()
         return _dispatch_next(state, plan)
 
@@ -344,7 +344,7 @@ async def pm_evaluate_node(state: AgentState) -> Dict[str, Any]:
         task.status = TaskStatus.PENDING.value
         logger.info("PM: task %s reassigned from %s to %s", task_id, agent_name, alternative)
 
-    plan.updated_at = datetime.utcnow().isoformat()
+    plan.updated_at = datetime.now(timezone.utc).isoformat()
     state["work_plan"] = plan.to_dict()
     _update_plan_cache(state, plan)
 
@@ -470,7 +470,7 @@ def pm_fan_out_router(state: AgentState):
     if len(ready) == 1 or max_parallel == 1:
         task = ready[0]
         task.mark_started()
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
         state["current_agent"] = task.agent
         state["current_task_id"] = task.task_id
         state["work_plan"] = plan.to_dict()
@@ -508,7 +508,7 @@ def pm_fan_out_router(state: AgentState):
 
         sends.append(Send("agent_worker", worker_payload))
 
-    plan.updated_at = datetime.utcnow().isoformat()
+    plan.updated_at = datetime.now(timezone.utc).isoformat()
     state["work_plan"] = plan.to_dict()
     state["last_evaluated_index"] = len(state.get("parallel_results", []))
 
@@ -689,7 +689,7 @@ async def pm_evaluate_node(state: AgentState) -> Dict[str, Any]:
 
     # Update last evaluated index
     state["last_evaluated_index"] = len(parallel_results)
-    plan.updated_at = datetime.utcnow().isoformat()
+    plan.updated_at = datetime.now(timezone.utc).isoformat()
     state["work_plan"] = plan.to_dict()
     _update_plan_cache(state, plan)
 
@@ -718,7 +718,7 @@ async def _evaluate_single_task(
 
     if intermediate.get(f"{agent_name}_ram_rejected"):
         task.status = TaskStatus.PENDING.value
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
         state["work_plan"] = plan.to_dict()
         return _dispatch_next(state, plan)
 
@@ -728,7 +728,7 @@ async def _evaluate_single_task(
         if task.status == TaskStatus.FAILED.value:
             plan = await _pm.replan(plan, task, error_msg)
             _update_plan_cache(state, plan)
-        plan.updated_at = datetime.utcnow().isoformat()
+        plan.updated_at = datetime.now(timezone.utc).isoformat()
         state["work_plan"] = plan.to_dict()
         return _dispatch_next(state, plan)
 
@@ -763,7 +763,7 @@ async def _evaluate_single_task(
         task.retry_count = 0
         task.status = TaskStatus.PENDING.value
 
-    plan.updated_at = datetime.utcnow().isoformat()
+    plan.updated_at = datetime.now(timezone.utc).isoformat()
     state["work_plan"] = plan.to_dict()
     _update_plan_cache(state, plan)
 

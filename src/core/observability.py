@@ -29,7 +29,7 @@ import time
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -43,7 +43,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -306,7 +306,7 @@ def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy" if stats["fallback_rate_pct"] < 20 else "degraded",
         "version": "12.0",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "metrics": stats,
         "checks": {
             "fallback_rate": {

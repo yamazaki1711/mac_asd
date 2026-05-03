@@ -8,7 +8,7 @@ confidence scoring, fallback detection, and error propagation.
 import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # =============================================================================
@@ -34,8 +34,8 @@ def base_state():
         "audit_trail": [],
         "revision_history": [],
         "rollback_point": None,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "_llm_fallback_triggered": False,
         "_llm_fallback_agents": [],
     }

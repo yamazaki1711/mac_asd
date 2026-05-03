@@ -12,7 +12,7 @@ ASD v12.0 — Profit Model Schema.
 - Условный ветвинг: НМЦК < 70% рынка → NO GO
 """
 
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -186,7 +186,7 @@ class ProfitModel(BaseModel):
         description="ID проекта в БД"
     )
     created_at: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat(),
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="Дата/время расчёта (ISO 8601)"
     )
 

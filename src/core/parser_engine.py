@@ -42,7 +42,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Tuple
@@ -371,7 +371,7 @@ class StreamingParser:
                 page_number=0,
                 processed_files=file_paths[: i + 1],
                 total_files=total,
-                created_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(timezone.utc).isoformat(),
             ))
 
             if on_progress:

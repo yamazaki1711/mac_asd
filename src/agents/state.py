@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import operator
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -290,7 +290,7 @@ def create_initial_state(
     Returns:
         AgentState с дефолтными значениями
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     return AgentState(
         schema_version=SCHEMA_VERSION,
         workflow_mode=workflow_mode,
@@ -359,7 +359,7 @@ def migrate_v1_to_v2(v1_state: Dict[str, Any]) -> AgentState:
 
     Новые поля V2 получают дефолтные значения.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     # Попытка извлечь типизированные данные из intermediate_data
     intermediate = v1_state.get("intermediate_data", {})
@@ -454,7 +454,7 @@ def migrate_v1_to_v2(v1_state: Dict[str, Any]) -> AgentState:
 def start_step(state: AgentState, agent: str, action: str) -> str:
     """Создаёт запись о начале шага и возвращает step_id."""
     step_id = str(uuid.uuid4())[:8]
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     entry = StepLog(
         step_id=step_id,
@@ -481,7 +481,7 @@ def complete_step(
     output_summary: Optional[str] = None,
 ) -> None:
     """Отмечает шаг как завершённый."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     for entry in state["audit_trail"]:
         if entry.get("step_id") == step_id:
@@ -504,7 +504,7 @@ def fail_step(
     set_rollback: bool = True,
 ) -> None:
     """Отмечает шаг как failed и устанавливает rollback_point."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     for entry in state["audit_trail"]:
         if entry.get("step_id") == step_id:
@@ -533,7 +533,7 @@ def add_revision(
     changes_summary: str,
 ) -> None:
     """Добавляет запись в историю ревизий."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     revision_id = str(uuid.uuid4())[:8]
 
     entry = RevisionEntry(

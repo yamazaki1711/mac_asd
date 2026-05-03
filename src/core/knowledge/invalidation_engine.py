@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -92,7 +92,7 @@ class RegulatoryChange:
         self.source = source
         self.effective_date = effective_date
         self.confidence = confidence
-        self.created_at = created_at or datetime.utcnow().isoformat()
+        self.created_at = created_at or datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -282,7 +282,7 @@ class InvalidationEngine:
             "changes": [c.to_dict() for c in self._changes.values()],
             "status": {k: v.value for k, v in self._norm_status.items()},
             "replacements": self._norm_replacements,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         with open(_STORE_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -405,7 +405,7 @@ class InvalidationEngine:
                 logger.debug("LLM extraction fallback failed: %s", e)
 
         # 5. Create RegulatoryChange record
-        change_id = _hash_id(f"{domain}:{title}:{datetime.utcnow().isoformat()}")
+        change_id = _hash_id(f"{domain}:{title}:{datetime.now(timezone.utc).isoformat()}")
         change = RegulatoryChange(
             change_id=change_id,
             domain=domain,
@@ -773,7 +773,7 @@ class InvalidationEngine:
         affected_norms = self.extract_norms_from_text(text)
         domains = self.classify_domain(text, domain)
 
-        change_id = _hash_id(f"text:{domain}:{text[:80]}:{datetime.utcnow().isoformat()}")
+        change_id = _hash_id(f"text:{domain}:{text[:80]}:{datetime.now(timezone.utc).isoformat()}")
         change = RegulatoryChange(
             change_id=change_id,
             domain=domain,

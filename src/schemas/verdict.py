@@ -11,7 +11,7 @@ ASD v12.0 — Verdict Report Schema.
 - Финальный вердикт с обоснованием
 """
 
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -157,7 +157,7 @@ class VerdictReport(BaseModel):
         description="ID проекта в БД"
     )
     created_at: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat(),
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="Дата/время создания (ISO 8601)"
     )
 

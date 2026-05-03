@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -150,7 +150,7 @@ class CompReport:
     covered_positions: int        # Закрыто позиций
     gaps: List[CompletenessGap] = field(default_factory=list)
     aosr_trails: List[AOSRTrail] = field(default_factory=list)
-    generated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def completeness_pct(self) -> float:

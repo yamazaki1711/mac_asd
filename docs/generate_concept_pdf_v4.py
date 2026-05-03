@@ -378,7 +378,7 @@ def build_content():
         [Paragraph('Юрист', TABLE_CELL_CENTER),
          Paragraph('Юридическая экспертиза', TABLE_CELL_STYLE),
          Paragraph('Qwen3.5 27B 4-bit', TABLE_CELL_CENTER),
-         Paragraph('БЛС (58 ловушек, 10 категорий), арбитраж, контракты', TABLE_CELL_STYLE)],
+         Paragraph('БЛС (61 ловушка, 10 категорий), арбитраж, контракты', TABLE_CELL_STYLE)],
         [Paragraph('Закупщик', TABLE_CELL_CENTER),
          Paragraph('Закупки и тендеры', TABLE_CELL_STYLE),
          Paragraph('Qwen3.5 27B 4-bit', TABLE_CELL_CENTER),
