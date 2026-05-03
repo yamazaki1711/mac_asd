@@ -25,6 +25,7 @@ ENV/
 .env
 credentials/*.json
 credentials/*.token
+credentials/*.session
 *.pem
 *.key
 

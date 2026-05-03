@@ -31,8 +31,17 @@ from telethon.tl.types import Channel, User
 # Добавляем корень проекта в путь
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Загрузка .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass
+
 API_ID = int(os.environ.get("TELEGRAM_API_ID", "0"))
 API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
+TELEGRAM_PHONE = os.environ.get("TELEGRAM_PHONE", "")
+TELEGRAM_CODE = os.environ.get("TELEGRAM_CODE", "")
 
 CHANNELS_CONFIG = Path(__file__).parent.parent / "config" / "telegram_channels.yaml"
 SESSION_FILE = Path(__file__).parent.parent / "credentials" / "telethon_session"
@@ -296,7 +305,19 @@ async def main():
 
     SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    async with TelegramClient(str(SESSION_FILE), API_ID, API_HASH) as client:
+    client = TelegramClient(str(SESSION_FILE), API_ID, API_HASH)
+    await client.connect()
+    if not await client.is_user_authorized():
+        if not TELEGRAM_PHONE:
+            print("Нужен TELEGRAM_PHONE в .env для первого входа")
+            sys.exit(1)
+        await client.send_code_request(TELEGRAM_PHONE)
+        code = TELEGRAM_CODE or input("Код из Telegram: ")
+        if not code:
+            print("Нужен TELEGRAM_CODE в .env или ввод кода")
+            sys.exit(1)
+        await client.sign_in(TELEGRAM_PHONE, code)
+    try:
         me = await client.get_me()
         print(f"Авторизован как: {me.first_name} (@{me.username})")
 
@@ -312,7 +333,8 @@ async def main():
                 snippet_path.parent.mkdir(parents=True, exist_ok=True)
                 snippet_path.write_text(snippet, encoding="utf-8")
                 print(f"\n  → YAML-фрагмент сохранён: {snippet_path}")
-
+    finally:
+        await client.disconnect()
 
 if __name__ == "__main__":
     asyncio.run(main())
