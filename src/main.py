@@ -59,7 +59,7 @@ async def run_demo(mode: str = "lot_search"):
     # 2. Initial state via AgentState v2.0 factory
     task = (
         "Проверить ВОР и Смету на соответствие чертежам. "
-        "Выявить юридические риски по БЛС (58 ловушек)."
+        "Выявить юридические риски по БЛС (61 ловушка)."
     )
     initial_state = create_initial_state(
         project_id=project_id,
