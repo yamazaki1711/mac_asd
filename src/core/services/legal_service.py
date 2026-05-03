@@ -18,8 +18,10 @@ With Gemma 4 31B (128K context), Map-Reduce is RARELY needed:
 
 import json
 import logging
+import re
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from src.config import settings
@@ -190,6 +192,17 @@ class LegalService:
             f"Legal analysis complete. Findings: {result.total_risks}, "
             f"Verdict: {result.verdict.value}, Duration: {elapsed:.1f}s"
         )
+
+        # ── NormativeGuard: валидация нормативных ссылок ──
+        validation = normative_guard.validate_response(result.summary)
+        if validation["warning"]:
+            logger.warning(validation["warning"])
+            result.normative_validity_warnings.append({
+                "type": "unverified_references",
+                "message": validation["warning"],
+                "unverified": validation["unverified"],
+                "verification_ratio": validation["verification_ratio"],
+            })
 
         return result
 
@@ -572,3 +585,168 @@ class LegalService:
 
 # Singleton
 legal_service = LegalService()
+
+
+# =============================================================================
+# NormativeGuard — SSOT валидатор нормативных ссылок
+# =============================================================================
+
+class NormativeGuard:
+    """
+    Валидатор нормативных ссылок из ответов LLM.
+
+    Принцип: LLM не имеет права ссылаться на нормы, отсутствующие в library/normative/.
+    Перед выдачей результата пользователю все ГОСТ/СП/СНиП/ФЗ из ответа LLM
+    проверяются на наличие в индексе normative_index.json.
+
+    Если ссылка не найдена — она помечается как UNVERIFIED и требует проверки экспертом.
+    """
+
+    def __init__(self):
+        self._index: Dict[str, Any] = {}
+        self._loaded = False
+
+    def _load_index(self) -> Dict[str, Any]:
+        """Загрузить индекс нормативных документов."""
+        if self._loaded:
+            return self._index
+
+        index_paths = [
+            Path("library/normative/normative_index.json"),
+            Path(__file__).parent.parent.parent.parent / "library" / "normative" / "normative_index.json",
+        ]
+        for path in index_paths:
+            if path.exists():
+                try:
+                    self._index = json.loads(path.read_text(encoding="utf-8"))
+                    self._loaded = True
+                    logger.info("NormativeGuard: loaded %d documents from %s",
+                                self._index.get("metadata", {}).get("total", 0), path)
+                    return self._index
+                except (json.JSONDecodeError, OSError) as e:
+                    logger.warning("NormativeGuard: failed to load index %s: %s", path, e)
+
+        logger.warning("NormativeGuard: normative_index.json not found — all references will be UNVERIFIED")
+        self._index = {"documents": {}, "aliases": {}}
+        self._loaded = True
+        return self._index
+
+    def extract_references(self, text: str) -> List[str]:
+        """
+        Извлечь нормативные ссылки из текста (ответ LLM).
+
+        Ищет паттерны: ГОСТ Р XXXX-XXXX, ГОСТ XXXXX-XXXX, СП XX.XXXXX.XXXX,
+        СНиП XX-XX-XXXX, ФЗ-XX, Приказ XXX/пр, ГК РФ, ГрК РФ.
+        """
+        refs = set()
+        patterns = [
+            r"ГОСТ\s*(?:Р\s*)?\d+[\s]*[-–][\s]*\d{2,4}",
+            r"СП\s*\d+\.\d+[\s]*[-–][\s]*\d{4}",
+            r"СНиП\s*[\d\s\-–]+",
+            r"ФЗ[\s]*[-–][\s]*\d+",
+            r"Приказ\s*\d+[\s]*/[\s]*пр",
+            r"ГК\s*РФ",
+            r"ГрК\s*РФ",
+            r"ПП\s*РФ\s*№\s*\d+",
+        ]
+
+        for pattern in patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                ref = match.group(0).strip()
+                # Normalize spacing
+                ref = re.sub(r"\s+", " ", ref)
+                refs.add(ref)
+
+        return sorted(refs)
+
+    def lookup(self, reference: str) -> Optional[Dict[str, Any]]:
+        """
+        Проверить нормативную ссылку по индексу.
+
+        Args:
+            reference: Строка ссылки, например "ГОСТ Р 51872-2024"
+
+        Returns:
+            Информация о документе или None если не найден.
+        """
+        index = self._load_index()
+        documents = index.get("documents", {})
+        aliases = index.get("aliases", {})
+
+        # 1. Direct alias match
+        alias_key = reference.strip()
+        if alias_key in aliases:
+            doc_id = aliases[alias_key]
+            return documents.get(doc_id)
+
+        # 2. Direct document ID match
+        if alias_key in documents:
+            return documents[alias_key]
+
+        # 3. Normalized match: strip spaces, dashes, unify
+        normalized = re.sub(r"\s+", " ", alias_key.lower())
+        normalized = normalized.replace("–", "-").replace("—", "-")
+        normalized = normalized.replace("№", "")
+
+        for doc_id, info in documents.items():
+            doc_norm = re.sub(r"\s+", " ", doc_id.lower())
+            doc_norm = doc_norm.replace("–", "-").replace("—", "-")
+            if normalized in doc_norm or doc_norm in normalized:
+                return info
+
+        # 4. Partial match: e.g. "ГОСТ Р 51872" matches "ГОСТ Р 51872-2024"
+        for doc_id, info in documents.items():
+            if doc_id.lower().startswith(normalized) or normalized.startswith(doc_id.lower()):
+                return info
+
+        return None
+
+    def validate_response(self, response_text: str) -> Dict[str, Any]:
+        """
+        Валидировать все нормативные ссылки в ответе LLM.
+
+        Args:
+            response_text: Полный текст ответа (JSON или plain text)
+
+        Returns:
+            {
+                "total_refs": int,
+                "verified": [{"ref": str, "doc": dict}],
+                "unverified": [str],
+                "verification_ratio": float (0.0-1.0),
+                "warning": str or None
+            }
+        """
+        refs = self.extract_references(response_text)
+        verified = []
+        unverified = []
+
+        for ref in refs:
+            match = self.lookup(ref)
+            if match:
+                verified.append({"ref": ref, "doc": match})
+            else:
+                unverified.append(ref)
+
+        total = len(refs)
+        ratio = len(verified) / max(total, 1)
+
+        warning = None
+        if unverified:
+            warning = (
+                f"⚠️ {len(unverified)} нормативных ссылок не найдены в library/normative/ "
+                f"и не могут быть верифицированы: {', '.join(unverified)}. "
+                f"LLM могла сослаться на несуществующий документ — требуется проверка экспертом."
+            )
+
+        return {
+            "total_refs": total,
+            "verified": verified,
+            "unverified": unverified,
+            "verification_ratio": round(ratio, 2),
+            "warning": warning,
+        }
+
+
+# Singleton
+normative_guard = NormativeGuard()

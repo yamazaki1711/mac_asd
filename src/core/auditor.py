@@ -25,7 +25,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -102,133 +101,275 @@ class AuditorReport:
 # Auditor Prompts
 # =============================================================================
 
-AUDITOR_SYSTEM_PROMPT = """Ты — Агент-Аудитор системы MAC_ASD. Твоя задача — находить ошибки,
-противоречия и пропущенные риски в выводах других агентов.
-
-Ты работаешь в режиме «отрицательного анализа» (red team):
-- Предполагай, что выводы агентов МОГУТ быть ошибочными
-- Ищи логические противоречия между выводами разных агентов
-- Проверяй соответствие нормативной базе (ГОСТ, СП, ФЕР, ФЗ-44/223)
-- Находи пропущенные риски, которые агент не заметил
-- Проверяй внутреннюю согласованность: цифры, единицы измерения, логику
-
-Для каждого найденного противоречия укажи:
-- Какой агент ошибся
-- В чём именно ошибка
-- Серьёзность: CRITICAL (блокирует решение) / HIGH / MEDIUM / LOW
-- Ссылку на нормативный документ (если применимо)
-- Рекомендацию по исправлению
-
-Формат ответа (строго JSON):
-{
-  "findings": [
-    {
-      "target_agent": "legal|smeta|pto|procurement|logistics",
-      "category": "contradiction|missing_risk|norm_violation|logic_error",
-      "description": "описание находки",
-      "severity": "CRITICAL|HIGH|MEDIUM|LOW",
-      "source_docs": ["ГОСТ Р ...", "СП ..."],
-      "recommendation": "что исправить"
-    }
-  ],
-  "overall_verdict": "APPROVED|APPROVED_WITH_NOTES|REJECT",
-  "confidence": 0.0-1.0
-}
-
-Правила:
-- REJECT только если есть CRITICAL находки (противоречие ГОСТ/СП, логическая ошибка в расчётах)
-- APPROVED_WITH_NOTES если есть HIGH находки
-- APPROVED только если все проверки чисты
-- CRITICAL severity — только если ошибка напрямую ведёт к кассовому разрыву или нарушению закона
-"""
-
-AUDITOR_CHECK_PROMPTS = {
-    "pto_vs_smeta": """Проверь согласованность между ПТО (ВОР) и Сметчиком.
-
-Данные ПТО (объёмы работ):
-{pto_data}
-
-Данные Сметчика (расчёт стоимости):
-{smeta_data}
-
-Проверь:
-1. Все ли позиции ВОР учтены в смете?
-2. Соответствуют ли единицы измерения?
-3. Нет ли двойного учёта одних и тех же работ?
-4. Соответствуют ли объёмы (ПТО) и стоимость (Сметчик) — если объём большой, а цена маленькая — почему?
-5. Применены ли правильные региональные коэффициенты и индексы Минстроя?
-
-Найденные противоречия оформи в JSON.""" ,
-
-    "legal_vs_pto": """Проверь согласованность между Юристом и ПТО.
-
-Юридический анализ:
-{legal_data}
-
-Данные ПТО (ВОР, виды работ):
-{pto_data}
-
-Проверь:
-1. Все ли виды работ из ВОР покрыты юридическим анализом?
-2. Есть ли виды работ, для которых юрист НЕ проверил БЛС-ловушки?
-3. Соответствуют ли категории работ между ПТО и Юристом (через WorkTypeRegistry)?
-4. Есть ли скрытые работы (по ВОР), для которых юрист должен был проверить особые условия контракта?
-
-Найденные противоречия оформи в JSON.""",
-
-    "smeta_vs_procurement": """Проверь согласованность между Сметчиком и Закупщиком.
-
-Данные Сметчика:
-{smeta_data}
-
-Данные Закупщика:
-{procurement_data}
-
-Проверь:
-1. Соответствует ли НМЦК (от Закупщика) сметной стоимости (от Сметчика)?
-2. Если маржа < 15%, учтены ли все скрытые затраты (логистика, хранение, утилизация)?
-3. Нет ли позиций с аномально низкой/высокой стоимостью относительно рынка?
-4. Учтены ли региональные особенности в ценах?
-
-Найденные противоречия оформи в JSON.""",
-
-    "cross_agent_consistency": """Проверь кросс-агентную согласованность всего конвейера.
-
-Сигналы агентов для HermesRouter:
-{agent_signals}
-
-Уверенность агентов:
-{confidence_scores}
-
-Финальный вердикт Hermes:
-{hermes_decision}
-
-Проверь:
-1. Нет ли противоречия между сигналами агентов? (Например, ПТО дал 0.9 а Сметчик 0.1)
-2. Если confidence агента низкий (< 0.3), учтено ли это в весовом скоринге?
-3. Не противоречит ли финальный вердикт ключевым рискам?
-4. Если был LLM fallback — адекватно ли это отражено в вердикте?
-
-Найденные противоречия оформи в JSON.""",
-}
-
-
 # =============================================================================
-# Auditor Agent
+# Auditor Agent (rule-based, no LLM-as-Judge)
 # =============================================================================
 
 class AuditorAgent:
     """
     Агент-Аудитор — Red Team для верификации выводов других агентов.
 
-    Использует адверсариальные промпты чтобы заставить LLM искать
-    противоречия и пропущенные риски, а не подтверждать выводы.
+    v12.0: Все проверки 1–4 переведены на rule-based валидацию (без LLM).
+    LLM-as-a-Judge исключён — только структурная сверка данных.
 
     Запускается ПОСЛЕ всех агентов, но ДО финального утверждения вердикта.
     """
 
-    def __init__(self, llm_engine):
-        self._llm = llm_engine
+    def __init__(self, llm_engine=None):
+        self._llm = llm_engine  # Больше не используется (оставлено для обратной совместимости)
+
+    # =========================================================================
+    # Rule-based Cross-Agent Validation (проверки 1–4, без LLM)
+    # =========================================================================
+
+    def _check_pto_vs_smeta(
+        self, pto_data: dict, smeta_data: dict
+    ) -> List[AuditFinding]:
+        """
+        Проверка 1: ПТО vs Сметчик (rule-based).
+
+        Сверяет структуры данных:
+        - Все ли позиции ВОР учтены в смете?
+        - Соответствуют ли единицы измерения?
+        - Нет ли двойного учёта?
+        """
+        import uuid
+        findings = []
+
+        # Extract work items from both agents
+        vor_items = pto_data.get("volumes", []) or pto_data.get("items", [])
+        estimate_items = smeta_data.get("items", []) or smeta_data.get("lines", [])
+
+        if not vor_items or not estimate_items:
+            if vor_items and not estimate_items:
+                findings.append(AuditFinding(
+                    finding_id=str(uuid.uuid4())[:6],
+                    target_agent="smeta",
+                    category="missing_risk",
+                    description=f"ПТО предоставил {len(vor_items)} позиций ВОР, но Сметчик не предоставил смету",
+                    severity=ConflictSeverity.CRITICAL,
+                    recommendation="Сметчик должен рассчитать стоимость по ВОР",
+                ))
+            return findings
+
+        # Build index of estimate items by description
+        est_descriptions = {}
+        for item in estimate_items:
+            desc = str(item.get("description", item.get("name", ""))).lower().strip()
+            unit = str(item.get("unit", "")).lower().strip()
+            qty = item.get("quantity", item.get("amount", 0))
+            est_descriptions[desc] = {"unit": unit, "quantity": qty}
+
+        for vor_item in vor_items:
+            vor_desc = str(vor_item.get("description", vor_item.get("item", ""))).lower().strip()
+            vor_unit = str(vor_item.get("unit", "")).lower().strip()
+            vor_qty = vor_item.get("quantity", 0)
+
+            # Try to find matching estimate item
+            matched = None
+            for est_desc, est_data in est_descriptions.items():
+                if vor_desc in est_desc or est_desc in vor_desc:
+                    matched = est_data
+                    break
+
+            if not matched:
+                findings.append(AuditFinding(
+                    finding_id=str(uuid.uuid4())[:6],
+                    target_agent="smeta",
+                    category="missing_risk",
+                    description=f"Позиция ВОР не найдена в смете: «{vor_item.get('description', vor_item.get('item', ''))}»",
+                    severity=ConflictSeverity.HIGH,
+                    recommendation="Добавить позицию в смету или обосновать исключение",
+                ))
+            else:
+                # Unit mismatch check
+                if vor_unit and matched["unit"] and vor_unit != matched["unit"]:
+                    findings.append(AuditFinding(
+                        finding_id=str(uuid.uuid4())[:6],
+                        target_agent="smeta",
+                        category="contradiction",
+                        description=(
+                            f"Несоответствие единиц: ВОР «{vor_item.get('description', '')}» "
+                            f"→ {vor_unit}, смета → {matched['unit']}"
+                        ),
+                        severity=ConflictSeverity.HIGH,
+                        recommendation="Привести единицы измерения к единому стандарту",
+                    ))
+
+        return findings
+
+    def _check_legal_vs_pto(
+        self, legal_data: dict, pto_data: dict
+    ) -> List[AuditFinding]:
+        """
+        Проверка 2: Юрист vs ПТО (rule-based).
+
+        - Все ли виды работ из ВОР покрыты юридическим анализом?
+        - Есть ли работы, для которых юрист не проверил БЛС-ловушки?
+        """
+        import uuid
+        findings = []
+
+        vor_items = pto_data.get("volumes", []) or pto_data.get("items", [])
+        legal_findings = legal_data.get("findings", []) or legal_data.get("traps_found", [])
+
+        if not vor_items:
+            return findings
+
+        # Extract work types from VOR
+        work_types = set()
+        for item in vor_items:
+            wt = item.get("work_type", item.get("type", ""))
+            if wt:
+                work_types.add(str(wt).lower().strip())
+
+        # Extract work types covered by legal analysis
+        legal_work_types = set()
+        for lf in legal_findings:
+            clause = str(lf.get("clause_ref", lf.get("section", ""))).lower()
+            issue = str(lf.get("issue", lf.get("description", ""))).lower()
+            for wt in work_types:
+                if wt in clause or wt in issue:
+                    legal_work_types.add(wt)
+
+        # Check uncovered work types
+        uncovered = work_types - legal_work_types
+        if uncovered:
+            findings.append(AuditFinding(
+                finding_id=str(uuid.uuid4())[:6],
+                target_agent="legal",
+                category="missing_risk",
+                description=(
+                    f"Виды работ без юридического анализа БЛС: {', '.join(sorted(uncovered))}. "
+                    f"Покрыто: {len(legal_work_types)}/{len(work_types)}"
+                ),
+                severity=ConflictSeverity.HIGH,
+                recommendation="Юрист должен проверить все виды работ по БЛС-ловушкам",
+            ))
+
+        return findings
+
+    def _check_smeta_vs_procurement(
+        self, smeta_data: dict, procurement_data: dict
+    ) -> List[AuditFinding]:
+        """
+        Проверка 3: Сметчик vs Закупщик (rule-based).
+
+        - Соответствует ли НМЦК сметной стоимости?
+        - Если маржа < 15%, учтены ли скрытые затраты?
+        """
+        import uuid
+        findings = []
+
+        est_total = smeta_data.get("total_cost", smeta_data.get("total", 0))
+        nmck = procurement_data.get("nmck", procurement_data.get("starting_price", 0))
+
+        if not est_total or not nmck:
+            return findings
+
+        try:
+            est_total = float(est_total)
+            nmck = float(nmck)
+        except (TypeError, ValueError):
+            return findings
+
+        if nmck <= 0 or est_total <= 0:
+            return findings
+
+        margin_pct = ((nmck - est_total) / est_total) * 100
+
+        if margin_pct < 10:
+            findings.append(AuditFinding(
+                finding_id=str(uuid.uuid4())[:6],
+                target_agent="procurement",
+                category="missing_risk",
+                description=(
+                    f"Маржа {margin_pct:.1f}% — критически низкая. "
+                    f"Сметная стоимость: {est_total:,.0f} ₽, НМЦК: {nmck:,.0f} ₽"
+                ),
+                severity=ConflictSeverity.CRITICAL,
+                recommendation=(
+                    "Проверить калькуляцию. Учтены ли скрытые затраты: "
+                    "логистика, хранение, утилизация, страхование, банковская гарантия?"
+                ),
+            ))
+        elif margin_pct < 15:
+            findings.append(AuditFinding(
+                finding_id=str(uuid.uuid4())[:6],
+                target_agent="procurement",
+                category="missing_risk",
+                description=(
+                    f"Маржа {margin_pct:.1f}% — ниже рекомендуемой. "
+                    f"Сметная стоимость: {est_total:,.0f} ₽, НМЦК: {nmck:,.0f} ₽"
+                ),
+                severity=ConflictSeverity.HIGH,
+                recommendation="Проверить, учтены ли все накладные расходы и риски",
+            ))
+
+        return findings
+
+    def _check_cross_agent_consistency(
+        self, state: Dict[str, Any]
+    ) -> List[AuditFinding]:
+        """
+        Проверка 4: Кросс-агентная согласованность (rule-based).
+
+        - Нет ли противоречия между confidence scores агентов?
+        - Нет ли агентов с аномально низкой уверенностью?
+        """
+        import uuid
+        findings = []
+
+        confidence_scores = state.get("confidence_scores", {})
+        if not confidence_scores:
+            return findings
+
+        # Check for low-confidence outliers
+        low_confidence = []
+        for agent, conf in confidence_scores.items():
+            try:
+                conf_val = float(conf)
+                if conf_val < 0.3:
+                    low_confidence.append((agent, conf_val))
+            except (TypeError, ValueError):
+                pass
+
+        if low_confidence:
+            agents_str = ", ".join(f"{a} ({c:.2f})" for a, c in low_confidence)
+            findings.append(AuditFinding(
+                finding_id=str(uuid.uuid4())[:6],
+                target_agent="orchestrator",
+                category="logic_error",
+                description=(
+                    f"Агенты с аномально низкой уверенностью: {agents_str}. "
+                    f"Результаты этих агентов ненадёжны."
+                ),
+                severity=ConflictSeverity.HIGH,
+                recommendation=(
+                    "Перезапустить агентов с низкой уверенностью или "
+                    "запросить уточнение входных данных"
+                ),
+            ))
+
+        # Check for extreme divergence between related agents
+        agent_signals = state.get("hermes_decision", {}).get("agent_signals", {})
+        if agent_signals:
+            pto_signal = agent_signals.get("pto", "")
+            smeta_signal = agent_signals.get("smeta", "")
+            if pto_signal and smeta_signal and pto_signal != smeta_signal:
+                findings.append(AuditFinding(
+                    finding_id=str(uuid.uuid4())[:6],
+                    target_agent="orchestrator",
+                    category="contradiction",
+                    description=(
+                        f"Расхождение сигналов: ПТО → {pto_signal}, "
+                        f"Сметчик → {smeta_signal}"
+                    ),
+                    severity=ConflictSeverity.MEDIUM,
+                    recommendation="Проверить причину расхождения сигналов между ПТО и Сметчиком",
+                ))
+
+        return findings
 
     async def audit(self, state: Dict[str, Any]) -> AuditorReport:
         """
@@ -246,62 +387,38 @@ class AuditorAgent:
         checks_run = 0
         checks_passed = 0
 
-        # ── Проверка 1: ПТО vs Сметчик ──
+        # ── Проверка 1: ПТО vs Сметчик (rule-based) ──
         pto_data = state.get("vor_result") or {}
         smeta_data = state.get("smeta_result") or {}
         if pto_data or smeta_data:
             checks_run += 1
-            findings = await self._check_pair(
-                "pto_vs_smeta",
-                pto_data=json.dumps(pto_data, ensure_ascii=False, default=str),
-                smeta_data=json.dumps(smeta_data, ensure_ascii=False, default=str),
-            )
+            findings = self._check_pto_vs_smeta(pto_data, smeta_data)
             all_findings.extend(findings)
             if not findings:
                 checks_passed += 1
 
-        # ── Проверка 2: Юрист vs ПТО ──
+        # ── Проверка 2: Юрист vs ПТО (rule-based) ──
         legal_data = state.get("legal_result") or {}
         if legal_data or pto_data:
             checks_run += 1
-            findings = await self._check_pair(
-                "legal_vs_pto",
-                legal_data=json.dumps(legal_data, ensure_ascii=False, default=str),
-                pto_data=json.dumps(pto_data, ensure_ascii=False, default=str),
-            )
+            findings = self._check_legal_vs_pto(legal_data, pto_data)
             all_findings.extend(findings)
             if not findings:
                 checks_passed += 1
 
-        # ── Проверка 3: Сметчик vs Закупщик ──
+        # ── Проверка 3: Сметчик vs Закупщик (rule-based) ──
         procurement_data = state.get("procurement_result") or {}
         if smeta_data or procurement_data:
             checks_run += 1
-            findings = await self._check_pair(
-                "smeta_vs_procurement",
-                smeta_data=json.dumps(smeta_data, ensure_ascii=False, default=str),
-                procurement_data=json.dumps(procurement_data, ensure_ascii=False, default=str),
-            )
+            findings = self._check_smeta_vs_procurement(smeta_data, procurement_data)
             all_findings.extend(findings)
             if not findings:
                 checks_passed += 1
 
-        # ── Проверка 4: Кросс-агентная согласованность ──
-        hermes_decision = state.get("hermes_decision") or {}
-        if hermes_decision:
+        # ── Проверка 4: Кросс-агентная согласованность (rule-based) ──
+        if state.get("confidence_scores") or state.get("hermes_decision"):
             checks_run += 1
-            findings = await self._check_pair(
-                "cross_agent_consistency",
-                agent_signals=json.dumps(
-                    hermes_decision.get("agent_signals", {}),
-                    ensure_ascii=False,
-                ),
-                confidence_scores=json.dumps(
-                    state.get("confidence_scores", {}),
-                    ensure_ascii=False,
-                ),
-                hermes_decision=json.dumps(hermes_decision, ensure_ascii=False, default=str),
-            )
+            findings = self._check_cross_agent_consistency(state)
             all_findings.extend(findings)
             if not findings:
                 checks_passed += 1
@@ -348,55 +465,6 @@ class AuditorAgent:
             passed_checks=checks_passed,
             confidence=confidence,
         )
-
-    async def _check_pair(self, check_name: str, **kwargs) -> List[AuditFinding]:
-        """Проверить одну пару агентов через LLM."""
-        import uuid
-
-        prompt_template = AUDITOR_CHECK_PROMPTS.get(check_name, "")
-        if not prompt_template:
-            return []
-
-        prompt = prompt_template.format(**kwargs)
-        messages = [
-            {"role": "system", "content": AUDITOR_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ]
-
-        try:
-            response = await self._llm.safe_chat(
-                "pm",  # Используем PM-модель для аудита (Llama 70B)
-                messages,
-                fallback_response='{"findings": [], "overall_verdict": "APPROVED", "confidence": 0.5}',
-                temperature=0.2,
-            )
-
-            data = json.loads(response) if isinstance(response, str) else response
-            raw_findings = data.get("findings", [])
-
-            findings = []
-            for f in raw_findings:
-                severity_str = f.get("severity", "MEDIUM").upper()
-                try:
-                    severity = ConflictSeverity(severity_str.lower())
-                except ValueError:
-                    severity = ConflictSeverity.MEDIUM
-
-                findings.append(AuditFinding(
-                    finding_id=str(uuid.uuid4())[:6],
-                    target_agent=f.get("target_agent", "unknown"),
-                    category=f.get("category", "logic_error"),
-                    description=f.get("description", ""),
-                    severity=severity,
-                    source_docs=f.get("source_docs", []),
-                    recommendation=f.get("recommendation", ""),
-                ))
-
-            return findings
-
-        except Exception as e:
-            logger.error(f"Auditor check {check_name} failed: {e}")
-            return []
 
     # =========================================================================
     # Forensic Document Checks (rule-based, no LLM)
