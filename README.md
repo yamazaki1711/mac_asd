@@ -148,7 +148,7 @@ tests/                # 493 теста (478 passed, 15 skipped)
 agents/               # Промпты агентов (Markdown)
 traps/                # БЛС — 61 ловушка (YAML)
 infrastructure/       # Docker Compose
-library/              # 283 файла, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
+library/              # 284 файла, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
 ```
 
 ## Документация

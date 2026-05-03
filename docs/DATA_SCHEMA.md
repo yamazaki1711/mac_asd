@@ -973,7 +973,7 @@ alembic upgrade head  # Применить все миграции
 | `docs/MCP_TOOLS_SPEC.md` | Спецификация MCP-инструментов | Каждый инструмент читает/пишет в определённые таблицы; asd_analyze_contract → contracts + trap_matches; asd_generate_protocol → contracts.ProtocolPartyInfo |
 | `traps/default_traps.yaml` | Библиотека ловушек субподрядчика | 61 ловушка, 10 категорий → таблица traps; YAML-файлы → source_file |
 | `docs/DEPLOYMENT_PLAN.md` | Развёртывание | PostgreSQL 16 + pgvector; VRAM оценки; конфигурация LLMEngine; normative_index.json загрузка; id_requirements.yaml загрузка |
-| `library/normative/normative_index.json` | Нормативный индекс (SSOT) | NormativeGuard валидация; 283 файла, 101 MB библиотека |
+| `library/normative/normative_index.json` | Нормативный индекс (SSOT) | NormativeGuard валидация; 284 файла, 101 MB библиотека |
 | `config/id_requirements.yaml` | Реестр требований ИД | IDRequirementsRegistry — 33 типа работ с требованиями к документам |
 
 ---

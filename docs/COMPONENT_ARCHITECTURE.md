@@ -1688,5 +1688,5 @@ GoogleWorkspaceService (src/core/integrations/google.py) позволяет вс
 *Этот документ описывает внутреннюю архитектуру всех компонентов АСД v12.0.
 Документ актуализирован 2 мая 2026. Package 5 (Evidence Graph v2, Inference Engine, ProjectLoader)
 и Package 11 (Chain Builder, HITL System, Journal Reconstructor v2) — реализованы.
-Библиотека: 271 файл, 101 MB. Все 5 рабочих агентов используют единую копию Gemma 4 31B
+Библиотека: 284 файла, 101 MB. Все 5 рабочих агентов используют единую копию Gemma 4 31B
 (128K контекст) через shared memory, Делопроизводитель использует Gemma 4 E4B.*
