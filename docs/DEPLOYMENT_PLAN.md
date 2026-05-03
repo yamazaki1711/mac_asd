@@ -450,7 +450,7 @@ MLX обеспечивает нативную производительност
   RAM_HIGH_THRESHOLD = 0.90
 
   # Map-Reduce
-  MAP_REDUCE_CHUNK_SIZE = 6000  # символов
+  MAP_REDUCE_CHUNK_SIZE = 12000  # символов (20% overlap)
   MAP_REDUCE_MAX_CHUNKS = 20
 
   # PDF v3
