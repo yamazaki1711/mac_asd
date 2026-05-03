@@ -185,12 +185,12 @@ class LegalAnalysisRequest(BaseModel):
         description="ID проекта"
     )
     chunk_size: int = Field(
-        default=6000,
+        default=12000,
         description="Размер чанка для Map-Reduce (в символах)"
     )
     chunk_overlap: int = Field(
-        default=300,
-        description="Перекрытие между чанками"
+        default=2400,
+        description="Перекрытие между чанками (20%)"
     )
 
 

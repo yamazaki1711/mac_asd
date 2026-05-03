@@ -62,8 +62,8 @@ class LegalService:
 
     def __init__(self):
         self.agent = "legal"
-        self.default_chunk_size = 6000
-        self.default_chunk_overlap = 300
+        self.default_chunk_size = 12000
+        self.default_chunk_overlap = 2400
         # Gemma 4 31B: 128K контекст ≈ 280K Cyrillic символов (1 токен ≈ 2.2 символа)
         # Порог с запасом: оставляем ~20K токенов на промпт + ответ
         self.quick_review_max_chars = 280_000
@@ -366,23 +366,175 @@ class LegalService:
             return "БЛС временно недоступна. Анализ без учёта известных ловушек."
 
     # =========================================================================
-    # Text Chunking
+    # Text Chunking (структурный — не разрывает таблицы и разделы)
     # =========================================================================
+
+    # Regex: нумерованный заголовок раздела верхнего уровня
+    # "5. Ответственность", "10. Порядок", но НЕ "5.1.", "10.2.1."
+    _SECTION_HEADER = re.compile(
+        r'(?:^|\n)(\d+)\.\s+[А-ЯA-Z]',
+        re.MULTILINE,
+    )
+
+    # Regex: строка таблицы (содержит | как разделитель колонок)
+    # Детектит markdown-таблицы и pipe-разделители
+    _TABLE_LINE = re.compile(r'\|.+\|')
 
     @staticmethod
     def _chunk_text(
         text: str,
-        chunk_size: int = 6000,
-        chunk_overlap: int = 300,
+        chunk_size: int = 12000,
+        chunk_overlap: int = 2400,
     ) -> List[str]:
         """
-        Разбивает текст на чанки с перекрытием.
+        Разбивает текст на чанки со структурными границами.
 
-        Старается резать по границам абзацев (двойной перенос строки),
-        чтобы не разрывать предложения.
+        Приоритет: разделы > таблицы > абзацы > предложения.
+        Не разрывает таблицы и разделы контракта.
         """
         if len(text) <= chunk_size:
-            return [text] if text.strip() else []
+            return [text.strip()] if text.strip() else []
+
+        # Stage 1: split into top-level sections
+        sections = LegalService._split_by_sections(text)
+
+        # Stage 2: split oversized sections by tables, then paragraphs
+        chunks = []
+        for section in sections:
+            if len(section) <= chunk_size:
+                if section.strip():
+                    chunks.append(section.strip())
+            else:
+                chunks.extend(
+                    LegalService._split_by_tables(
+                        section, chunk_size, chunk_overlap,
+                    )
+                )
+
+        return chunks
+
+    @staticmethod
+    def _split_by_sections(text: str) -> List[str]:
+        """Нарезать текст по границам нумерованных разделов."""
+        header = LegalService._SECTION_HEADER
+
+        # Find all section boundaries
+        boundaries = [0]
+        for m in header.finditer(text):
+            boundaries.append(m.start())
+
+        if len(boundaries) == 1:
+            return [text]
+
+        # Build sections
+        sections = []
+        for i, start in enumerate(boundaries):
+            end = boundaries[i + 1] if i + 1 < len(boundaries) else len(text)
+            section = text[start:end]
+            if section.strip():
+                sections.append(section)
+
+        return sections
+
+    @staticmethod
+    def _split_by_tables(
+        text: str, chunk_size: int, chunk_overlap: int,
+    ) -> List[str]:
+        """
+        Нарезать секцию по границам таблиц, затем по абзацам.
+
+        Таблица детектится: 2+ строки подряд с разделителями (| / табуляция).
+        Таблицы не разрываются — уходят в отдельный чанк.
+        """
+        table_line = LegalService._TABLE_LINE
+        lines = text.split('\n')
+
+        # Group consecutive table lines into blocks
+        blocks: List[str] = []      # content blocks
+        block_starts: List[int] = [] # start line index
+        in_table = False
+        buf: List[str] = []
+
+        for i, line in enumerate(lines):
+            is_table_row = bool(table_line.search(line))
+
+            if is_table_row and not in_table:
+                # Table starting — flush paragraph buf
+                if buf:
+                    blocks.append('\n'.join(buf))
+                    block_starts.append(i - len(buf))
+                    buf = []
+                in_table = True
+                buf.append(line)
+            elif is_table_row and in_table:
+                buf.append(line)
+            elif not is_table_row and in_table:
+                # Table ended — flush table block
+                blocks.append('\n'.join(buf))
+                block_starts.append(i - len(buf))
+                buf = [line]
+                in_table = False
+            else:
+                buf.append(line)
+
+        if buf:
+            blocks.append('\n'.join(buf))
+
+        # Merge blocks respecting chunk_size
+        return LegalService._merge_blocks(
+            blocks, chunk_size, chunk_overlap,
+        )
+
+    @staticmethod
+    def _merge_blocks(
+        blocks: List[str], chunk_size: int, chunk_overlap: int,
+    ) -> List[str]:
+        """Слить блоки в чанки нужного размера без разрыва таблиц."""
+        chunks: List[str] = []
+        current: List[str] = []
+        current_len = 0
+
+        for block in blocks:
+            block_len = len(block)
+
+            if current_len + block_len <= chunk_size:
+                current.append(block)
+                current_len += block_len
+            else:
+                # Flush current chunk (if any)
+                if current:
+                    chunks.append('\n'.join(current))
+
+                # If a single block exceeds chunk_size (huge table),
+                # split it with overlap (paragraph fallback)
+                if block_len > chunk_size:
+                    subs = LegalService._chunk_by_paragraphs(
+                        block, chunk_size, chunk_overlap,
+                    )
+                    chunks.extend(subs)
+                    current = []
+                    current_len = 0
+                else:
+                    # Start new chunk with overlap from previous
+                    current = [block]
+                    current_len = block_len
+
+        if current:
+            chunks.append('\n'.join(current))
+
+        return chunks
+
+    @staticmethod
+    def _chunk_by_paragraphs(
+        text: str, chunk_size: int, chunk_overlap: int,
+    ) -> List[str]:
+        """
+        Fallback: нарезка по абзацам (для одиночных блоков > chunk_size).
+
+        Старается резать по двойному переносу строки, не разрывая предложения.
+        """
+        if len(text) <= chunk_size:
+            return [text.strip()] if text.strip() else []
 
         chunks = []
         start = 0
@@ -390,15 +542,14 @@ class LegalService:
         while start < len(text):
             end = start + chunk_size
 
-            # Try to cut at paragraph boundary
             if end < len(text):
-                # Look for double newline near the end
-                boundary = text.rfind("\n\n", start + chunk_size // 2, end)
+                # Priority: double newline
+                boundary = text.rfind('\n\n', start + chunk_size // 2, end)
                 if boundary > start:
-                    end = boundary + 2  # Include the newlines
+                    end = boundary + 2
                 else:
-                    # Fall back to single newline
-                    boundary = text.rfind("\n", start + chunk_size // 2, end)
+                    # Single newline
+                    boundary = text.rfind('\n', start + chunk_size // 2, end)
                     if boundary > start:
                         end = boundary + 1
 
@@ -406,7 +557,6 @@ class LegalService:
             if chunk:
                 chunks.append(chunk)
 
-            # Move forward with overlap
             start = end - chunk_overlap if end < len(text) else end
 
         return chunks

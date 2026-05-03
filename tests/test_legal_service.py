@@ -122,8 +122,8 @@ class TestLegalSchemas:
         request = LegalAnalysisRequest(document_text="Test document")
 
         assert request.review_type == ReviewType.CONTRACT
-        assert request.chunk_size == 6000
-        assert request.chunk_overlap == 300
+        assert request.chunk_size == 12000
+        assert request.chunk_overlap == 2400
 
     def test_legal_analysis_result_counts(self):
         """LegalAnalysisResult should compute risk counts."""
