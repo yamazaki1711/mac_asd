@@ -904,7 +904,7 @@ $$ LANGUAGE plpgsql;
 | documents | ~200 | 50 MB | ~20 MB |
 | chunks | ~8000 | 500 MB (вкл. embeddings) | ~200 MB |
 | contracts | ~10 | 1 MB | ~0.5 MB |
-| traps | 58 | 1 MB | ~0.5 MB |
+| traps | 61 | 1 MB | ~0.5 MB |
 | trap_matches | ~200 | 5 MB | ~2 MB |
 | claims | ~5 | 1 MB | ~0.5 MB |
 | lawsuits | ~2 | 1 MB | ~0.5 MB |
