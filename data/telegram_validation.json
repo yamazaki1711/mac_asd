@@ -1,0 +1,191 @@
+{
+  "timestamp": "2026-05-03T16:03:36.006320",
+  "method": "Bot API (Telegram getChat)",
+  "total": 38,
+  "alive": 22,
+  "dead": 16,
+  "alive_channels": {
+    "advokatgrikevich": {
+      "domain": "legal",
+      "subs": 9573,
+      "type": "channel",
+      "title": "Адвокат Грикевич"
+    },
+    "jurist": {
+      "domain": "legal",
+      "subs": 29953,
+      "type": "channel",
+      "title": "Адвокат Шупиков | 115-ФЗ"
+    },
+    "arbitrazhnayapraktika": {
+      "domain": "legal",
+      "subs": 14201,
+      "type": "channel",
+      "title": "Арбитражная практика для юристов"
+    },
+    "yardrey": {
+      "domain": "legal",
+      "subs": 167679,
+      "type": "channel",
+      "title": "Ярдрей - юридический канал"
+    },
+    "sistema_jur": {
+      "domain": "legal",
+      "subs": 12505,
+      "type": "channel",
+      "title": "Система Юрист"
+    },
+    "ocenkaexpru": {
+      "domain": "legal",
+      "subs": 6504,
+      "type": "channel",
+      "title": "Кирилл Мандрика! Экспертиза"
+    },
+    "arbitrium_processus": {
+      "domain": "legal",
+      "subs": 8046,
+      "type": "channel",
+      "title": "Арбитражный процесс для бизнеса"
+    },
+    "stroitelnyi_yurist": {
+      "domain": "legal",
+      "subs": 545,
+      "type": "channel",
+      "title": "Юрист о стройке | ПРАВАУ"
+    },
+    "construction_legal": {
+      "domain": "legal",
+      "subs": 1050,
+      "type": "channel",
+      "title": "Союз юристов в сфере строительства"
+    },
+    "BuglessLawyer": {
+      "domain": "legal",
+      "subs": 564,
+      "type": "channel",
+      "title": "Юрист без багов"
+    },
+    "zem_advokat": {
+      "domain": "legal",
+      "subs": 2002,
+      "type": "channel",
+      "title": "Land Law Firm | Юристы"
+    },
+    "developers_policy": {
+      "domain": "legal",
+      "subs": 44595,
+      "type": "channel",
+      "title": "Законы стройки"
+    },
+    "readinlaw": {
+      "domain": "legal",
+      "subs": 11895,
+      "type": "channel",
+      "title": "Прочёл в законе"
+    },
+    "pto_cdo": {
+      "domain": "pto",
+      "subs": 2046,
+      "type": "supergroup",
+      "title": "ПТО"
+    },
+    "stroycontrol_ru": {
+      "domain": "pto",
+      "subs": 1,
+      "type": "channel",
+      "title": "СТРОЙКОНТРОЛЬ"
+    },
+    "prorab_ru": {
+      "domain": "pto",
+      "subs": 53,
+      "type": "channel",
+      "title": "ПРОРАБъ"
+    },
+    "minstroyrf": {
+      "domain": "legal",
+      "subs": 57848,
+      "type": "channel",
+      "title": "Минстрой России"
+    },
+    "glavgosexpertiza": {
+      "domain": "legal",
+      "subs": 1,
+      "type": "channel",
+      "title": "Строитель"
+    },
+    "bim_club": {
+      "domain": "pto",
+      "subs": 3,
+      "type": "supergroup",
+      "title": "Bim club"
+    },
+    "revitvideos": {
+      "domain": "pto",
+      "subs": 5997,
+      "type": "channel",
+      "title": "Revit Video"
+    },
+    "technonicol_tg": {
+      "domain": "procurement",
+      "subs": 14224,
+      "type": "channel",
+      "title": "ТЕХНОНИКОЛЬ"
+    },
+    "cool_construction": {
+      "domain": "pto",
+      "subs": 63544,
+      "type": "channel",
+      "title": "Инсайдер"
+    }
+  },
+  "dead_channels": {
+    "umnaya_stroyka": {
+      "error": "private/inaccessible (empty response)"
+    },
+    "advokat_polikirzha": {
+      "error": "private/inaccessible (empty response)"
+    },
+    "stroy_news": {
+      "error": "chat not found"
+    },
+    "jkh_pravo": {
+      "error": "chat not found"
+    },
+    "ptoshniki": {
+      "error": "chat not found"
+    },
+    "ispolnitelnaya": {
+      "error": "chat not found"
+    },
+    "civil_engineer_blog": {
+      "error": "chat not found"
+    },
+    "stroy_expert": {
+      "error": "chat not found"
+    },
+    "tehreg_stroy": {
+      "error": "chat not found"
+    },
+    "stroy_codex": {
+      "error": "private/inaccessible (empty response)"
+    },
+    "bim_manager": {
+      "error": "chat not found"
+    },
+    "digital_build": {
+      "error": "chat not found"
+    },
+    "smetnoe_delo": {
+      "error": "chat not found"
+    },
+    "smetchik_pro": {
+      "error": "chat not found"
+    },
+    "aibuild_ru": {
+      "error": "chat not found"
+    },
+    "stroysudexpert": {
+      "error": "chat not found"
+    }
+  }
+}
