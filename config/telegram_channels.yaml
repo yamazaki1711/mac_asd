@@ -358,6 +358,390 @@ channels:
     engagement_rate: "активная группа"
     expected_trap_density: high
 
+  # === Олег: Топ-20 каналов (добавлено 3 мая 2026) ===
+
+  # -- PTO Core (6 каналов) --
+
+  - username: ptoshniki
+    domain: pto
+    display_name: "ПТОшники"
+    url: "https://t.me/ptoshniki"
+    author: "Сообщество ПТОшников"
+    description: >
+      Главный неформальный канал инженеров ПТО: шаблоны АОСР/АООК,
+      общий журнал, разбор ошибок — ядро ЦА MAC_ASD.
+    category: pto_practice
+    priority: critical
+    focus_areas:
+      - шаблоны АОСР/АООК
+      - общий журнал работ
+      - разбор ошибок ПТО
+      - исполнительная документация
+    subscriber_count: "~5k"
+    engagement_rate: "высокая"
+    expected_trap_density: very_high
+
+  - username: ispolnitelnaya
+    domain: pto
+    display_name: "Исполнительная документация"
+    url: "https://t.me/ispolnitelnaya"
+    author: "ИД-практика"
+    description: >
+      Практика ИД: акты освидетельствования, исполнительные схемы,
+      порядок сдачи — ключевой тип документов для ingestion pipeline.
+    category: pto_practice
+    priority: critical
+    focus_areas:
+      - акты освидетельствования
+      - исполнительные схемы
+      - порядок сдачи ИД
+      - типовые ошибки при сдаче
+    subscriber_count: "~3k"
+    engagement_rate: "высокая"
+    expected_trap_density: high
+
+  - username: stroycontrol_ru
+    domain: pto
+    display_name: "Стройконтроль / Технадзор"
+    url: "https://t.me/stroycontrol_ru"
+    author: "Стройконтроль РФ"
+    description: >
+      Канал стройконтроля и технадзора: фото дефектов с описанием,
+      разбор нарушений — данные для scan_detector и auditor.
+    category: pto_practice
+    priority: high
+    focus_areas:
+      - строительный контроль
+      - дефекты и нарушения
+      - технадзор
+      - фотофиксация
+    subscriber_count: "~8k"
+    engagement_rate: "средняя"
+    expected_trap_density: high
+
+  - username: civil_engineer_blog
+    domain: pto
+    display_name: "Блог инженера-строителя"
+    url: "https://t.me/civil_engineer_blog"
+    author: "Инженер-строитель"
+    description: >
+      Авторский блог: реальные кейсы ПТО и стройконтроля,
+      рабочие ситуации — понимание болей пользователя.
+    category: pto_practice
+    priority: high
+    focus_areas:
+      - кейсы ПТО
+      - стройконтроль
+      - реальные ситуации
+      - инженерная практика
+    subscriber_count: "~2k"
+    engagement_rate: "высокая"
+    expected_trap_density: medium
+
+  - username: stroy_expert
+    domain: pto
+    display_name: "Стройка. Главный эксперт"
+    url: "https://t.me/stroy_expert"
+    author: "Эксперт стройки"
+    description: >
+      Аналитика по стройке, нормативке, типичным проблемам —
+      контекст для evidence graph.
+    category: pto_news
+    priority: medium
+    focus_areas:
+      - аналитика строительства
+      - нормативная база
+      - типичные проблемы
+    subscriber_count: "~15k"
+    engagement_rate: "средняя"
+    expected_trap_density: medium
+
+  - username: prorab_ru
+    domain: pto
+    display_name: "Прораб / Стройплощадка"
+    url: "https://t.me/prorab_ru"
+    author: "Прораб"
+    description: >
+      Канал прораба: жизнь стройплощадки, реальные кейсы,
+      организация работ — низовой уровень ЦА.
+    category: pto_practice
+    priority: medium
+    focus_areas:
+      - организация работ
+      - стройплощадка
+      - кейсы прораба
+    subscriber_count: "~10k"
+    engagement_rate: "высокая"
+    expected_trap_density: medium
+
+  # === Нормативная база / Регуляторика (4 канала) ===
+
+  - username: minstroyrf
+    domain: legal
+    display_name: "Минстрой России"
+    url: "https://t.me/minstroyrf"
+    author: "Минстрой РФ"
+    description: >
+      Официальный канал: изменения законодательства, новые СП/ГОСТ —
+      пополнение knowledge base MAC_ASD.
+    category: legal_news
+    priority: critical
+    focus_areas:
+      - изменения законодательства
+      - новые СП и ГОСТ
+      - приказы Минстроя
+      - нормативные обновления
+    subscriber_count: "~50k"
+    engagement_rate: "официальный"
+    expected_trap_density: low
+
+  - username: tehreg_stroy
+    domain: legal
+    display_name: "Техническое регулирование в стройке"
+    url: "https://t.me/tehreg_stroy"
+    author: "Техрег Строй"
+    description: >
+      Разборы новых сводов правил, техрегламентов, ТР ТС —
+      напрямую питает normative knowledge base MAC_ASD.
+    category: legal_education
+    priority: critical
+    focus_areas:
+      - технические регламенты
+      - своды правил
+      - ТР ТС
+      - нормативная база
+    subscriber_count: "~4k"
+    engagement_rate: "экспертная"
+    expected_trap_density: medium
+
+  - username: stroy_codex
+    domain: legal
+    display_name: "СтройКодекс"
+    url: "https://t.me/stroy_codex"
+    author: "СтройКодекс"
+    description: >
+      Юридические аспекты строительства: договоры, споры, арбитраж —
+      для legal_tools и HITL.
+    category: legal_practice
+    priority: high
+    focus_areas:
+      - строительные споры
+      - договоры подряда
+      - арбитраж
+      - судебная практика
+    subscriber_count: "~6k"
+    engagement_rate: "средняя"
+    expected_trap_density: high
+
+  - username: glavgosexpertiza
+    domain: legal
+    display_name: "Главгосэкспертиза РФ"
+    url: "https://t.me/glavgosexpertiza"
+    author: "Главгосэкспертиза"
+    description: >
+      Требования к ПСД, экспертиза, типовые замечания —
+      валидация completeness check.
+    category: legal_news
+    priority: high
+    focus_areas:
+      - экспертиза ПСД
+      - типовые замечания
+      - требования к документации
+    subscriber_count: "~20k"
+    engagement_rate: "официальный"
+    expected_trap_density: medium
+
+  # === BIM / Цифровизация (4 канала) ===
+
+  - username: bim_club
+    domain: pto
+    display_name: "BIM: Внедрение и технологии"
+    url: "https://t.me/bim_club"
+    author: "BIM Club"
+    description: >
+      Главный русскоязычный BIM-канал: софт, обмен опытом —
+      интеграция цифрового следа стройки.
+    category: pto_news
+    priority: medium
+    focus_areas:
+      - BIM технологии
+      - цифровой след стройки
+      - обмен опытом
+    subscriber_count: "~8k"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  - username: bim_manager
+    domain: pto
+    display_name: "BIM-менеджер"
+    url: "https://t.me/bim_manager"
+    author: "BIM-менеджер"
+    description: >
+      Практика BIM-менеджмента, коллизии, координация —
+      для inventory pipeline.
+    category: pto_news
+    priority: medium
+    focus_areas:
+      - BIM-менеджмент
+      - коллизии
+      - координация разделов
+    subscriber_count: "~3k"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  - username: revitvideos
+    domain: pto
+    display_name: "Revit / BIM Обучение"
+    url: "https://t.me/revitvideos"
+    author: "Revit Videos"
+    description: >
+      Обучение Revit и BIM-инструментам.
+    category: pto_news
+    priority: low
+    focus_areas:
+      - Revit
+      - BIM обучение
+    subscriber_count: "~5k"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  - username: digital_build
+    domain: pto
+    display_name: "Цифровое строительство"
+    url: "https://t.me/digital_build"
+    author: "Digital Build"
+    description: >
+      IoT, лазерное сканирование, дроны —
+      технологии для VLM classifier.
+    category: pto_news
+    priority: medium
+    focus_areas:
+      - лазерное сканирование
+      - дроны в стройке
+      - IoT
+      - цифровые технологии
+    subscriber_count: "~4k"
+    engagement_rate: "средняя"
+    expected_trap_density: low
+
+  # === Сметы / Экономика (2 канала) ===
+
+  - username: smetnoe_delo
+    domain: smeta
+    display_name: "Сметное дело"
+    url: "https://t.me/smetnoe_delo"
+    author: "Сметное дело"
+    description: >
+      ФЕР/ГЭСН, КС-2/КС-3, индексы —
+      MAC_ASD работает со сметной документацией.
+    category: smeta_practice
+    priority: critical
+    focus_areas:
+      - ФЕР/ГЭСН
+      - КС-2/КС-3
+      - индексы Минстроя
+      - сметное ценообразование
+    subscriber_count: "~7k"
+    engagement_rate: "высокая"
+    expected_trap_density: high
+
+  - username: smetchik_pro
+    domain: smeta
+    display_name: "Сметчик Про"
+    url: "https://t.me/smetchik_pro"
+    author: "Сметчик Про"
+    description: >
+      Сложные случаи, изменения в ценообразовании —
+      питает typical_rates.yaml.
+    category: smeta_practice
+    priority: critical
+    focus_areas:
+      - сложные случаи смет
+      - ценообразование
+      - типовые расценки
+      - экспертиза смет
+    subscriber_count: "~4k"
+    engagement_rate: "экспертная"
+    expected_trap_density: high
+
+  # === AI / Экспертиза / Tech (4 канала) ===
+
+  - username: aibuild_ru
+    domain: pto
+    display_name: "AI в девелопменте и стройке"
+    url: "https://t.me/aibuild_ru"
+    author: "AI Build"
+    description: >
+      Нейросети для стройки: VLM для документов, предиктивная аналитика —
+      ближайший к тех-стеку MAC_ASD.
+    category: pto_news
+    priority: high
+    focus_areas:
+      - AI в строительстве
+      - VLM для документов
+      - предиктивная аналитика
+      - ML в стройке
+    subscriber_count: "~3k"
+    engagement_rate: "экспертная"
+    expected_trap_density: low
+
+  - username: stroysudexpert
+    domain: legal
+    display_name: "Судебная строительная экспертиза"
+    url: "https://t.me/stroysudexpert"
+    author: "Судстройэксперт"
+    description: >
+      Методики экспертизы, типовые ошибки, прецеденты —
+      напрямую про Evidence Graph.
+    category: legal_practice
+    priority: critical
+    focus_areas:
+      - судебная экспертиза
+      - методики экспертизы
+      - прецеденты
+      - Evidence Graph
+    subscriber_count: "~5k"
+    engagement_rate: "экспертная"
+    expected_trap_density: very_high
+
+  - username: technonicol_tg
+    domain: procurement
+    display_name: "ТЕХНОНИКОЛЬ. Строим вместе"
+    url: "https://t.me/technonicol_tg"
+    author: "Технониколь"
+    description: >
+      Крупнейший корпоративный строительный канал:
+      материалы, технологии, обучение — для procurement.
+    category: procurement_news
+    priority: medium
+    focus_areas:
+      - строительные материалы
+      - технологии
+      - поставщики
+      - обучение
+    subscriber_count: "~30k"
+    engagement_rate: "корпоративный"
+    expected_trap_density: low
+
+  - username: cool_construction
+    domain: pto
+    display_name: "Инсайдер. Главный по домам"
+    url: "https://t.me/cool_construction"
+    author: "Инсайдер"
+    description: >
+      Инсайды рынка, девелопмент, разбор кейсов —
+      контекст отрасли.
+    category: pto_news
+    priority: medium
+    focus_areas:
+      - инсайды рынка
+      - девелопмент
+      - кейсы
+      - аналитика
+    subscriber_count: "~12k"
+    engagement_rate: "высокая"
+    expected_trap_density: low
+
   # ===========================================================================
   # DOMAIN: SMETA — КАНАЛЫ СМЕТЧИКОВ (заготовка для будущего наполнения)
   # ===========================================================================
