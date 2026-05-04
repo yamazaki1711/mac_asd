@@ -80,7 +80,7 @@ class ScanDetector:
                         try:
                             page_count = int(line.split(':')[1].strip())
                         except ValueError:
-                            pass
+                            logger.debug("Failed to parse page count from pdfinfo line: %s", line.strip())
                     elif line.startswith('Creator:'):
                         scanner_model = line.split(':', 1)[1].strip()
                         if not scanner_model or scanner_model == '—':

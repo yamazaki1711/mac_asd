@@ -210,7 +210,7 @@ class EvidenceGraph:
         gdir.mkdir(parents=True, exist_ok=True)
         return gdir / "evidence_graph.pkl"
 
-    def _load_graph(self):
+    def _load_graph(self) -> None:
         """Загрузить граф с диска."""
         path = self._graph_path()
         if path.exists():
@@ -235,7 +235,7 @@ class EvidenceGraph:
                     logger.warning("No saved graph found — starting fresh")
                     self.graph = nx.DiGraph()
 
-    def save(self):
+    def save(self) -> None:
         """Сохранить граф на диск (GML формат)."""
         import copy
         path = self._graph_path().with_suffix('.gml')
@@ -250,9 +250,9 @@ class EvidenceGraph:
                 clean.add_edge(u, v, **clean_data)
             nx.write_gml(clean, str(path))
         except Exception as e:
-            logger.debug("Failed to save graph: %s", e)
+            logger.warning("Failed to save evidence graph: %s", e)
 
-    def clear(self):
+    def clear(self) -> None:
         """Очистить граф."""
         self.graph.clear()
         self._node_counter.clear()

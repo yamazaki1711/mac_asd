@@ -89,7 +89,7 @@ class DocumentRepository:
                 if doc_type:
                     stmt = stmt.where(Document.doc_type == doc_type)
                 stmt = stmt.order_by(Document.created_at.desc()).offset(offset).limit(limit)
-                return list(session.execute(stmt).scalars().all())
+                return session.execute(stmt).scalars().all()
         except (ImportError, OSError):
             return []
 

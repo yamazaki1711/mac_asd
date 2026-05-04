@@ -9,7 +9,11 @@ __all__ = [
     "LegalService", "legal_service",
     "PTOAgent", "pto_agent",
     "DeloAgent", "delo_agent",
+    "SmetaAgent", "smeta_agent",
     "JournalRestorer", "journal_restorer",
+    "LegalDocumentGenerator", "legal_doc_gen",
+    "WorkEntryService", "work_entry_service",
+    "id_requirements",
 ]
 
 
@@ -22,8 +26,15 @@ def __getattr__(name: str):
         "pto_agent": "src.core.services.pto_agent",
         "DeloAgent": "src.core.services.delo_agent",
         "delo_agent": "src.core.services.delo_agent",
+        "SmetaAgent": "src.core.services.smeta_agent",
+        "smeta_agent": "src.core.services.smeta_agent",
         "JournalRestorer": "src.core.services.journal_restorer",
         "journal_restorer": "src.core.services.journal_restorer",
+        "LegalDocumentGenerator": "src.core.services.legal_documents",
+        "legal_doc_gen": "src.core.services.legal_documents",
+        "WorkEntryService": "src.core.services.work_entry",
+        "work_entry_service": "src.core.services.work_entry",
+        "id_requirements": "src.core.services.id_requirements",
     }
     if name not in _LAZY_IMPORTS:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -34,7 +45,7 @@ def __getattr__(name: str):
     return attr
 
 
-def get_batch_id_generator():
+def get_batch_id_generator() -> tuple:
     """Lazy import to avoid hard dependency on python-docx."""
     from src.core.services.batch_id_generator import BatchIDGenerator, batch_id_generator
     return BatchIDGenerator, batch_id_generator

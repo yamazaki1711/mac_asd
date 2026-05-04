@@ -122,6 +122,10 @@ class ServiceContainer:
     def is_initialized(self) -> bool:
         return self._initialized
 
+    def mark_initialized(self) -> None:
+        """Mark container as bootstrapped (called by container_setup)."""
+        self._initialized = True
+
 
 # ── Module-level singleton ────────────────────────────────────────────────
 

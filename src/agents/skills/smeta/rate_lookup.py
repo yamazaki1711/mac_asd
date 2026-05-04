@@ -910,6 +910,7 @@ class SmetaRateLookup(SkillBase):
         try:
             smeta_category = get_smeta_category(resolved)
         except ValueError:
+            logger.debug("Failed to get smeta category for resolved: %s", resolved)
             smeta_category = None
 
         result_data: Dict[str, Any] = {

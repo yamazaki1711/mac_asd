@@ -144,7 +144,7 @@ class ReferenceService:
 
             with Session() as session:
                 stmt = select(ReferenceData.code).where(ReferenceData.domain == domain)
-                return list(session.execute(stmt).scalars().all())
+                return session.execute(stmt).scalars().all()
         except Exception as e:
             logger.debug("ReferenceService.list_codes DB error: %s", e)
 

@@ -350,8 +350,9 @@ class KnowledgeBase:
             import urllib.request
 
             body = json.dumps({"model": "bge-m3", "prompt": text}).encode("utf-8")
+            from src.config import settings
             req = urllib.request.Request(
-                "http://127.0.0.1:11434/api/embeddings",
+                f"{settings.OLLAMA_BASE_URL}/api/embeddings",
                 data=body,
                 headers={"Content-Type": "application/json"},
             )

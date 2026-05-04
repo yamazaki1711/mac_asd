@@ -52,7 +52,7 @@ def bootstrap() -> None:
     # ── 5. Support services (lazy) ──────────────────────────────────
     _register_support_services()
 
-    container._initialized = True
+    container.mark_initialized()
     logger.info(
         "Container bootstrapped: %d registered types",
         len(container._factories) + len(container._registry),
@@ -93,32 +93,32 @@ def _register_agent_services() -> None:
         container.register(LegalService, lambda: LegalService(
             llm_engine=container.resolve(LLMEngine)
         ))
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)
 
     try:
         from src.core.services.pto_agent import PTOAgent
         container.register(PTOAgent, lambda: PTOAgent(
             llm_engine=container.resolve(LLMEngine)
         ))
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)
 
     try:
         from src.core.services.smeta_agent import SmetaAgent
         container.register(SmetaAgent, lambda: SmetaAgent(
             llm_engine=container.resolve(LLMEngine)
         ))
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)
 
     try:
         from src.core.services.delo_agent import DeloAgent
         container.register(DeloAgent, lambda: DeloAgent(
             llm_engine=container.resolve(LLMEngine)
         ))
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)
 
 
 def _register_support_services() -> None:
@@ -128,17 +128,17 @@ def _register_support_services() -> None:
     try:
         from src.core.lessons_service import LessonsService
         container.register(LessonsService, lambda: LessonsService())
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)
 
     try:
         from src.core.reference_service import ReferenceService
         container.register(ReferenceService, lambda: ReferenceService())
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)
 
     try:
         from src.core.graph_service import GraphService
         container.register(GraphService, lambda: GraphService())
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Service not registered (import failed): %s", e)

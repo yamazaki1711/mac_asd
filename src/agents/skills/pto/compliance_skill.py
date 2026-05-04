@@ -98,7 +98,7 @@ class PTOComplianceSkill:
             wt = WorkType(work_type_query)
             return self._spec_from_worktype(wt)
         except ValueError:
-            pass
+            logger.debug("WorkType not recognized for query: %s", work_type_query)
 
         # Step 2: idprosto fuzzy match
         code = idprosto_loader.resolve_work_type(work_type_query)

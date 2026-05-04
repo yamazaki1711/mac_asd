@@ -613,14 +613,14 @@ class IngestionPipeline:
         self._vlm_classifier = None
 
     @property
-    def scan_detector(self):
+    def scan_detector(self) -> "ScanDetector":
         if self._scan_detector is None:
             from src.core.scan_detector import scan_detector
             self._scan_detector = scan_detector
         return self._scan_detector
 
     @property
-    def vlm_classifier(self):
+    def vlm_classifier(self) -> "VLMClassifier":
         if self._vlm_classifier is None:
             from src.core.vlm_classifier import vlm_classifier
             self._vlm_classifier = vlm_classifier

@@ -131,7 +131,7 @@ class RAGPipeline:
             # 2. Graph context
             graph_context = []
             if include_graph and vector_results:
-                doc_ids = set(str(r["doc_id"]) for r in vector_results)
+                doc_ids = set(r["doc_id"] for r in vector_results)
                 for doc_id in doc_ids:
                     graph_context.extend(graph_service.get_related_nodes(node_id=doc_id, depth=1))
 

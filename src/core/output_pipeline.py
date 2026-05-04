@@ -82,7 +82,7 @@ class NumberingService:
         self.state_file = Path(state_file or os.path.expanduser("~/.hermes/asd_numbering.json"))
         self._load()
 
-    def _load(self):
+    def _load(self) -> None:
         import json
         try:
             if self.state_file.exists():
@@ -92,7 +92,7 @@ class NumberingService:
             logger.debug("Failed to load output pipeline state: %s", e)
             self._state = {}
 
-    def _save(self):
+    def _save(self) -> None:
         import json
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.state_file, "w") as f:
@@ -122,6 +122,16 @@ class A4Template:
 
     FONT_MAIN = "Times New Roman"
 
+    # Layout constants — instantiated once at class definition time
+    if _HAS_DOCX:
+        FONT_SIZE_BODY = Pt(12)
+        FONT_SIZE_SMALL = Pt(10)
+        FONT_SIZE_TITLE = Pt(14)
+        MARGIN_TOP = Cm(2)
+        MARGIN_BOTTOM = Cm(2)
+        MARGIN_LEFT = Cm(3)
+        MARGIN_RIGHT = Cm(1.5)
+
     def __init__(self):
         if not _HAS_DOCX:
             raise ImportError(
@@ -130,34 +140,6 @@ class A4Template:
             )
         self.doc = Document()
         self._setup_page()
-
-    @property
-    def FONT_SIZE_BODY(self):
-        return Pt(12)
-
-    @property
-    def FONT_SIZE_SMALL(self):
-        return Pt(10)
-
-    @property
-    def FONT_SIZE_TITLE(self):
-        return Pt(14)
-
-    @property
-    def MARGIN_TOP(self):
-        return Cm(2)
-
-    @property
-    def MARGIN_BOTTOM(self):
-        return Cm(2)
-
-    @property
-    def MARGIN_LEFT(self):
-        return Cm(3)    # 3 см слева — под подшивку
-
-    @property
-    def MARGIN_RIGHT(self):
-        return Cm(1.5)
 
     def _setup_page(self):
         """Настройка страницы А4."""

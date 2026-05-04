@@ -149,7 +149,7 @@ class WorkEntryParser:
                     unit = m.group(2).replace("м3", "м³").replace("м.п.", "м.п.").replace("м.пог.", "м.п.")
                     result["volume"] = {"unit": unit, "quantity": qty}
                 except ValueError:
-                    pass
+                    logger.debug("Failed to parse volume quantity from text: %s", text[:200])
                 break
 
         # 5. Извлечь материалы (партии)
