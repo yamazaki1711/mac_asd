@@ -362,7 +362,8 @@ class PTO_PDAnalysis(SkillBase):
         try:
             data = self._parse_json_response(response)
             return data.get("collisions", [])
-        except Exception:
+        except (json.JSONDecodeError, ValueError, RuntimeError) as e:
+            logger.debug("LLM semantic collision check failed, falling back to keyword: %s", e)
             return self._keyword_semantic_check(sections)
 
     def _keyword_semantic_check(

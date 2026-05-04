@@ -34,6 +34,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional
@@ -352,10 +353,11 @@ class RamManager:
             gc.collect()
             python_objects_kb = sum(
                 sys.getsizeof(o) for o in gc.get_objects()
-                if not isinstance(o, (type, module, function))
+                if not isinstance(o, (type, types.ModuleType)) and not callable(o)
             )
             python_objects_mb = python_objects_kb / 1024
-        except Exception:
+        except (TypeError, RuntimeError, OSError) as e:
+            logger.debug("Failed to estimate Python object memory: %s", e)
             python_objects_mb = 0.0
 
         # Определение статуса (с учётом GPU если есть)

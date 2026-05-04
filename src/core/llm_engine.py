@@ -358,7 +358,8 @@ class LLMEngine:
                 result["backends"]["deepseek"] = {"available": True}
             else:
                 result["backends"]["deepseek"] = {"available": False, "error": "no API key"}
-        except Exception:
+        except (AttributeError, RuntimeError) as e:
+            logger.debug("DeepSeek availability check failed: %s", e)
             result["backends"]["deepseek"] = {"available": False}
 
         ok_count = sum(

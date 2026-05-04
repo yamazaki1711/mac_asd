@@ -755,7 +755,8 @@ class PTOAgent:
         try:
             from src.core.knowledge.invalidation_engine import invalidation_engine
             results = invalidation_engine.check_validity_batch(norm_refs)
-        except Exception:
+        except (ImportError, AttributeError, RuntimeError) as e:
+            logger.debug("InvalidationEngine unavailable, skipping norms check: %s", e)
             return []
 
         warnings = []
@@ -856,8 +857,8 @@ class PTOAgent:
                     lines.append(f"Исполнительные схемы: {len(summary['schemas'])} шт.")
                 lines.append(f"\nНормативных ссылок: {len(summary['normative_refs'])}")
                 return "\n".join(lines)
-        except Exception:
-            pass
+        except (KeyError, TypeError, ValueError) as e:
+            logger.debug("Summary formatting failed for work_type=%s: %s", work_type, e)
 
         return f"Неизвестный вид работ: {work_type}"
 

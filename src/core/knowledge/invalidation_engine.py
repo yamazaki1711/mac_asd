@@ -312,7 +312,8 @@ class InvalidationEngine:
             with _os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             _os.replace(tmp_path, _STORE_PATH)
-        except Exception:
+        except (OSError, json.JSONDecodeError, RuntimeError) as e:
+            logger.warning("Failed to persist invalidation store: %s", e)
             if _os.path.exists(tmp_path):
                 _os.unlink(tmp_path)
             raise
@@ -558,7 +559,8 @@ class InvalidationEngine:
         try:
             from src.core.knowledge.idprosto_loader import idprosto_loader
             all_norms = idprosto_loader.get_all_normative_refs()
-        except Exception:
+        except (ImportError, AttributeError, RuntimeError) as e:
+            logger.debug("idprosto_loader unavailable: %s", e)
             return entries
 
         for ref in all_norms:
@@ -590,7 +592,8 @@ class InvalidationEngine:
         try:
             from src.core.knowledge.template_registry import template_registry
             matching = template_registry.resolve_form(norm)
-        except Exception:
+        except (ImportError, AttributeError, RuntimeError) as e:
+            logger.debug("template_registry unavailable: %s", e)
             return entries
 
         for tpl in matching:

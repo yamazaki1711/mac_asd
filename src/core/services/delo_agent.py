@@ -566,7 +566,8 @@ class DeloAgent:
         try:
             with open(tmpl_path, "r", encoding="utf-8") as f:
                 return _json.load(f)
-        except Exception:
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to load regulation templates from %s: %s", tmpl_path, e)
             return {}
 
     # -------------------------------------------------------------------------

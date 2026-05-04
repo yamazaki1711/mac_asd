@@ -606,8 +606,8 @@ class StreamingParser:
                     method=ParseMethod.ODA_CONVERTER.value,
                     confidence=0.5,
                 )
-        except Exception:
-            pass
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.debug("ODA File Converter failed: %s", e)
 
         return ParsedChunk(
             content=f"{dwg_info}\n[ODA File Converter not available. Install for DWG support.]",
@@ -702,8 +702,8 @@ class StreamingParser:
                 metadata["pdf_created"] = pdf_meta.get("creationDate", "")
                 metadata["pdf_pages"] = doc.page_count
                 doc.close()
-            except Exception:
-                pass
+            except (ImportError, OSError, RuntimeError) as e:
+                logger.debug("PDF metadata extraction failed: %s", e)
 
         return metadata
 
@@ -716,7 +716,8 @@ class StreamingParser:
                 for chunk in iter(lambda: f.read(8192), b""):
                     h.update(chunk)
             return h.hexdigest()[:16]
-        except Exception:
+        except (OSError, ValueError, RuntimeError) as e:
+            logger.debug("File hash failed for %s: %s", file_path, e)
             return ""
 
     # -------------------------------------------------------------------------

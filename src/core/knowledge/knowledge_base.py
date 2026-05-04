@@ -79,7 +79,8 @@ class KnowledgeBase:
                 with self._get_session() as db:
                     db.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"))
                 self._vector_available = True
-            except Exception:
+            except (ImportError, OSError, RuntimeError) as e:
+                logger.debug("pgvector unavailable: %s", e)
                 self._vector_available = False
         return self._vector_available
 
@@ -361,8 +362,8 @@ class KnowledgeBase:
                     return embedding
                 logger.debug("Ollama embedding returned dim=%d, expected 1024",
                            len(embedding) if embedding else 0)
-        except Exception:
-            pass  # Silently fall through to next tier
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            logger.debug("Ollama embedding failed: %s", e)  # fall through to next tier
         return None
 
     @staticmethod

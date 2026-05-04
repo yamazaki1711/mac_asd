@@ -190,7 +190,8 @@ class JournalReconstructor:
                 total_days = (d2 - d1).days + 1
                 days_with_entries = len(set(e.date for e in journal.entries))
                 journal.coverage = min(1.0, days_with_entries / total_days) if total_days > 0 else 0.0
-            except Exception:
+            except (ValueError, TypeError, KeyError) as e:
+                logger.debug("Coverage calculation failed: %s", e)
                 journal.coverage = 0.0
         
         return journal
@@ -390,7 +391,8 @@ class JournalReconstructor:
                     rate_info = inference_engine._rates.get(wu_type, 
                                 inference_engine._rates.get('default', {'rate': 1, 'unit': 'ед/день'}))
                     daily_rate = rate_info.get('rate', 1)
-                except Exception:
+                except (ImportError, AttributeError, KeyError, TypeError) as e:
+                    logger.debug("Rate lookup failed for '%s': %s", wu_type, e)
                     daily_rate = 1
                 
                 qty = mat['quantity'] or 1
@@ -428,8 +430,8 @@ class JournalReconstructor:
                             materials=mat['material_name'],
                         ))
                         known_dates.add(work_date_str)
-                except Exception:
-                    pass
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.debug("Work date expansion failed for '%s': %s", mat.get('material_name', '?'), e)
         
         return entries
 
@@ -465,9 +467,9 @@ class JournalReconstructor:
                             source=EntrySource.LACUNA,
                             notes=f"Требуется уточнение у оператора. День {day_offset} из {gap}.",
                         ))
-            except Exception:
-                pass
-        
+            except (ValueError, TypeError) as e:
+                logger.debug("Lacuna entry creation failed: %s", e)
+
         return lacunae
 
     def format_journal_table(self, journal: ReconstructedJournal, max_entries: int = 50) -> str:

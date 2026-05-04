@@ -74,7 +74,8 @@ class RAGPipeline:
                     file_path=file_path, doc_type=doc_type,
                     metadata=parse_result.metadata,
                 )
-            except Exception:
+            except (ValueError, OSError, RuntimeError) as e:
+                logger.warning("Document repo create failed for %s: %s", filename, e)
                 return None
 
         # 2. Auto-classify

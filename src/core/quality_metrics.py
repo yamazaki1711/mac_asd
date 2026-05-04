@@ -456,8 +456,9 @@ class InstrumentedPipeline:
             graph_time = (time.monotonic() - t0) * 1000
             self._qc.record_graph_ingestion(nodes, graph_time)
             return nodes
-        except Exception:
+        except (ValueError, RuntimeError, OSError) as e:
             graph_time = (time.monotonic() - t0) * 1000
+            logger.warning("Graph ingestion failed: %s", e)
             self._qc.record_graph_ingestion(0, graph_time, errors=1)
             return 0
 

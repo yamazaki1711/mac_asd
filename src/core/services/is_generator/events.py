@@ -28,6 +28,8 @@ try:
 except ImportError:
     STRUCTLOG_AVAILABLE = False
 
+logger = logging.getLogger(__name__)
+
 
 # ─── Типы событий ────────────────────────────────────────────────────────────
 
@@ -228,8 +230,8 @@ class ISEventEmitter:
             try:
                 with open(self._json_log_path, "a", encoding="utf-8") as f:
                     f.write(event.to_json() + "\n")
-            except Exception:
-                pass  # Не ломаем пайплайн из-за ошибки записи лога
+            except OSError as e:
+                logger.debug("Event JSON log write failed: %s", e)
 
     def get_events(
         self,

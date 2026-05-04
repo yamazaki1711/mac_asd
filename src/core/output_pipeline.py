@@ -88,7 +88,8 @@ class NumberingService:
             if self.state_file.exists():
                 with open(self.state_file) as f:
                     self._state = json.load(f)
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            logger.debug("Failed to load output pipeline state: %s", e)
             self._state = {}
 
     def _save(self):

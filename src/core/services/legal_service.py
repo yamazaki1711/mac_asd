@@ -622,7 +622,8 @@ class LegalService:
         try:
             from src.core.knowledge.invalidation_engine import invalidation_engine
             results = invalidation_engine.check_validity_batch(norm_refs)
-        except Exception:
+        except (ImportError, AttributeError, RuntimeError) as e:
+            logger.debug("InvalidationEngine unavailable, skipping norms check: %s", e)
             return []
 
         warnings = []

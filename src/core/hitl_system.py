@@ -243,7 +243,8 @@ class HITLSystem:
             try:
                 chains = chain_builder.build_chains(graph)
                 chain_report = chain_builder.generate_report(chains)
-            except Exception:
+            except (ValueError, AttributeError, RuntimeError) as e:
+                logger.warning("Chain build failed, skipping chain questions: %s", e)
                 chain_report = None
         
         if chain_report:
@@ -277,8 +278,8 @@ class HITLSystem:
                             graph_nodes=[wu1['id'], wu2['id']],
                             suggested_answers=["Продолжались те же работы", "Другие работы:", "Простой"],
                         ))
-                except Exception:
-                    pass
+                except (ValueError, TypeError, ImportError) as e:
+                    logger.debug("Генерация лакуны не удалась: %s", e)
         
         # ── Сортировка по приоритету ───────────────────────────────────
         priority_order = {HITLPriority.CRITICAL: 0, HITLPriority.HIGH: 1,

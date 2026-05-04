@@ -420,8 +420,8 @@ class GOSTStampGenerator:
         for name in (STAMP_LAYER, STAMP_TEXT_LAYER):
             try:
                 doc.layers.get(name)
-            except Exception:
+            except (ValueError, AttributeError, RuntimeError):
                 try:
                     doc.layers.add(name, dxfattribs={"color": 7})
-                except Exception:
-                    pass
+                except (ValueError, RuntimeError) as e:
+                    logger.debug("DXF layer ensure failed for '%s': %s", name, e)

@@ -133,7 +133,8 @@ class HybridClassifier:
             import json
             data = json.loads(response) if isinstance(response, str) else response
             return (data.get("type", "unknown"), data.get("confidence", 0.5), data.get("reasoning", ""))
-        except Exception:
+        except (json.JSONDecodeError, ValueError, RuntimeError) as e:
+            logger.warning("LLM classification parse failed: %s", e)
             return ("unknown", 0.0, "LLM parse error")
 
 

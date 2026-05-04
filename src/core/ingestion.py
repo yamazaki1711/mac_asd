@@ -736,8 +736,8 @@ class IngestionPipeline:
                 if result and result.confidence > confidence:
                     doc_type = DocumentType(result.doc_type) if result.doc_type in DocumentType.__members__ else doc_type
                     confidence = result.confidence
-        except Exception:
-            pass  # Keyword classification wins
+        except (ImportError, AttributeError, RuntimeError) as e:
+            logger.debug("Hybrid classifier unavailable, using keyword: %s", e)
 
         # VLM fallback: если keyword-классификатор не уверен — пробуем VLM
         # VLM fallback #1: keyword confidence < 0.5

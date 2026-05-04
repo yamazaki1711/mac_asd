@@ -20,9 +20,12 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from src.schemas.verdict import (
@@ -217,8 +220,10 @@ class HealthAwareRouter:
             self._pm_healthy = True
             self._consecutive_failures = 0
             return True
-        except Exception:
+        except (OSError, ValueError, RuntimeError) as e:
             self._consecutive_failures += 1
+            logger.warning("PM health check failed (%d/%d): %s",
+                          self._consecutive_failures, self._max_failures_before_fallback, e)
             if self._consecutive_failures >= self._max_failures_before_fallback:
                 self._pm_healthy = False
             return False

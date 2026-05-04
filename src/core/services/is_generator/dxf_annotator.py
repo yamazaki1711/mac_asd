@@ -401,9 +401,8 @@ class DXFAnnotator:
         for name, color in layer_data:
             try:
                 doc.layers.get(name)
-            except Exception:
-                # Слой не существует — создаём
+            except (ValueError, AttributeError, RuntimeError):
                 try:
                     doc.layers.add(name, dxfattribs={"color": color})
-                except Exception:
-                    pass
+                except (ValueError, RuntimeError) as e:
+                    logger.debug("DXF layer ensure failed for '%s': %s", name, e)

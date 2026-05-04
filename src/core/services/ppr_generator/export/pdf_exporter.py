@@ -55,7 +55,8 @@ class PPRPDFExporter:
         try:
             pdfmetrics.registerFont(TTFont("DejaVu", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
             font_name = "DejaVu"
-        except Exception:
+        except (OSError, ImportError, RuntimeError) as e:
+            logger.debug("DejaVu font registration failed: %s", e)
             font_name = "Helvetica"
 
         output_path = tempfile.mktemp(suffix=".pdf", prefix=f"ppr_{safe_code}_")
