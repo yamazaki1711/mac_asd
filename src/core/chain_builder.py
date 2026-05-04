@@ -222,7 +222,7 @@ class ChainBuilder:
             Список DocumentChain — по одной на каждый WorkUnit
         """
         from src.core.evidence_graph import (
-            WorkUnitStatus, DocType, DocStatus, EdgeType
+            WorkUnitStatus, DocType, EvidenceDocStatus, EdgeType
         )
         
         work_units = graph.get_work_units()
@@ -244,7 +244,7 @@ class ChainBuilder:
     def _build_single_chain(self, graph, wu: dict) -> DocumentChain:
         """Построить цепочку для одного WorkUnit."""
         from src.core.evidence_graph import (
-            DocType, DocStatus, EdgeType
+            DocType, EvidenceDocStatus, EdgeType
         )
         
         wu_id = wu['id']

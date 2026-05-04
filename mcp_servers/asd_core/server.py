@@ -50,6 +50,12 @@ from mcp_servers.asd_core.tools.logistics_tools import (
 from mcp_servers.asd_core.tools.general_tools import (
     asd_get_system_status
 )
+from mcp_servers.asd_core.tools.evidence_tools import (
+    asd_evidence_query, asd_evidence_summary, asd_evidence_get_chain,
+)
+from mcp_servers.asd_core.tools.chain_tools import (
+    asd_chain_build, asd_chain_report, asd_chain_validate,
+)
 from mcp_servers.asd_core.tools.lab_tools import (
     asd_lab_control_plan_create, asd_lab_sample_register, asd_lab_report_review,
     asd_lab_organization_search, asd_lab_quote_request, asd_lab_quote_compare,
@@ -130,6 +136,16 @@ mcp.add_tool(asd_compare_quotes)
 
 # Группа 7: Общий (1 инструмент)
 mcp.add_tool(asd_get_system_status)
+
+# Группа 7b: Evidence Graph v2 (3 инструмента)
+mcp.add_tool(asd_evidence_query)
+mcp.add_tool(asd_evidence_summary)
+mcp.add_tool(asd_evidence_get_chain)
+
+# Группа 7c: Chain Builder (3 инструмента)
+mcp.add_tool(asd_chain_build)
+mcp.add_tool(asd_chain_report)
+mcp.add_tool(asd_chain_validate)
 
 # Группа 8: Лабораторный контроль — ПТО (3 инструмента)
 mcp.add_tool(asd_lab_control_plan_create)
