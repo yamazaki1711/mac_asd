@@ -16,7 +16,7 @@ export ASD_PROFILE=dev_linux    # или mac_studio
 
 # Тесты
 pip install -e ".[dev]"
-pytest tests/ -v                           # 752 passed, 15 skipped, 767 collected
+pytest tests/ -v                           # 590 passed, 15 skipped, 605 collected (dev_linux)
 
 # Веб-интерфейс
 PYTHONPATH=. python src/web/app.py        # http://localhost:8080
@@ -84,15 +84,15 @@ python -m mcp_servers.asd_core.server
 | **ConstructionElement** | `src/db/models.py` | Физическая структура: Захватки + Конструктивы + ElementDocument |
 | **WorkEntry** | `src/core/services/work_entry.py` | Цифровой ОЖР: парсер Telegram-сообщений → WorkEntry → триггер АОСР |
 | Batch ID Generator | `src/core/services/batch_id_generator.py` | Сквозная нумерация документов АОСР-{project}-{seq:04d} |
-| Telegram Scout | `src/core/telegram_scout.py` | Мониторинг Telegram-каналов: тендеры, поставщики, стройки |
+| Telegram Bot | `src/core/telegram_bot.py` | Приём WorkEntry от полевых инженеров |
 | Container (DI) | `src/core/container.py` | Dependency Injection: единая точка сборки компонентов |
 | Google Workspace | `src/core/integrations/google.py` | Drive, Sheets, Docs, Gmail через OAuth2/Service Account |
 | Document Repository | `src/core/document_repository.py` | Абстракция хранилища документов (локальные + Google Drive) |
 | **Web UI** | `src/web/app.py` | Flask-интерфейс: дашборд, проекты, документы, HITL, evidence graph, отчёты |
-| **Backup System** | `src/core/backup_service.py` | Авто-бэкапы: PostgreSQL, NetworkX-графы, артефакты |
-| **Telegram Scout** | `src/core/telegram_scout.py` | Мониторинг 40+ Telegram-каналов: тендеры, поставщики |
+| **Backup System** | `src/core/backup.py` | Авто-бэкапы: PostgreSQL, NetworkX-графы, артефакты |
+| **Telegram Bot** | `src/core/telegram_bot.py` | Приём WorkEntry через Telegram |
 | **Forensic Checks** | `src/core/evidence_graph.py` | batch_coverage, orphan_certificates, certificate_reuse |
-| **NumberingService** | `src/core/services/numbering_service.py` | Сквозная нумерация документов: АОСР, письма, реестры |
+| **NumberingService** | `src/core/numbering_service.py` | Сквозная нумерация документов: АОСР, письма, реестры |
 
 ### Evidence Graph v2 — два режима, один граф
 
@@ -146,7 +146,7 @@ src/
 │   ├── graph_service.py, auditor.py        # Forensic KAG
 │   ├── hybrid_classifier.py                # Classifier + Guidance
 │   ├── completeness_matrix.py              # Матрица комплектности ИД
-│   ├── backup_service.py                   # Авто-бэкапы БД/графов/артефактов
+│   ├── backup.py                            # Авто-бэкапы БД/графов/артефактов
 │   ├── llm_engine.py, backends/            # MLX/Ollama/DeepSeek
 │   ├── knowledge/                          # Инвалидация знаний, реестр шаблонов
 │   ├── integrations/google.py              # Google Workspace (Drive, Sheets, Docs, Gmail)
@@ -162,11 +162,11 @@ src/
 ├── db/                # SQLAlchemy + Alembic
 └── config.py          # Профили (dev_linux / mac_studio)
 
-mcp_servers/asd_core/  # FastMCP (74 инструмента)
-tests/                 # 767 тестов (752 passed, 15 skipped)
+mcp_servers/asd_core/  # FastMCP (8 инструментов, 16 заглушек)
+tests/                 # 605 тестов (590 passed, 15 skipped) на dev_linux; 767 (752 passed) на mac_studio
 agents/                # Промпты агентов (Markdown)
 scripts/               # Утилиты: run_inventory.py, run_benchmark.py, generate_synthetic_docs.py
-traps/                 # БЛС — 61 ловушка, 10 категорий (YAML)
+traps/                 # БЛС — 61 ловушка, 11 категорий (YAML)
 infrastructure/        # Docker Compose
 library/               # 284 файла, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
 ```
@@ -176,7 +176,7 @@ library/               # 284 файла, 101 MB — ГОСТы, СП, шабло
 | Файл | Содержание |
 |------|-----------|
 | `agents.md` | Манифест оркестратора — протоколы, workflow, правила |
-| `docs/COMPREHENSIVE_ANALYSIS_20260505.md` | **Свежий** комплексный анализ: 752 теста, 83K LOC, Grok P0 |
+| `docs/COMPREHENSIVE_ANALYSIS_20260505.md` | **Свежий** комплексный анализ: 590 тестов (dev_linux), 83K LOC, Grok P0 |
 | `docs/STATUS.md` | Сводный статус проекта (актуализирован 05.05.2026) |
 | `docs/CONCEPT_v13.md` | Концепция системы |
 | `docs/COMPONENT_ARCHITECTURE.md` | Внутренняя архитектура компонентов |

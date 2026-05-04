@@ -16,7 +16,7 @@
 - **Обновлена ТГ-база знаний:** +38 новых записей из 163 сообщений (всего 820)
 - **Нормативная база:** `normative_index.json` v13.0 актуален (05.05.2026), критических изменений не требуется
 - **IDRequirementsRegistry:** Приказ 344/пр от 16.05.2023 — актуален
-- **Тесты:** 752 passed, 15 skipped — без регрессий
+- **Тесты:** 590 passed (dev_linux), 752 passed (mac_studio), 15 skipped — без регрессий
 
 ### Обнаружено (не удалялось — в плане)
 - `fallback_router.py`, `completeness_matrix.py`, `project_loader.py` — запланированы, не подключены (P1)
@@ -68,10 +68,10 @@
 - Auditor: 8 правил кросс-проверки (rule-based, без LLM-as-Judge)
 - NormativeGuard: SSOT-валидация (normative_index.json)
 - Vision Cascade: Stage 1/2, Gemma 4 31B Cloud VLM
-- БЛС: 61 ловушка в 10 категориях
+- БЛС: 61 ловушка в 11 категориях
 - Структурный чанкинг: 12000/2400, без разрыва разделов и таблиц
 - Google Workspace: Gmail, Drive, Sheets, Docs
-- MCP Server: 74 инструмента (7 агентов + auditor)
+- MCP Server: 8 инструментов (7 агентов + auditor), 16 заглушек
 
 ---
 
@@ -84,7 +84,7 @@
 | Строк Python (src/) | 49,477 |
 | Строк Python (tests/) | 12,183 |
 | Строк Python (mcp_servers/) | 5,375 |
-| MCP-инструментов | 74 |
+| MCP-инструментов | 8 (+16 заглушек) |
 | Агентов | 7 + Auditor |
 | Тестовых файлов | 32 |
 | Веб-страниц (Flask) | 6 + HITL-интерфейс |
@@ -110,10 +110,10 @@
 ## 3. Состояние тестов
 
 ```
-752 passed, 15 skipped in 8.13s
+590 passed, 15 skipped in ~8s (dev_linux)
 ```
 
-**Pass rate: 98.0%** (752/767 collected)
+**Pass rate: 97.5%** (590/605 collected, dev_linux)
 
 ### Покрытие по категориям
 
@@ -155,7 +155,7 @@
 | Дата | passed | skipped | total |
 |------|--------|---------|-------|
 | 04.05.2026 | 590 | 15 | 605 |
-| **05.05.2026** | **752** | **15** | **767** |
+| **05.05.2026** | **590** | **15** | **605** |
 
 **+162 теста за сутки** — результат реализации P0-задач (web UI, бэкапы, Telegram-бот) и расширения Evidence Graph/Journal/Chain Builder.
 
