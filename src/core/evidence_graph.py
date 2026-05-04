@@ -699,6 +699,153 @@ class EvidenceGraph:
 
         return chain
 
+    # ── Forensic Checks ──────────────────────────────────────────────────
+
+    def check_batch_coverage(self) -> List[Dict[str, Any]]:
+        """
+        Проверка покрытия: Σ объёмов в АОСР ≤ размер партии сертификата.
+
+        Выявляет сертификаты, где использованный объём превышает
+        заявленный размер партии — признак подлога или дублирования.
+        """
+        findings = []
+        for nid, data in self.graph.nodes(data=True):
+            if data.get("node_type") != "MaterialBatch":
+                continue
+            batch_qty = data.get("quantity", 0)
+            material = data.get("material_name", nid)
+            if batch_qty <= 0:
+                continue
+
+            # Sum usage from linked WorkUnits
+            total_used = 0.0
+            affected_wus = []
+            for succ in self.graph.successors(nid):
+                if self.graph.nodes[succ].get("node_type") != "WorkUnit":
+                    continue
+                edge = self.graph.edges.get((nid, succ), {})
+                qty = float(edge.get("quantity", 0))
+                total_used += qty
+                affected_wus.append(succ)
+
+            if total_used > batch_qty:
+                excess = total_used - batch_qty
+                excess_pct = (excess / batch_qty * 100) if batch_qty > 0 else 0
+                findings.append({
+                    "check": "batch_coverage",
+                    "severity": "critical",
+                    "material_batch_id": nid,
+                    "material": material,
+                    "batch_quantity": batch_qty,
+                    "total_used": total_used,
+                    "excess": excess,
+                    "excess_pct": round(excess_pct, 1),
+                    "affected_work_units": affected_wus,
+                    "description": (
+                        f"Сертификат {material} покрывает {batch_qty}, "
+                        f"но по {len(affected_wus)} WorkUnit использовано {total_used:.1f} "
+                        f"(превышение на {excess:.1f}, +{excess_pct:.0f}%)"
+                    ),
+                })
+        return findings
+
+    def check_orphan_certificates(self) -> List[Dict[str, Any]]:
+        """
+        Найти сертификаты без привязки к WorkUnit (осиротевшие).
+
+        Сертификат без WorkUnit = материал не привязан ни к одной работе.
+        Либо сертификат лишний, либо работа не зафиксирована.
+        """
+        orphans = []
+        for nid, data in self.graph.nodes(data=True):
+            if data.get("node_type") != "Document":
+                continue
+            if data.get("doc_type") not in (DocType.CERTIFICATE.value,
+                                             DocType.PASSPORT.value):
+                continue
+            # Check if this document is connected to any MaterialBatch or WorkUnit
+            has_connection = False
+            for pred in self.graph.predecessors(nid):
+                has_connection = True
+                break
+            for succ in self.graph.successors(nid):
+                has_connection = True
+                break
+            if not has_connection:
+                orphans.append({
+                    "check": "orphan_certificate",
+                    "severity": "medium",
+                    "document_id": nid,
+                    "doc_type": data.get("doc_type"),
+                    "doc_number": data.get("doc_number", ""),
+                    "description": (
+                        f"Сертификат {data.get('doc_number', nid)} "
+                        f"не привязан ни к одной партии материала или работе"
+                    ),
+                })
+        return orphans
+
+    def check_certificate_reuse(self) -> List[Dict[str, Any]]:
+        """
+        Проверить сертификаты, использованные в нескольких WorkUnit.
+
+        Один сертификат на несколько работ = риск подлога (ксерокопия).
+        """
+        findings = []
+        for nid, data in self.graph.nodes(data=True):
+            if data.get("node_type") != "MaterialBatch":
+                continue
+            work_units = []
+            for succ in self.graph.successors(nid):
+                if self.graph.nodes[succ].get("node_type") == "WorkUnit":
+                    work_units.append(succ)
+            if len(work_units) >= 2:
+                findings.append({
+                    "check": "certificate_reuse",
+                    "severity": "high",
+                    "material_batch_id": nid,
+                    "material": data.get("material_name", nid),
+                    "work_units_count": len(work_units),
+                    "work_unit_ids": work_units,
+                    "description": (
+                        f"Сертификат на {data.get('material_name', nid)} "
+                        f"использован в {len(work_units)} WorkUnit "
+                        f"— риск подлога или ошибки комплектации"
+                    ),
+                })
+        return findings
+
+    def run_all_forensic_checks(self) -> Dict[str, Any]:
+        """Запустить все forensic-проверки и вернуть сводку."""
+        batch = self.check_batch_coverage()
+        orphans = self.check_orphan_certificates()
+        reuse = self.check_certificate_reuse()
+
+        critical = [f for f in batch if f["severity"] == "critical"]
+        high = [f for f in reuse if f["severity"] == "high"]
+        medium = [f for f in orphans if f["severity"] == "medium"]
+
+        return {
+            "batch_coverage": {
+                "findings": batch,
+                "critical_count": len(critical),
+            },
+            "orphan_certificates": {
+                "findings": orphans,
+                "orphan_count": len(orphans),
+            },
+            "certificate_reuse": {
+                "findings": reuse,
+                "reuse_count": len(reuse),
+            },
+            "summary": {
+                "total_findings": len(batch) + len(orphans) + len(reuse),
+                "critical": len(critical),
+                "high": len(high),
+                "medium": len(medium),
+            },
+        }
+
     def summary(self) -> Dict[str, Any]:
         """Сводка по графу."""
         node_counts = {}
