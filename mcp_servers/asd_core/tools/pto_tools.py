@@ -143,150 +143,102 @@ async def asd_id_completeness(
     work_types: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Проверка комплектности ИД по видам работ.
+    Проверка комплектности ИД по видам работ с проверкой фактического наличия документов.
 
-    Сравнивает фактический комплект документов с перечнем,
-    установленным для каждого вида работ на основе Пособия 2026.
-    Покрывает все 20 видов работ.
+    Сопоставляет требуемый состав ИД (344/пр, 33 вида работ) с данными
+    в Evidence Graph для выявления реального delta (разрыва).
 
     Args:
         project_id: Идентификатор проекта
-        work_types: Список видов работ (из WorkType). Если None — проверяются все.
+        work_types: Список видов работ. Если None — проверяются все 33.
 
     Returns:
-        Отчёт о комплектности с перечнем требуемых документов по видам работ.
-        Каждый документ помечен: обязательный (mandatory=True),
-        условный (conditional=...), необязательный (mandatory=False).
+        Отчёт о комплектности с delta (разрывом) между требуемыми и имеющимися документами.
     """
-    from src.agents.skills.pto.work_spec import PTO_WorkSpec, WorkType
+    from src.core.services.id_requirements import id_requirements
 
-    skill = PTO_WorkSpec()
-
+    all_wt = id_requirements.list_work_types()
     if work_types is None:
-        work_types = [wt.value for wt in WorkType]
+        work_types = all_wt
+    else:
+        work_types = [wt for wt in work_types if wt in all_wt]
+
+    # Query Evidence Graph for actually present documents
+    present_docs_by_type: Dict[str, List[str]] = {}
+    try:
+        from src.core.evidence_graph import evidence_graph, DocType
+        # Map DocType values to requirement IDs
+        DOC_TYPE_TO_REQ_ID = {
+            DocType.AOSR.value: "aosr",
+            DocType.CERTIFICATE.value: "certificate",
+            DocType.PASSPORT.value: "passport",
+            DocType.EXECUTIVE_SCHEME.value: "executive_scheme",
+            DocType.JOURNAL.value: "journal",
+            DocType.KS2.value: "ks2",
+            DocType.PROTOCOL.value: "test_protocol",
+        }
+        for nid, data in evidence_graph.graph.nodes(data=True):
+            if data.get("node_type") == "Document":
+                doc_type = data.get("doc_type", "")
+                req_id = DOC_TYPE_TO_REQ_ID.get(doc_type, doc_type)
+                if req_id not in present_docs_by_type:
+                    present_docs_by_type[req_id] = []
+                present_docs_by_type[req_id].append(nid)
+    except Exception:
+        present_docs_by_type = {}
 
     completeness: Dict[str, Any] = {}
-    total_required = 0
+    total_delta = 0
+    total_required_count = 0
 
     for wt in work_types:
-        result = await skill._execute({
-            "work_type": wt,
-            "include_regulations": False,
-            "include_tech_sequence": False,
-            "include_date_rules": False,
-        })
-
-        if result.status.value != "success":
+        try:
+            required = id_requirements.get_required_documents(wt)
+        except Exception:
             completeness[wt] = {"error": f"Неизвестный вид работ: {wt}"}
             continue
 
-        data = result.data
-        summary = data.get("summary", {})
+        req_ids = [doc["id"] for doc in required if doc["required"]]
+        present_ids: List[str] = []
+        for req_id in req_ids:
+            present_ids.extend(present_docs_by_type.get(req_id, []))
 
-        # Собираем все требуемые документы с пометками обязательности
-        required_docs = []
-
-        for j in data.get("journals", []):
-            required_docs.append({
-                "category": "journal",
-                "name": j["name"],
-                "mandatory": j.get("mandatory", True),
-                "conditional": j.get("conditional"),
-            })
-            total_required += 1
-
-        for a in data.get("hidden_works_acts", []):
-            required_docs.append({
-                "category": "act_hidden",
-                "name": a["name"],
-                "mandatory": a.get("mandatory", True),
-                "conditional": a.get("conditional"),
-            })
-            total_required += 1
-
-        for a in data.get("responsible_acts", []):
-            required_docs.append({
-                "category": "act_responsible",
-                "name": a["name"],
-                "mandatory": a.get("mandatory", True),
-            })
-            total_required += 1
-
-        for a in data.get("acceptance_acts", []):
-            required_docs.append({
-                "category": "act_acceptance",
-                "name": a["name"],
-                "mandatory": a.get("mandatory", True),
-            })
-            total_required += 1
-
-        for s in data.get("executive_schemes", []):
-            required_docs.append({
-                "category": "scheme",
-                "name": s["name"],
-                "mandatory": s.get("mandatory", True),
-                "conditional": s.get("conditional"),
-            })
-            total_required += 1
-
-        for c in data.get("certificates", []):
-            required_docs.append({
-                "category": "certificate",
-                "name": c["name"],
-                "mandatory": c.get("mandatory", True),
-            })
-            total_required += 1
-
-        for d in data.get("additional_docs", []):
-            required_docs.append({
-                "category": "additional",
-                "name": d["name"],
-                "mandatory": d.get("mandatory", True),
-            })
-            total_required += 1
-
-        # Подсчёт обязательных и условных
-        mandatory_count = sum(1 for d in required_docs if d["mandatory"] and not d.get("conditional"))
-        conditional_count = sum(1 for d in required_docs if d.get("conditional"))
-        optional_count = sum(1 for d in required_docs if not d["mandatory"] and not d.get("conditional"))
+        delta_result = id_requirements.calculate_delta(wt, present_ids)
 
         completeness[wt] = {
-            "chapter": data.get("chapter", ""),
-            "category": data.get("category", ""),
-            "required_docs": required_docs,
-            "summary": summary,
-            "counts": {
-                "mandatory": mandatory_count,
-                "conditional": conditional_count,
-                "optional": optional_count,
-                "total": len(required_docs),
-            },
+            "total_required": delta_result["total_required"],
+            "present": delta_result["present"],
+            "delta": delta_result["delta"],
+            "completeness_pct": delta_result["completeness_pct"],
+            "required_docs": [
+                {
+                    "id": d["id"],
+                    "name": d["name"],
+                    "type": d["type"],
+                    "quantity": d.get("quantity", 1),
+                    "present_in_graph": d["id"] in present_docs_by_type,
+                }
+                for d in required if d["required"]
+            ],
+            "missing": delta_result["missing"],
         }
+        total_delta += delta_result["delta"]
+        total_required_count += delta_result["total_required"]
 
-    # Общий подсчёт по проекту
-    total_mandatory = sum(
-        c["counts"]["mandatory"]
-        for c in completeness.values()
-        if isinstance(c, dict) and "counts" in c
-    )
-    total_conditional = sum(
-        c["counts"]["conditional"]
-        for c in completeness.values()
-        if isinstance(c, dict) and "counts" in c
+    overall_pct = round(
+        (total_required_count - total_delta) / max(total_required_count, 1) * 100, 1
     )
 
     return {
         "status": "success",
         "project_id": project_id,
+        "work_types_count": len(work_types),
         "work_types_checked": work_types,
-        "total_required_docs": total_required,
-        "overview": {
-            "total_mandatory": total_mandatory,
-            "total_conditional": total_conditional,
-            "work_types_count": len(work_types),
-        },
+        "total_required_docs": total_required_count,
+        "total_delta": total_delta,
+        "overall_completeness_pct": overall_pct,
         "completeness": completeness,
-        "note": "Для автоматической проверки наличия документов требуется интеграция с БД проекта",
+        "source": "344/пр + Evidence Graph v2",
     }
 
 
