@@ -1,5 +1,5 @@
 """
-ASD v12.0 — Lightweight DI container.
+ASD v13.0 — Lightweight DI container.
 
 Type-keyed service registry with lazy singleton creation, test overrides,
 and full reset support. Replaces ad-hoc module-level singleton wiring.
@@ -19,7 +19,7 @@ class ServiceNotRegisteredError(Exception):
 
 class ServiceContainer:
     """
-    Lightweight service container for ASD v12.0 singletons.
+    Lightweight service container for ASD v13.0 singletons.
 
     Features:
       - Lazy singleton creation via factory functions

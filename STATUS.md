@@ -1,7 +1,7 @@
 # MAC_ASD v13.0 — STATUS REPORT
 
 **Дата:** 05.05.2026  
-**Цикл:** 2/5 — Расширенная комплексная проверка
+**Цикл:** 4/5 — Расширенная комплексная проверка
 
 ---
 
@@ -97,16 +97,94 @@
 
 ---
 
+## Результаты Цикла 4
+
+### 1. Аудит всех .py файлов проекта ✅
+
+- **236 .py файлов** просканировано полным sweep'ом (2 параллельных агента: ~15 мин каждый)
+- **2 модуля с нулевым импортом в production-коде:**
+  - `project_loader.py` (0 runtime imports) — запланированная фича (нулевой слой Evidence Graph), KEEP
+  - `completeness_matrix.py` (0 внешних импортов, только self-reference) — ChainStatus дублирует chain_builder.py, verify_completeness() не вызывается
+- **Дубликат ChainStatus:** completeness_matrix.py (VERIFIED/MISSING/INCOMPLETE/STALE/UNVERIFIED) vs chain_builder.py (COMPLETE/PARTIAL/BROKEN/EMPTY)
+- **~70 элементов dead code:** устаревшие docstrings, неиспользуемые приватные методы, закомментированные блоки в тестах
+- **v12.0 → v13.0:** 6 ключевых production-файлов обновлены (llm_engine, evidence_graph, inference_engine, hitl_system, container, project_loader)
+
+### 2. Целесообразность модулей ✅
+
+| Статус | Модули |
+|--------|--------|
+| **✅ Активны** | LLMEngine, LegalService (974 LOC), ParserEngine (782 LOC), EvidenceGraph v2, Inference Engine, Chain Builder, HITL, Journal Reconstructor, Auditor (825 LOC), IDRequirementsRegistry, NormativeGuard, WorkEntry, PTO Skills, PPR Generator (7,855 LOC / 32 файла), IS Generator (4,690 LOC / 15 файлов), ProjectLoader |
+| **⚠️ Стабы** | MLXBackend (174 LOC — все методы NotImplementedError), deepseek_backend.vision() — NotImplementedError |
+| **🟡 Тонкие MCP-обёртки** | general_tools.py (19 LOC), procurement_tools.py (33 LOC), logistics_tools.py (46 LOC) — кандидаты на слияние |
+| **🟡 Тяжёлые data-as-code** | pto/work_spec.py (2,464 LOC) — словари Python, должны быть YAML/JSON; smeta/rate_lookup.py (930 LOC) |
+| **🔴 Техдолг v14** | Forensic-дубликаты (4 метода evidence_graph.py vs graph_service.py), ChainStatus дубликат, коллизии имён Enum, vlm_classifier использует blocking requests |
+
+### 3. Нормативная база ✅
+
+- **id_requirements.yaml:** исправлены 8 устаревших нормативных ссылок:
+  - СП 29.13330.2011 → 2021, СП 78.13330.2012 → 2021, СП 124.13330.2012 → 2022
+  - СП 5.13130.2009 → 2021, СП 3.13130.2009 → 2022
+  - ГОСТ 30416-2012 → 2020, ГОСТ Р 53325-2012 → 2023, ГОСТ Р 53780-2010 → 2021
+- **normative_index.json:** добавлены 8 aliases для старых версий → новые (перенаправление)
+- **Приоритеты:** 8 expected-документов подняты с medium до high (активно используются в id_requirements.yaml)
+- **Всего aliases:** 38 (было 24, +8 alias-перенаправлений +6 дополнительных)
+- **coverage_pct:** 20% неизменно (требуются физические загрузки PDF из критического списка)
+
+### 4. База знаний из ТГ-каналов ✅ (подтверждение)
+
+- **Telegram данные:** актуальны (telegram_knowledge.yaml: 34,111 строк, 782 записи, 31 канал, 5 доменов)
+- **ingest_state:** все 31 канал имеют данные (от 1 до 198,901 сообщений)
+- **Telethon:** недоступен для live-сбора, требуется ручная установка с API-ключами
+
+### 5. Исправления в цикле 4
+
+| # | Исправление | Тип |
+|---|-------------|-----|
+| 1 | **id_requirements.yaml:** 8 устаревших ГОСТ/СП обновлены до актуальных версий | **HIGH** |
+| 2 | **normative_index.json:** 8 aliases для старых→новых версий, приоритеты ↑ medium→high | **HIGH** |
+| 3 | **v12→v13:** 6 ключевых production-файлов обновлены (модульные docstrings) | **MEDIUM** |
+| 4 | **STATUS.md:** цикл 4 задокументирован (этот файл) | **LOW** |
+
+### 6. Тесты ✅
+
+```
+752 passed, 15 skipped in 8.21s — 0 failures, 0 regressions
+```
+- id_requirements тесты: 18/18 passed (валидация после обновления нормативных ссылок)
+- Все PTO skills тесты: passed (vor_check, pd_analysis, act_generator)
+
+### 7. Документация ✅
+
+- STATUS.md: обновлён (циклы 1→4)
+- normative_index.json: расширен (38 aliases, обновлены приоритеты)
+- id_requirements.yaml: 8 нормативных ссылок актуализированы
+
+### 8. Наследованные проблемы (из циклов 2-3)
+
+| # | Проблема | Приоритет | Цикл |
+|---|----------|-----------|------|
+| 1 | Нет ПП РФ в pp_rf/ (ни одного файла) | HIGH | 5 |
+| 2 | СП 70.13330.2012 → 2025: deadline 01.06.2026 | HIGH | 5 |
+| 3 | Library покрытие ~20% (15 из 100+ документов) | MEDIUM | — |
+| 4 | logistics/procurement ТГ-домены недопредставлены | MEDIUM | 5 |
+| 5 | TELEGRAM_BOT_TOKEN отсутствует | MEDIUM | 5 |
+| 6 | Forensic-дубликаты (evidence_graph vs graph_service) | CRITICAL | v14 |
+| 7 | ChainStatus коллизия (2 enum с одним именем) | CRITICAL | v14 |
+| 8 | MLXBackend — полный стаб | LOW | v14 |
+| 9 | vlm_classifier: blocking requests в async | MEDIUM | 5 |
+
+---
+
 ## Состояние проекта
 
 | Метрика | Значение |
 |---------|----------|
 | **Версия** | 13.0 |
-| **Python-файлов** | 245 (-6 удалено в цикле 2) |
+| **Python-файлов** | 236 |
 | **MCP-инструментов** | 74 зарегистрировано |
-| **Тестов** | 752 passed, 15 skipped |
-| **Нормативных документов** | 15 present + 23 expected (~20% покрытия) |
+| **Тестов** | 752 passed, 15 skipped (0 failures) |
+| **Нормативных документов** | 15 present + 23 expected (~20% покрытия), 38 aliases |
 | **ТГ-каналов** | 31 в 5 доменах |
-| **ТГ-знаний** | 782 записи |
+| **ТГ-знаний** | 782 записи (35k+ строк yaml) |
 | **Ветка** | main |
 | **Профиль** | dev_linux (Ollama/gemma3:12b) |

@@ -1,5 +1,5 @@
 """
-ASD v12.0 — HITL System (Human-in-the-Loop).
+ASD v13.0 — HITL System (Human-in-the-Loop).
 
 Генерирует умные вопросы оператору по разрывам в Evidence Graph.
 Приоритизирует по impact'у на комплектность ИД.

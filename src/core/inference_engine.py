@@ -1,5 +1,5 @@
 """
-ASD v12.0 — Inference Engine.
+ASD v13.0 — Inference Engine.
 
 Symbolic inference rules для Evidence Graph v2.
 Выводит недостающие факты из имеющихся — быстро, объяснимо, без галлюцинаций.

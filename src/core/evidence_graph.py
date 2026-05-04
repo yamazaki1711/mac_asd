@@ -1,5 +1,5 @@
 """
-ASD v12.0 — Evidence Graph v2.
+ASD v13.0 — Evidence Graph v2.
 
 Единый граф доказательств для двух режимов:
   - Сопровождение: WorkUnit от агентов, confidence=1.0

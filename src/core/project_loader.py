@@ -1,5 +1,5 @@
 """
-ASD v12.0 — Project Loader (нулевой слой Evidence Graph).
+ASD v13.0 — Project Loader (нулевой слой Evidence Graph).
 
 Первый шаг ASD на любом объекте: парсинг проектной документации (ПД/РД)
 и построение планового дерева работ в Evidence Graph.

@@ -1,5 +1,5 @@
 """
-ASD v12.0 — Unified LLM Engine.
+ASD v13.0 — Unified LLM Engine.
 
 Single entry point for all LLM operations across all agents.
 Automatically selects backend (Ollama / MLX) based on profile configuration.
