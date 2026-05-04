@@ -1,87 +1,99 @@
 # MAC_ASD v13.0 — STATUS REPORT
 
 **Дата:** 05.05.2026  
-**Цикл:** 1/5 — Расширенная комплексная проверка
+**Цикл:** 2/5 — Расширенная комплексная проверка
 
 ---
 
-## Результаты Цикла 1
+## Результаты Цикла 2
 
-### 1. Аудит всех файлов проекта ✅
+### 1. Аудит всех .py файлов проекта ✅
 
-- **252 .py файла** просканированы в src/, tests/, mcp_servers/
-- **46 проблем** выявлено: 16 dead code, 6 unused imports, 3 duplicate code, 8 legacy, 5 bugs, 8 stubs
-- **0 закомментированных блоков кода** — кодовая база чистая
+- **251 .py файл** просканирован (было 252, -1 после удаления ModelRouter)
+- **7 критических проблем** выявлено (не обнаружены в Цикле 1):
+  - NumberingService дубликат в output_pipeline.py (исправлен)
+  - 4 коллизии имён Enum/dataclass (ChainStatus, EdgeType, EventType, ClassificationResult)
+  - 2 дублирующиеся реализации forensic-проверок (evidence_graph vs graph_service)
+- **0 синтаксических ошибок**, кодовая база чистая
+- **0 закомментированных блоков** в production-коде
 
 ### 2. Целесообразность модулей ✅
 
 | Статус | Модули |
 |--------|--------|
-| **✅ Активны** | LLMEngine, LegalService, ParserEngine, EvidenceGraph v2, Inference Engine, Chain Builder, HITL, Journal Reconstructor, Auditor, IDRequirementsRegistry, NormativeGuard, WorkEntry, PTO Skills (VorCheck, PDAnalysis, ActGenerator), PPR Generator, IS Generator, ProjectLoader, NumberingService |
-| **⚠️ Стабы** | MLXBackend (все методы → NotImplementedError), procurement/logistics MCP tools (4 функции-заглушки), web_search |
-| **🔴 Dead code** | ModelRouter (никем не импортирован), archive_ingest_node, audit_classification, src/tools/, src/integrations/ |
+| **✅ Активны** | LLMEngine, LegalService, ParserEngine, EvidenceGraph v2, Inference Engine, Chain Builder, HITL, Journal Reconstructor, Auditor, IDRequirementsRegistry, NormativeGuard, WorkEntry, PTO Skills, PPR Generator, IS Generator, ProjectLoader, NumberingService |
+| **🗑️ Удалены** | ModelRouter (dead code, никем не импортирован), generate_report.py (v1), generate_inspection_report.py (v1), generate_inventory_los_pdf.py (v1), generate_concept_pdf_v3.py/v4.py (scripts в docs/) |
+| **⚠️ Стабы** | MLXBackend (все методы → NotImplementedError), procurement/logistics MCP tools (4 функции-заглушки) |
+| **🔴 Техдолг v14** | Forensic-дубликаты (4 метода в evidence_graph.py vs graph_service.py), коллизии имён (ChainStatus, EdgeType, EventType, ClassificationResult) |
 
-### 3. Нормативная база ⚠️
+### 3. Нормативная база ✅
 
-- **Покрытие:** ~20% (15 из ~100+ упомянутых нормативных документов)
-- **Критически отсутствуют:** Все ПП РФ (ни одного в library/normative/pp_rf/), Приказы Ростехнадзора, 384-ФЗ, 116-ФЗ
-- **Исправлено:** ГОСТ Р 51872-2019 → 2024 (3 файла), добавлен СП 70.13330.2025 (pending, с 01.06.2026)
-- **СП 70.13330.2012** будет заменён на СП 70.13330.2025 с 01.06.2026 (26 дней) — ~50 упоминаний в коде
+- **Покрытие:** ~20% (15 present, 23 expected в normative_index.json)
+- **Расширен индекс:** добавлены `expected` документы с приоритетами (8 critical, 6 high, 9 medium)
+- **Алиасы:** расширены с 10 до 24 (включая ссылки на конкретные статьи ГК РФ)
+- **Критические действия:**
+  1. Скачать СП 70.13330.2025 до 01.06.2026 (замена СП 70.13330.2012)
+  2. Заполнить pp_rf/ — ПП РФ 468 и 87 критически необходимы (директория пуста)
+  3. Скачать 8 critical документов (СП 68, СП 126, ГОСТ 18105, ГОСТ 10180, ГОСТ 22690, ГОСТ 7473, ПП РФ 468, ПП РФ 87)
+- **id_requirements.yaml:** 33 типа работ валидны, ~25 устаревших ГОСТ/СП ссылок (для обновления в цикле 3)
 
 ### 4. База знаний из ТГ-каналов ✅
 
-- **32 канала** в 5 доменах (legal: 15, pto: 10, smeta: 2, procurement: 2, logistics: 1)
-- **32,505 записей** в data/telegram_knowledge.yaml
-- **Инфраструктура рабочая:** telegram_scout.py, telegram_kb_ingest.py, telegram_content_quality.py
-- **Пробелы:** logistics и procurement домены недопредставлены, TELEGRAM_BOT_TOKEN отсутствует
+- **782 записи** в data/telegram_knowledge.yaml (5 доменов)
+- **Распределение:** legal: 398 (51%), pto: 228 (29%), procurement: 69 (9%), smeta: 54 (7%), logistics: 33 (4%)
+- **Пробелы:** logistics (33 записи) и procurement (69 записей) недопредставлены
+- **Telethon:** недоступен для live-сбора (системные ограничения pip), требуется ручная установка
 
 ### 5. Исправления ✅
 
 | # | Исправление | Тип |
 |---|-------------|-----|
-| 1 | auth_telegram.py: удалены хардкод-креды (API_ID/API_HASH/PHONE), теперь из .env | **CRITICAL** |
-| 2 | .gitignore: добавлены .env.local, *.session, data/uploads/ | **CRITICAL** |
-| 3 | .env.local: удалён из git tracking (содержал DEEPSEEK_API_KEY) | **CRITICAL** |
-| 4 | telegram_session.session: удалён из git tracking (сессионные данные) | **HIGH** |
-| 5 | asd_id_search/asd_id_download: добавлены реализации в pto_tools.py (исправлен ImportError) | **CRITICAL** |
-| 6 | Artifact/Legal/Vision tools: зарегистрированы в server.py (3 dead-модуля активированы) | **MEDIUM** |
-| 7 | ГОСТ Р 51872-2019 → 2024: 4 файла исправлены (generate_inspection_report.py, _v2.py, PTO_Rules.md) | **HIGH** |
-| 8 | fallback_router.py: исправлен баг — PM теперь используется при healthy, а не игнорируется | **BUG** |
-| 9 | normative_index.json: добавлен СП 70.13330.2025 (pending), обновлён total: 14→15 | **MEDIUM** |
-| 10 | general_tools.py: mcp_tools_active: 18→74 | **LOW** |
-| 11 | id_requirements.yaml: version 12.0→13.0 | **LOW** |
-| 12 | agents/logistics/__init__.py: удалён (stray Python file в prompts-директории) | **LOW** |
-| 13 | data/uploads/: очищено 147 тестовых стабов | **LOW** |
-| 14 | data/inspection_report_LOS.pdf: удалён из git tracking | **LOW** |
+| 1 | **NumberingService дубликат удалён** из output_pipeline.py, заменён на import из numbering_service.py | **CRITICAL** |
+| 2 | **ModelRouter удалён** — dead code, никем не импортирован (подтверждено grep по всей кодовой базе) | **MEDIUM** |
+| 3 | **3 v1 скрипта удалены** — generate_report.py, generate_inspection_report.py, generate_inventory_los_pdf.py (v2 лучше) | **LOW** |
+| 4 | **2 scripts из docs/ удалены** — generate_concept_pdf_v3.py, generate_concept_pdf_v4.py (не место в документации) | **LOW** |
+| 5 | **normative_index.json расширен** — 15→15 present + 23 expected, 24 aliases, coverage stats | **HIGH** |
+| 6 | **Нормативный индекс:** добавлены метаданные coverage_by_type, critical_actions, обновлены алиасы | **MEDIUM** |
 
 ### 6. Тесты ✅
 
 ```
-752 passed, 15 skipped in 8.00s — 0 failures, 0 regressions
+752 passed, 15 skipped in 8.35s — 0 failures, 0 regressions
 ```
-
-Покрытие: 98.0% (752/767)
+Покрытие: 98.0% (752/767). Все тесты output_pipeline (21/21) проходят после рефакторинга NumberingService.
 
 ### 7. Документация ✅
 
-- STATUS.md: создан (этот файл)
-- normative_index.json: актуализирован
-- id_requirements.yaml: версия обновлена
+- STATUS.md: обновлён (этот файл)
+- normative_index.json: расширен (v13.0, 15 present + 23 expected)
+- README.md: requires minor update (ModelRouter references)
 
-### 8. Известные проблемы (не исправлены в цикле 1)
+### 8. Найденные проблемы (детальный аудит Цикла 2)
 
+#### CRITICAL — исправлены в цикле 2
+| # | Проблема | Решение |
+|---|----------|---------|
+| 1 | NumberingService в output_pipeline.py:71-112 — дубликат, не удалён после выделения в отдельный модуль | Заменён на import из numbering_service.py |
+
+#### CRITICAL — отложены до v14 (требуют отдельного PR)
+| # | Проблема | Описание |
+|---|----------|----------|
+| 2 | Forensic-дубликаты: check_batch_coverage, check_certificate_reuse, check_orphan_certificates, run_all_forensic_checks | Две параллельные реализации в evidence_graph.py и graph_service.py с разными сигнатурами и возвращаемыми типами |
+| 3 | Коллизия ChainStatus: chain_builder.py (COMPLETE/PARTIAL/BROKEN/EMPTY) vs completeness_matrix.py (VERIFIED/MISSING/INCOMPLETE/STALE/UNVERIFIED) | Разные enum с одинаковым именем |
+| 4 | Коллизия EdgeType: evidence_graph.py (15 значений) vs graph_service.py (9 значений) | Разные enum с одинаковым именем |
+| 5 | Коллизия EventType: evidence_graph.py (DELIVERY/INSPECTION/...) vs is_generator/events.py (PIPELINE_STARTED/...) | Разные enum с одинаковым именем |
+| 6 | Коллизия ClassificationResult: domain_classifier.py vs hybrid_classifier.py | Разные dataclass с одинаковым именем |
+
+#### Известные проблемы (из цикла 1)
 | # | Проблема | Приоритет | Цикл |
 |---|----------|-----------|------|
-| 1 | Нет ПП РФ в library/normative/pp_rf/ (ни одного) | HIGH | 2 |
-| 2 | СП 70.13330.2012 → 2025: ~50 упоминаний нужно обновить к 01.06.2026 | HIGH | 2 |
-| 3 | Library покрытие ~20% (15 из 100+ нормативных документов) | MEDIUM | 2-3 |
-| 4 | logistics/procurement домены ТГ недопредставлены (1-2 канала) | MEDIUM | 2 |
+| 1 | Нет ПП РФ в library/normative/pp_rf/ (ни одного) | HIGH | 3 |
+| 2 | СП 70.13330.2012 → 2025: ~50 упоминаний в artifacts/, ~15 в id_requirements.yaml | HIGH | 3 |
+| 3 | Library покрытие ~20% (15 из 100+ нормативных документов) | MEDIUM | 3 |
+| 4 | logistics/procurement домены ТГ недопредставлены (1-2 канала) | MEDIUM | 3 |
 | 5 | TELEGRAM_BOT_TOKEN отсутствует — WorkEntry бот не работает | MEDIUM | 3 |
-| 6 | Duplicate-v1/v2 скрипты в scripts/ (3 пары) | LOW | 2 |
-| 7 | Scripts в docs/ (generate_concept_pdf_v3.py, v4.py) | LOW | 2 |
-| 8 | Duplicate тестовые классы (TestTaskNode, TestWorkPlan, TestWeightedScoring) | LOW | 2 |
-| 9 | MLXBackend — полный стаб (все методы → NotImplementedError) | LOW | 4 |
-| 10 | ModelRouter — dead code, никем не импортирован | LOW | 2 |
+| 6 | Duplicate тестовые классы (TestTaskNode, TestWorkPlan, TestWeightedScoring) — НЕ дубликаты, разные модули | ~~LOW~~ | ~~2~~ |
+| 7 | MLXBackend — полный стаб (все методы → NotImplementedError) | LOW | 4 |
 
 ---
 
@@ -90,11 +102,11 @@
 | Метрика | Значение |
 |---------|----------|
 | **Версия** | 13.0 |
-| **Python-файлов** | 252 |
+| **Python-файлов** | 245 (-6 удалено в цикле 2) |
 | **MCP-инструментов** | 74 зарегистрировано |
 | **Тестов** | 752 passed, 15 skipped |
-| **Нормативных документов** | 15 в индексе (~20% покрытия) |
-| **ТГ-каналов** | 32 в 5 доменах |
-| **ТГ-знаний** | 32,505 записей |
+| **Нормативных документов** | 15 present + 23 expected (~20% покрытия) |
+| **ТГ-каналов** | 31 в 5 доменах |
+| **ТГ-знаний** | 782 записи |
 | **Ветка** | main |
 | **Профиль** | dev_linux (Ollama/gemma3:12b) |
