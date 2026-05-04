@@ -116,7 +116,7 @@ for i, r in enumerate(llm_recs, 1):
 
 # ═══ PAGE 4: VLM — IS POGROJENIE ═══
 pdf.add_page()
-pdf.section('3. Проверка исполнительных схем (ГОСТ Р 51872-2019)')
+pdf.section('3. Проверка исполнительных схем (ГОСТ Р 51872-2024)')
 pdf.set_font('D', '', 9); pdf.set_text_color(100,100,100)
 pdf.cell(0, 5, 'VLM-агент (Gemma 4 31B Cloud) проверил оформление схем.', new_x="LMARGIN", new_y="NEXT")
 pdf.ln(5)

@@ -15,5 +15,5 @@ async def asd_get_system_status() -> Dict[str, Any]:
             "endpoint": settings.OLLAMA_BASE_URL,
             "status": "configured"
         },
-        "mcp_tools_active": 18
+        "mcp_tools_active": 74
     }

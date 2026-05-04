@@ -1,4 +1,4 @@
-version: '12.0'
+version: '13.0'
 basis: Приказ Минстроя 344/пр от 16.05.2023
 base_trail:
   id_requirements:

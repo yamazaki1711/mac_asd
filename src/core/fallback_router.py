@@ -238,11 +238,13 @@ class HealthAwareRouter:
         if not await self.is_pm_healthy():
             return fallback_decide(state)
 
-        # PM доступен — используем полный PM с weighted scoring
-        from src.core.pm_agent import ProjectManager
-        pm = ProjectManager(llm_engine=self._llm)
-        # Fallback: используем rule-based decide через сигналы + veto
-        return fallback_decide(state)
+        # PM LLM доступен — используем полный PM с weighted scoring
+        try:
+            from src.core.pm_agent import ProjectManager
+            pm = ProjectManager(llm_engine=self._llm)
+            return pm.decide(state)
+        except Exception:
+            return fallback_decide(state)
 
 
 # =============================================================================

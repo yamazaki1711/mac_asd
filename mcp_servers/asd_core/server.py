@@ -74,6 +74,15 @@ from mcp_servers.asd_core.tools.google_tools import (
     asd_docs_get_content, asd_docs_replace_text, asd_docs_from_template,
     asd_gmail_send, asd_google_status
 )
+from mcp_servers.asd_core.tools.artifact_tools import (
+    artifact_list, artifact_write, artifact_read,
+)
+from mcp_servers.asd_core.tools.legal_tools import (
+    legal_search, fz_lookup, rag_query,
+)
+from mcp_servers.asd_core.tools.vision_tools import (
+    vision_analyze, vision_tile,
+)
 
 # ---------------------------------------------------------------------------
 # Server
@@ -199,6 +208,20 @@ mcp.add_tool(asd_docs_from_template)
 # Группа 15: Google Workspace — Gmail + Status (2 инструмента)
 mcp.add_tool(asd_gmail_send)
 mcp.add_tool(asd_google_status)
+
+# Группа 16: Artifact Store (3 инструмента)
+mcp.add_tool(artifact_list)
+mcp.add_tool(artifact_write)
+mcp.add_tool(artifact_read)
+
+# Группа 17: Legal Service — FZ lookup + RAG (3 инструмента)
+mcp.add_tool(legal_search)
+mcp.add_tool(fz_lookup)
+mcp.add_tool(rag_query)
+
+# Группа 18: Vision Cascade (2 инструмента)
+mcp.add_tool(vision_analyze)
+mcp.add_tool(vision_tile)
 
 # ---------------------------------------------------------------------------
 # Группа 16: Опытный контур — Lessons Learned (4 инструмента)

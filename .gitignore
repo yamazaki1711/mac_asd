@@ -23,9 +23,12 @@ ENV/
 
 # Environment and secrets
 .env
+.env.local
 credentials/*.json
 credentials/*.token
 credentials/*.session
+*.session
+*.session-journal
 *.pem
 *.key
 
@@ -55,6 +58,9 @@ alembic/versions/*.pyc
 # Artifacts (generated documents)
 data/artifacts/docs/*
 !data/artifacts/docs/.gitkeep
+
+# Uploads (temporary test stubs)
+data/uploads/
 
 # OS
 Thumbs.db

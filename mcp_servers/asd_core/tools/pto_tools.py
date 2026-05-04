@@ -533,3 +533,74 @@ async def asd_generate_act(
         "errors": result.errors,
         "warnings": result.warnings,
     }
+
+
+async def asd_id_search(query: str, work_type: str = "", form_type: str = "",
+                        max_results: int = 10) -> Dict[str, Any]:
+    """
+    Поиск документов ИД в каталоге idprosto.ru по виду работ и типу формы.
+
+    Использует закэшированный каталог из data/knowledge/idprosto_worktype_docs.json.
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        catalog_path = Path("data/knowledge/idprosto_worktype_docs.json")
+        if not catalog_path.exists():
+            return {"status": "error", "error": "Каталог idprosto не найден", "results": []}
+
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        results = []
+
+        for wt_key, wt_data in catalog.items():
+            if work_type and work_type.lower() not in wt_key.lower():
+                continue
+            for doc in wt_data if isinstance(wt_data, list) else []:
+                doc_name = doc.get("name", "") if isinstance(doc, dict) else str(doc)
+                if query.lower() in doc_name.lower():
+                    results.append({
+                        "work_type": wt_key,
+                        "document": doc_name,
+                        "form": doc.get("form", "") if isinstance(doc, dict) else "",
+                    })
+                if len(results) >= max_results:
+                    break
+            if len(results) >= max_results:
+                break
+
+        return {"status": "ok", "query": query, "results_count": len(results), "results": results}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "results": []}
+
+
+async def asd_id_download(document_id: str, output_dir: str = "") -> Dict[str, Any]:
+    """
+    Скачать шаблон документа ИД из каталога idprosto.ru (закэширован локально).
+
+    Ищет шаблон в library/templates/ по имени документа.
+    """
+    from pathlib import Path
+
+    try:
+        templates_dir = Path("library/templates")
+        if not templates_dir.exists():
+            return {"status": "error", "error": "Директория шаблонов не найдена", "file_path": ""}
+
+        output = Path(output_dir) if output_dir else Path("data/exports/acts")
+        output.mkdir(parents=True, exist_ok=True)
+
+        for ext in (".docx", ".xlsx", ".pdf"):
+            candidate = templates_dir / f"{document_id}{ext}"
+            if candidate.exists():
+                import shutil
+                dest = output / candidate.name
+                shutil.copy2(candidate, dest)
+                return {
+                    "status": "ok", "document_id": document_id,
+                    "file_path": str(dest), "size_bytes": candidate.stat().st_size,
+                }
+
+        return {"status": "error", "error": f"Шаблон '{document_id}' не найден в library/templates/", "file_path": ""}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "file_path": ""}
