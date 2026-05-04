@@ -233,7 +233,9 @@ class DeloAgent:
             logger.warning("No registry for project %d", project_id)
             return None
 
-        reg_id = f"ASD-{project_id}-{len(registry.entries) + 1:04d}"
+        from src.core.numbering_service import numbering_service
+        seq = numbering_service.next_number(str(project_id), "REG")
+        reg_id = f"ASD-{project_id}-{seq.sequence:04d}"
         entry = DocRegistryEntry(
             reg_id=reg_id,
             doc_type=doc_type,

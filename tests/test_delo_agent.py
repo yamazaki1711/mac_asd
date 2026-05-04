@@ -273,6 +273,10 @@ class TestDeloAgent:
         assert entry is None
 
     def test_register_document_sequential_ids(self):
+        from src.core.numbering_service import numbering_service
+        # Reset counter for deterministic test
+        numbering_service.set_last_number("1", "REG", 0)
+
         self.agent.create_registry(1, "Test")
         e1 = self.agent.register_document(1, "АОСР", "Doc1")
         e2 = self.agent.register_document(1, "АОСР", "Doc2")
