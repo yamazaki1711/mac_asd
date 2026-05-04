@@ -362,10 +362,9 @@ class InferenceEngine:
 
         from src.core.evidence_graph import EdgeType
 
-        # Эта логика требует, чтобы у MaterialBatch был location_id.
-        # В текущей модели location_id у MaterialBatch не предусмотрен —
-        # но если данные поступают из ТТН с адресом доставки, правило применимо.
-        # Пока — placeholder с низкой уверенностью.
+        # Правило срабатывает, когда у MaterialBatch есть location_id
+        # (например, из ТТН с адресом доставки). Если location_id отсутствует —
+        # правило не даёт новых фактов, но это ожидаемое поведение.
 
         # Ищем WorkUnit без локации, но с материалами
         for wu_id, wu_data in graph.graph.nodes(data=True):

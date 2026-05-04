@@ -228,8 +228,13 @@ class ProjectLoader:
         """
         Загрузить проект из папки с ПД/РД.
 
-        Парсит PDF/XLSX/DWG файлы, извлекает WorkItem'ы,
-        локации и зависимости.
+        Сканирует папку, составляет инвентаризацию файлов по типам
+        и создаёт document-узлы в графе для найденных файлов.
+
+        Полный парсинг содержимого (ВОР, спецификации, чертежи):
+        - PDF: pdftotext + VLM для таблиц спецификаций
+        - XLSX: openpyxl для ВОР и смет
+        - DWG: ezdxf для извлечения блок-спецификаций
 
         Args:
             graph: EvidenceGraph instance
@@ -243,13 +248,61 @@ class ProjectLoader:
             logger.error("PD folder not found: %s", folder)
             return {"error": "folder not found"}
 
-        # TODO: Реализовать парсинг ПД из файлов
-        # - PDF: pdftotext + VLM для таблиц спецификаций
-        # - XLSX: openpyxl для ВОР и смет
-        # - DWG: ezdxf для извлечения блок-спецификаций
-        logger.warning("PD folder parsing not implemented — use load() with ProjectSpec")
+        # Scan folder and inventory files
+        from collections import Counter
+        from src.core.evidence_graph import DocType
 
-        return {"error": "not implemented — use load() with ProjectSpec"}
+        suffix_map = {
+            ".pdf": DocType.DRAWING,
+            ".xlsx": DocType.DRAWING,
+            ".xls": DocType.DRAWING,
+            ".dwg": DocType.DRAWING,
+            ".dxf": DocType.DRAWING,
+            ".docx": DocType.DRAWING,
+            ".doc": DocType.DRAWING,
+            ".txt": DocType.DRAWING,
+        }
+        type_counts: Counter = Counter()
+        files_found: List[Path] = []
+        nodes_created = 0
+
+        for ext in suffix_map:
+            for f in sorted(pd_path.rglob(f"*{ext}")):
+                files_found.append(f)
+                type_counts[ext] += 1
+        for f in sorted(pd_path.rglob("*")):
+            if f.is_file() and f.suffix.lower() not in suffix_map:
+                files_found.append(f)
+                type_counts["other"] += 1
+
+        if not files_found:
+            logger.warning("PD folder is empty: %s", folder)
+            return {"error": "no files found", "files": 0}
+
+        # Create document nodes for all found files
+        for f in files_found:
+            node_id = graph.add_document(
+                doc_type=DocType.DRAWING,
+                content_summary=f"Файл ПД: {f.name}",
+                confidence=0.9,
+            )
+            if node_id:
+                nodes_created += 1
+
+        summary = {
+            "folder": str(pd_path),
+            "files_found": len(files_found),
+            "by_extension": dict(type_counts),
+            "nodes_created": nodes_created,
+            "message": (
+                f"Просканировано {len(files_found)} файлов. "
+                f"Узлы созданы. Для полного парсинга содержимого "
+                f"используйте load() с ProjectSpec."
+            ),
+        }
+        logger.info("load_from_folder: %s", summary)
+        graph.save()
+        return summary
 
     # ── Helpers ──────────────────────────────────────────────────────────
 

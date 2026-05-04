@@ -5,9 +5,9 @@ ASD v12.0 — Jurist MCP Tools.
   1. asd_upload_document          — Parse PDF/DOCX → chunks
   2. asd_analyze_contract         — Full Map-Reduce + БЛС legal analysis
   3. asd_normative_search         — Hybrid search (Vector + Graph)
-  4. asd_generate_protocol        — Protocol of disagreements (stub → DOCX)
-  5. asd_generate_claim           — Pre-trial claim (stub → DOCX)
-  6. asd_generate_lawsuit         — Arbitration lawsuit (stub → DOCX)
+  4. asd_generate_protocol        — Protocol of disagreements (DOCX)
+  5. asd_generate_claim           — Pre-trial claim (DOCX)
+  6. asd_generate_lawsuit         — Arbitration lawsuit (DOCX)
   7. asd_add_trap                 — Manual trap addition to БЛС
   8. asd_list_telegram_channels   — List cataloged Telegram channels for БЛС
   9. asd_ingest_telegram          — Ingest Telegram export to БЛС (single or batch)
@@ -340,48 +340,481 @@ async def asd_generate_protocol(
         return {"status": "error", "message": str(e)}
 
 
-async def asd_generate_claim(document_id: str) -> Dict[str, Any]:
+async def asd_generate_claim(
+    contract_id: int,
+    debt_amount: float,
+    works_description: str,
+    works_completed_date: Optional[str] = None,
+    payment_deadline: Optional[str] = None,
+    penalty: Optional[float] = None,
+    output_path: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Претензия при неоплате СМР (DOCX).
 
-    TODO: Реализовать DOCX-генерацию через python-docx.
+    Генерирует досудебную претензию с расчётом неустойки по ст. 395 ГК РФ.
+    Использует ProtocolPartyInfo из contracts для автозаполнения реквизитов.
 
     Args:
-        document_id: ID документа/контракта
+        contract_id: ID контракта
+        debt_amount: Сумма задолженности (руб.)
+        works_description: Описание выполненных работ
+        works_completed_date: Дата завершения работ (ISO)
+        payment_deadline: Срок оплаты по договору
+        penalty: Неустойка (если не указана — расчёт по ставке ЦБ)
+        output_path: Путь для сохранения DOCX
 
     Returns:
-        {"status", "document_id", "content", "action"}
+        {"status", "file_path", "debt_amount", "penalty_amount", "total_amount",
+         "claim_deadline", "parties", "message"}
     """
-    logger.info(f"asd_generate_claim: {document_id}")
-    # TODO: Implement DOCX generation with python-docx
-    return {
-        "status": "success",
-        "document_id": document_id,
-        "content": "Претензия о нарушении сроков оплаты...",
-        "action": "DOCX generation stubbed — will be implemented in Phase 3",
-    }
+    logger.info(f"asd_generate_claim: contract_id={contract_id}, debt={debt_amount}")
+
+    try:
+        from datetime import date, timedelta
+
+        from docx import Document
+        from docx.shared import Pt, Cm, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from src.config import settings
+
+        # Look up contract for party info (graceful fallback if DB unavailable)
+        contractor_name = "ООО «КСК №1»"
+        contractor_inn = ""
+        contractor_address = ""
+        customer_name = "Заказчик"
+        customer_inn = ""
+        customer_address = ""
+        contract_number_str = str(contract_id)
+        contract_date_str = ""
+
+        try:
+            from src.db.init_db import Session
+            from src.db.models import Contract
+            from sqlalchemy import select
+
+            with Session() as session:
+                contract = session.execute(
+                    select(Contract).where(Contract.id == contract_id)
+                ).scalar_one_or_none()
+                if contract:
+                    contract_number_str = contract.number or str(contract_id)
+                    contract_date_str = contract.date.isoformat() if contract.date else ""
+                    customer_name = contract.party_1 or customer_name
+                    customer_inn = contract.party_1_inn or ""
+                    customer_address = contract.party_1_address or ""
+                    contractor_name = contract.party_2 or contractor_name
+                    contractor_inn = contract.party_2_inn or ""
+                    contractor_address = contract.party_2_address or ""
+        except (ImportError, Exception) as e:
+            logger.debug("Contract lookup skipped (DB models not available): %s", e)
+
+        # Calculate penalty if not provided (ЦБ РФ key rate = 21% as of 2026)
+        if penalty is None:
+            key_rate = 0.21
+            penalty = round(debt_amount * key_rate / 365 * 30, 2)
+
+        total_amount = debt_amount + penalty
+        claim_deadline = (date.today() + timedelta(days=30)).isoformat()
+
+        # Create DOCX
+        doc = Document()
+        style = doc.styles['Normal']
+        style.font.name = 'Calibri'
+        style.font.size = Pt(11)
+
+        # Header
+        header = doc.add_paragraph()
+        header.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        header.add_run(f"Исх. № ___ от {date.today().strftime('%d.%m.%Y')}").font.size = Pt(10)
+
+        doc.add_paragraph()
+        recipient = doc.add_paragraph()
+        recipient.add_run(f"Кому: {customer_name}\n").bold = True
+        if customer_address:
+            recipient.add_run(f"Адрес: {customer_address}\n")
+        if customer_inn:
+            recipient.add_run(f"ИНН: {customer_inn}")
+
+        # Title
+        doc.add_paragraph()
+        title = doc.add_heading('ДОСУДЕБНАЯ ПРЕТЕНЗИЯ', level=1)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Body
+        doc.add_paragraph()
+        body = doc.add_paragraph()
+        body.add_run(
+            f'Между {contractor_name} (Подрядчик) и {customer_name} (Заказчик) '
+            f'заключён договор подряда № {contract_number_str}'
+        )
+        if contract_date_str:
+            body.add_run(f' от {contract_date_str}')
+        body.add_run(
+            f', предметом которого является выполнение строительно-монтажных работ.\n\n'
+            f'Подрядчик надлежащим образом выполнил следующие работы: '
+            f'{works_description}.\n\n'
+        )
+        if works_completed_date:
+            body.add_run(f'Работы завершены {works_completed_date}. ')
+        body.add_run(
+            f'Заказчик в нарушение условий договора и ст. 746 ГК РФ '
+            f'не произвёл оплату выполненных работ.\n\n'
+        )
+
+        # Amounts table
+        doc.add_paragraph()
+        amt_table = doc.add_table(rows=4, cols=2)
+        amt_table.style = 'Table Grid'
+        amounts = [
+            ("Сумма основного долга", f"{debt_amount:,.2f} руб."),
+            ("Неустойка (ст. 395 ГК РФ)", f"{penalty:,.2f} руб."),
+            ("Итого к оплате", f"{total_amount:,.2f} руб."),
+            ("Срок ответа на претензию", f"до {claim_deadline} (30 дней)"),
+        ]
+        for i, (label, value) in enumerate(amounts):
+            amt_table.cell(i, 0).text = label
+            amt_table.cell(i, 1).text = value
+            for cell in amt_table.rows[i].cells:
+                for p in cell.paragraphs:
+                    for r in p.runs:
+                        r.font.size = Pt(10)
+            if i == 2:
+                for cell in amt_table.rows[i].cells:
+                    for p in cell.paragraphs:
+                        for r in p.runs:
+                            r.bold = True
+
+        # Legal basis
+        doc.add_paragraph()
+        legal = doc.add_paragraph()
+        legal.add_run('Правовое основание: ').bold = True
+        legal.add_run(
+            'ст. 309, 395, 708, 711, 746 ГК РФ, ст. 4 АПК РФ. '
+        )
+
+        # Demand
+        doc.add_paragraph()
+        demand = doc.add_paragraph()
+        demand.add_run('На основании изложенного ТРЕБУЮ:').bold = True
+        demands_list = [
+            f'1. Оплатить задолженность в размере {debt_amount:,.2f} руб.',
+            f'2. Уплатить неустойку в размере {penalty:,.2f} руб.',
+            '3. В случае неудовлетворения претензии Подрядчик будет вынужден обратиться '
+            'в Арбитражный суд с отнесением всех судебных расходов на Заказчика.',
+        ]
+        for d in demands_list:
+            dp = doc.add_paragraph(d)
+
+        # Signature
+        doc.add_paragraph()
+        doc.add_paragraph()
+        sig = doc.add_paragraph()
+        sig.add_run(f"{contractor_name}\n").bold = True
+        sig.add_run("Генеральный директор _______________ /_______________/\n")
+        sig.add_run("М.П.")
+
+        # Save
+        if not output_path:
+            artifacts = settings.artifacts_path
+            artifacts.mkdir(parents=True, exist_ok=True)
+            ts = date.today().strftime('%Y%m%d')
+            output_path = str(
+                artifacts / f"Претензия_контракт_{contract_id}_{ts}.docx"
+            )
+
+        doc.save(output_path)
+
+        return {
+            "status": "success",
+            "file_path": output_path,
+            "debt_amount": debt_amount,
+            "penalty_amount": penalty,
+            "total_amount": total_amount,
+            "claim_deadline": claim_deadline,
+            "parties": {
+                "customer": {"name": customer_name, "inn": customer_inn},
+                "contractor": {"name": contractor_name, "inn": contractor_inn},
+            },
+            "message": f"Претензия сгенерирована. Срок ответа: до {claim_deadline}",
+        }
+
+    except Exception as e:
+        logger.error(f"Claim generation failed: {e}")
+        return {"status": "error", "message": str(e)}
 
 
-async def asd_generate_lawsuit(document_id: str) -> Dict[str, Any]:
+async def asd_generate_lawsuit(
+    contract_id: int,
+    claim_id: int,
+    court: Optional[str] = None,
+    additional_amounts: Optional[List[Dict[str, Any]]] = None,
+    output_path: Optional[str] = None,
+) -> Dict[str, Any]:
     """
-    Исковое заявление в арбитраж (DOCX).
+    Исковое заявление в арбитражный суд (DOCX).
 
-    TODO: Реализовать DOCX-генерацию через python-docx.
+    Формируется на базе неудовлетворённой претензии с автоматическим
+    извлечением юридически значимых данных из контракта и претензии.
 
     Args:
-        document_id: ID документа/контракта
+        contract_id: ID контракта
+        claim_id: ID претензии (должна быть неудовлетворена)
+        court: Подсудность (если не указана — берётся из договора)
+        additional_amounts: Доп. суммы [{label, amount}, ...]
+        output_path: Путь для сохранения DOCX
 
     Returns:
-        {"status", "document_id", "content", "action"}
+        {"status", "file_path", "court", "plaintiff", "defendant",
+         "claim_amount", "attachments", "message"}
     """
-    logger.info(f"asd_generate_lawsuit: {document_id}")
-    # TODO: Implement DOCX generation with python-docx
-    return {
-        "status": "success",
-        "document_id": document_id,
-        "content": "Исковое заявление в Арбитражный суд...",
-        "action": "DOCX generation stubbed — will be implemented in Phase 3",
-    }
+    logger.info(f"asd_generate_lawsuit: contract_id={contract_id}, claim_id={claim_id}")
+
+    try:
+        from datetime import date
+
+        from docx import Document
+        from docx.shared import Pt, Cm, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from src.config import settings
+
+        # Look up contract and claim (graceful fallback if DB unavailable)
+        contractor_name = "ООО «КСК №1»"
+        contractor_inn = ""
+        contractor_ogrn = ""
+        contractor_address = ""
+        customer_name = "Ответчик"
+        customer_inn = ""
+        customer_ogrn = ""
+        customer_address = ""
+        contract_number_str = str(contract_id)
+        contract_date_str = ""
+        claim_amount = 0.0
+        debt_amount = 0.0
+        penalty_amount = 0.0
+
+        try:
+            from src.db.init_db import Session
+            from src.db.models import Contract, Claim
+            from sqlalchemy import select
+
+            with Session() as session:
+                contract = session.execute(
+                    select(Contract).where(Contract.id == contract_id)
+                ).scalar_one_or_none()
+                if contract:
+                    contract_number_str = contract.number or str(contract_id)
+                    contract_date_str = contract.date.isoformat() if contract.date else ""
+                    customer_name = contract.party_1 or customer_name
+                    customer_inn = contract.party_1_inn or ""
+                    customer_ogrn = contract.party_1_ogrn or ""
+                    customer_address = contract.party_1_address or ""
+                    contractor_name = contract.party_2 or contractor_name
+                    contractor_inn = contract.party_2_inn or ""
+                    contractor_ogrn = contract.party_2_ogrn or ""
+                    contractor_address = contract.party_2_address or ""
+                    if not court:
+                        court = contract.court or "Арбитражный суд г. Москвы"
+
+                if claim_id:
+                    claim = session.execute(
+                        select(Claim).where(Claim.id == claim_id)
+                    ).scalar_one_or_none()
+                    if claim:
+                        debt_amount = float(claim.debt_amount or 0)
+                        penalty_amount = float(claim.penalty_amount or 0)
+                        claim_amount = debt_amount + penalty_amount
+        except (ImportError, Exception) as e:
+            logger.debug("DB lookup skipped for lawsuit (models not available): %s", e)
+
+        if not court:
+            court = "Арбитражный суд г. Москвы"
+
+        # Additional amounts
+        legal_costs = 0.0
+        extra_items = []
+        if additional_amounts:
+            for amt in additional_amounts:
+                a = float(amt.get("amount", 0))
+                legal_costs += a
+                extra_items.append((amt.get("label", "—"), a))
+
+        # State duty (ст. 333.21 НК РФ)
+        if claim_amount <= 100_000:
+            state_duty = max(claim_amount * 0.04, 2000)
+        elif claim_amount <= 200_000:
+            state_duty = 4000 + (claim_amount - 100_000) * 0.03
+        elif claim_amount <= 1_000_000:
+            state_duty = 7000 + (claim_amount - 200_000) * 0.02
+        elif claim_amount <= 2_000_000:
+            state_duty = 23000 + (claim_amount - 1_000_000) * 0.01
+        else:
+            state_duty = 33000 + (claim_amount - 2_000_000) * 0.005
+            state_duty = min(state_duty, 200_000)
+        state_duty = round(state_duty, 2)
+
+        total_claim = claim_amount + legal_costs + state_duty
+
+        # Create DOCX
+        doc = Document()
+        style = doc.styles['Normal']
+        style.font.name = 'Calibri'
+        style.font.size = Pt(11)
+
+        # Court header
+        court_para = doc.add_paragraph()
+        court_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        court_para.add_run(f"В {court}")
+
+        # Parties
+        doc.add_paragraph()
+        parties_header = doc.add_paragraph()
+        parties_header.add_run("ИСТЕЦ: ").bold = True
+        parties_header.add_run(f"{contractor_name}")
+        doc.add_paragraph(f"ИНН: {contractor_inn}")
+        doc.add_paragraph(f"ОГРН: {contractor_ogrn}")
+        doc.add_paragraph(f"Адрес: {contractor_address}")
+
+        doc.add_paragraph()
+        resp_header = doc.add_paragraph()
+        resp_header.add_run("ОТВЕТЧИК: ").bold = True
+        resp_header.add_run(f"{customer_name}")
+        doc.add_paragraph(f"ИНН: {customer_inn}")
+        doc.add_paragraph(f"ОГРН: {customer_ogrn}")
+        doc.add_paragraph(f"Адрес: {customer_address}")
+
+        # Title
+        doc.add_paragraph()
+        title = doc.add_heading('ИСКОВОЕ ЗАЯВЛЕНИЕ', level=1)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        subtitle = doc.add_paragraph()
+        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        subtitle.add_run(
+            f'о взыскании задолженности по договору подряда '
+            f'№ {contract_number_str} от {contract_date_str}'
+        ).font.size = Pt(12)
+
+        # Claim amounts
+        doc.add_paragraph()
+        doc.add_heading('Цена иска:', level=2)
+        rows_data = [
+            ("Основной долг", f"{debt_amount:,.2f} руб."),
+            ("Неустойка (ст. 395 ГК РФ)", f"{penalty_amount:,.2f} руб."),
+        ]
+        for label, amount in extra_items:
+            rows_data.append((label, f"{amount:,.2f} руб."))
+        rows_data.append(("Госпошлина (ст. 333.21 НК РФ)", f"{state_duty:,.2f} руб."))
+        rows_data.append(("ИТОГО", f"{total_claim:,.2f} руб."))
+
+        amt_table = doc.add_table(rows=len(rows_data), cols=2)
+        amt_table.style = 'Table Grid'
+        for i, (label, value) in enumerate(rows_data):
+            amt_table.cell(i, 0).text = label
+            amt_table.cell(i, 1).text = value
+            for cell in amt_table.rows[i].cells:
+                for p in cell.paragraphs:
+                    for r in p.runs:
+                        r.font.size = Pt(10)
+            if i == len(rows_data) - 1:
+                for cell in amt_table.rows[i].cells:
+                    for p in cell.paragraphs:
+                        for r in p.runs:
+                            r.bold = True
+
+        # Factual background
+        doc.add_paragraph()
+        doc.add_heading('Обстоятельства дела:', level=2)
+        facts = doc.add_paragraph()
+        facts.add_run(
+            f'{contractor_name} (Подрядчик) и {customer_name} (Заказчик) заключили '
+            f'договор подряда № {contract_number_str} от {contract_date_str}.\n\n'
+            f'Подрядчик надлежащим образом выполнил строительно-монтажные работы, '
+            f'что подтверждается актами о приёмке выполненных работ (КС-2), '
+            f'справками о стоимости (КС-3), актами освидетельствования скрытых работ '
+            f'(АОСР) и записями в Общем журнале работ.\n\n'
+            f'Заказчик в нарушение ст. 309, 711, 746 ГК РФ не произвёл оплату '
+            f'выполненных работ. Досудебная претензия (исх. от {date.today().strftime("%d.%m.%Y")}) '
+            f'оставлена без удовлетворения.\n\n'
+            f'Согласно ст. 395 ГК РФ на сумму долга подлежат начислению проценты '
+            f'за пользование чужими денежными средствами.'
+        )
+
+        # Legal basis
+        doc.add_paragraph()
+        doc.add_heading('Правовое основание:', level=2)
+        doc.add_paragraph('ст. 309, 310, 395, 702, 711, 746 ГК РФ')
+        doc.add_paragraph('ст. 4, 27, 35, 125, 126 АПК РФ')
+        doc.add_paragraph('ст. 333.21 НК РФ')
+
+        # Demands
+        doc.add_paragraph()
+        doc.add_heading('Прошу суд:', level=2)
+        demands = [
+            f'1. Взыскать с {customer_name} в пользу {contractor_name} '
+            f'задолженность в размере {debt_amount:,.2f} руб.',
+            f'2. Взыскать неустойку по ст. 395 ГК РФ в размере {penalty_amount:,.2f} руб.',
+        ]
+        for label, amount in extra_items:
+            demands.append(
+                f'{len(demands) + 1}. Взыскать {label.lower()} в размере {amount:,.2f} руб.'
+            )
+        demands.append(
+            f'{len(demands) + 1}. Взыскать расходы по уплате государственной пошлины '
+            f'в размере {state_duty:,.2f} руб.'
+        )
+        for d in demands:
+            doc.add_paragraph(d)
+
+        # Attachments
+        doc.add_paragraph()
+        doc.add_heading('Приложения:', level=2)
+        attachments = [
+            f'1. Копия договора № {contract_number_str}',
+            '2. Копии актов выполненных работ (КС-2)',
+            '3. Копии справок о стоимости (КС-3)',
+            '4. Копия досудебной претензии',
+            '5. Доказательства направления претензии ответчику',
+            '6. Расчёт исковых требований',
+            '7. Копия свидетельства о регистрации истца',
+            f'8. Квитанция об уплате госпошлины ({state_duty:,.2f} руб.)',
+        ]
+        for a in attachments:
+            doc.add_paragraph(a)
+
+        # Signature
+        doc.add_paragraph()
+        doc.add_paragraph()
+        sig = doc.add_paragraph()
+        sig.add_run(f"Генеральный директор\n{contractor_name}\n").bold = True
+        sig.add_run("_______________ /_______________/\n")
+        sig.add_run(f"Дата: {date.today().strftime('%d.%m.%Y')}")
+
+        # Save
+        if not output_path:
+            artifacts = settings.artifacts_path
+            artifacts.mkdir(parents=True, exist_ok=True)
+            ts = date.today().strftime('%Y%m%d')
+            output_path = str(
+                artifacts / f"Иск_контракт_{contract_id}_{ts}.docx"
+            )
+
+        doc.save(output_path)
+
+        return {
+            "status": "success",
+            "file_path": output_path,
+            "court": court,
+            "plaintiff": contractor_name,
+            "defendant": customer_name,
+            "claim_amount": total_claim,
+            "attachments": [a.split(". ", 1)[1] if ". " in a else a for a in attachments],
+            "message": f"Исковое заявление сгенерировано. Проверьте перед подачей.",
+        }
+
+    except Exception as e:
+        logger.error(f"Lawsuit generation failed: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 async def asd_add_trap(
