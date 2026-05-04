@@ -23,14 +23,25 @@ import logging
 import os
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from sqlalchemy import text
-
-from src.db.init_db import SessionLocal
-from src.db.models import DomainTrap
+if TYPE_CHECKING:
+    from src.db.models import DomainTrap
 
 logger = logging.getLogger(__name__)
+
+# Lazy DB access — defers sqlalchemy + model imports to first use
+_db = None
+
+
+def _lazy_db():
+    global _db
+    if _db is None:
+        from sqlalchemy import text as _sql_text
+        from src.db.init_db import SessionLocal as _SessionLocal
+        from src.db.models import DomainTrap as _DomainTrap
+        _db = (_sql_text, _SessionLocal, _DomainTrap)
+    return _db
 
 
 # =============================================================================
@@ -56,6 +67,7 @@ class KnowledgeBase:
     @staticmethod
     def _get_session():
         """Create a new database session. SessionLocal handles connection pooling internally."""
+        _, SessionLocal, _ = _lazy_db()
         return SessionLocal()
 
     @property
@@ -63,6 +75,7 @@ class KnowledgeBase:
         """Check if pgvector extension is installed."""
         if self._vector_available is None:
             try:
+                text, _, _ = _lazy_db()
                 with self._get_session() as db:
                     db.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"))
                 self._vector_available = True
@@ -104,6 +117,7 @@ class KnowledgeBase:
     ) -> List[Dict[str, Any]]:
         """pgvector similarity search."""
         embedding = self._generate_embedding(query)
+        text, _, _ = _lazy_db()
 
         with self._get_session() as db:
             try:
@@ -160,6 +174,7 @@ class KnowledgeBase:
             domain_filter = "AND domain = :domain"
             params["domain"] = domain
 
+        text, _, _ = _lazy_db()
         with self._get_session() as db:
             try:
                 sql = text(f"""
@@ -223,6 +238,7 @@ class KnowledgeBase:
 
         # Generate embedding
         embedding = self._generate_embedding(f"{title}\n\n{description}")
+        _, _, DomainTrap = _lazy_db()
 
         with self._get_session() as db:
             try:
@@ -400,6 +416,7 @@ class KnowledgeBase:
 
     def get_stats(self) -> Dict[str, Any]:
         """Get knowledge base statistics."""
+        _, _, DomainTrap = _lazy_db()
         with self._get_session() as db:
             total = db.query(DomainTrap).count()
             by_domain = {}

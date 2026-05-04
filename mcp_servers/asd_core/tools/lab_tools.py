@@ -20,26 +20,29 @@ ASD v12.0.0 — Laboratory MCP Tools.
 Architecture: MLX-only (Mac Studio M4 Max 128GB).
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 
-from sqlalchemy import select, and_
-from sqlalchemy.orm import Session
-
-from src.db.init_db import SessionLocal
-from src.db.models import (
-    LabOrganization,
-    LabRequest,
-    LabSample,
-    LabContract,
-    LabAct,
-    LabReport,
-    LabControlPlan,
-    Document,
-)
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from src.db.models import (
+        LabOrganization,
+        LabRequest,
+        LabSample,
+        LabContract,
+        LabAct,
+        LabReport,
+        LabControlPlan,
+        Document,
+    )
 
 logger = logging.getLogger(__name__)
+
+# Lazy DB helpers — individual functions import sqlalchemy/models on first call.
+# Python function-level imports ARE lazy (resolved at call time, not module load time).
 
 
 # =============================================================================
@@ -215,6 +218,8 @@ async def asd_lab_control_plan_create(
     """
     logger.info(f"asd_lab_control_plan_create: project={project_id}, plan={plan_number}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabControlPlan
     db = SessionLocal()
     try:
         plan = LabControlPlan(
@@ -287,6 +292,8 @@ async def asd_lab_sample_register(
     """
     logger.info(f"asd_lab_sample_register: mark={sample_mark}, request={request_id}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabRequest, LabSample
     db = SessionLocal()
     try:
         # Проверяем что заявка существует
@@ -355,6 +362,9 @@ async def asd_lab_report_review(
     """
     logger.info(f"asd_lab_report_review: report={report_id}, accept={accept}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabReport, LabSample
+    from sqlalchemy import select
     db = SessionLocal()
     try:
         report = db.get(LabReport, report_id)
@@ -427,6 +437,9 @@ async def asd_lab_organization_search(
         f"method={control_method}"
     )
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabOrganization
+    from sqlalchemy import select
     db = SessionLocal()
     try:
         query = select(LabOrganization)
@@ -527,6 +540,8 @@ async def asd_lab_quote_request(
         f"qty={quantity} {unit}"
     )
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabOrganization, LabRequest
     db = SessionLocal()
     try:
         # Проверяем что лаборатория существует
@@ -605,6 +620,9 @@ async def asd_lab_quote_compare(
     """
     logger.info(f"asd_lab_quote_compare: project={project_id}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabRequest, LabOrganization, LabContract
+    from sqlalchemy import select
     db = SessionLocal()
     try:
         # Получаем все заявки по проекту
@@ -691,6 +709,9 @@ async def asd_lab_sample_delivery(
     """
     logger.info(f"asd_lab_sample_delivery: request={request_id}, type={delivery_type}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabRequest, LabSample, LabOrganization
+    from sqlalchemy import select
     db = SessionLocal()
     try:
         request = db.get(LabRequest, request_id)
@@ -760,6 +781,8 @@ async def asd_lab_request_letter_generate(
     """
     logger.info(f"asd_lab_request_letter_generate: request={request_id}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabRequest, LabOrganization
     db = SessionLocal()
     try:
         request = db.get(LabRequest, request_id)
@@ -894,6 +917,8 @@ async def asd_lab_contract_register(
     """
     logger.info(f"asd_lab_contract_register: contract={contract_number}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabRequest, LabContract
     db = SessionLocal()
     try:
         request = db.get(LabRequest, request_id)
@@ -960,6 +985,8 @@ async def asd_lab_act_register(
     """
     logger.info(f"asd_lab_act_register: act={act_number}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabContract, LabAct, LabRequest
     db = SessionLocal()
     try:
         contract = db.get(LabContract, contract_id)
@@ -1021,6 +1048,9 @@ async def asd_lab_report_file(
     """
     logger.info(f"asd_lab_report_file: report={report_id}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabReport, LabRequest, LabControlPlan
+    from sqlalchemy import select
     db = SessionLocal()
     try:
         report = db.get(LabReport, report_id)
@@ -1113,6 +1143,8 @@ async def asd_lab_register_report(
     """
     logger.info(f"asd_lab_register_report: number={report_number}")
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabReport, LabRequest
     db = SessionLocal()
     try:
         report = LabReport(
@@ -1183,6 +1215,8 @@ async def asd_lab_request_update_status(
             "message": f"Invalid status '{new_status}'. Valid: {valid_statuses}",
         }
 
+    from src.db.init_db import SessionLocal
+    from src.db.models import LabRequest
     db = SessionLocal()
     try:
         request = db.get(LabRequest, request_id)

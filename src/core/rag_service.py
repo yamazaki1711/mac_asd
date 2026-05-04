@@ -7,15 +7,46 @@ v12.0.0: Added search_traps() with weight-based ranking for БЛС.
 v12.0.0: Added search_lessons() for Lessons Learned RAG (delegated to lessons_service).
 """
 
+from __future__ import annotations
+
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy import select, func, text
-from src.core.llm_engine import llm_engine
-from src.core.graph_service import graph_service
-from src.db.models import DocumentChunk, DomainTrap, LegalTrap
-from src.db.init_db import Session
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.db.models import DocumentChunk, DomainTrap, LegalTrap
 
 logger = logging.getLogger(__name__)
+
+# Lazy accessors — defer heavy imports to first use
+_deps = None
+_graph = None
+_llm = None
+
+
+def _lazy_deps():
+    global _deps
+    if _deps is None:
+        from sqlalchemy import select, func, text
+        from src.db.models import DocumentChunk, DomainTrap, LegalTrap
+        from src.db.init_db import Session
+        _deps = (select, func, text, DocumentChunk, DomainTrap, LegalTrap, Session)
+    return _deps
+
+
+def _lazy_graph():
+    global _graph
+    if _graph is None:
+        from src.core.graph_service import graph_service
+        _graph = graph_service
+    return _graph
+
+
+def _lazy_llm():
+    global _llm
+    if _llm is None:
+        from src.core.llm_engine import llm_engine
+        _llm = llm_engine
+    return _llm
 
 
 class RAGService:
@@ -32,12 +63,14 @@ class RAGService:
         logger.info(f"Indexing document {document_id} ({len(chunks)} chunks)")
 
         # Добавление узла документа в локальный граф
-        graph_service.add_document(str(document_id), {"status": "indexed"})
+        _lazy_graph().add_document(str(document_id), {"status": "indexed"})
 
+        _, _, _, DocumentChunk, _, _, Session = _lazy_deps()
+        llm = _lazy_llm()
         with Session() as session:
             for chunk_data in chunks:
                 # Получаем эмбеддинг через llm_engine
-                embedding = await llm_engine.embed(chunk_data["content"])
+                embedding = await llm.embed(chunk_data["content"])
 
                 chunk = DocumentChunk(
                     document_id=document_id,
@@ -53,7 +86,8 @@ class RAGService:
         """
         Векторный поиск по всем документам (pgvector).
         """
-        query_embedding = await llm_engine.embed(query)
+        query_embedding = await _lazy_llm().embed(query)
+        select, _, _, DocumentChunk, _, _, Session = _lazy_deps()
 
         with Session() as session:
             # Используем оператор <-> для дистанции L2 в pgvector
@@ -80,9 +114,10 @@ class RAGService:
         doc_ids = set(str(r["doc_id"]) for r in vector_results)
 
         # Шаг 3: Для каждого документа запрашиваем графовый контекст глубины 1
+        graph = _lazy_graph()
         graph_context = []
         for doc_id in doc_ids:
-            related = graph_service.get_related_nodes(node_id=doc_id, depth=1)
+            related = graph.get_related_nodes(node_id=doc_id, depth=1)
             for node in related:
                 graph_context.append(node)
 
@@ -131,7 +166,8 @@ class RAGService:
             category: Фильтр по категории
             min_weight: Минимальный вес источника (0-100)
         """
-        query_embedding = await llm_engine.embed(query)
+        query_embedding = await _lazy_llm().embed(query)
+        select, _, _, _, DomainTrap, _, Session = _lazy_deps()
 
         with Session() as session:
             stmt = select(DomainTrap).where(DomainTrap.domain == domain)

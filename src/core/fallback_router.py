@@ -22,37 +22,24 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from src.core.pm_agent import (
-    DEFAULT_AGENT_WEIGHTS,
-    DEFAULT_VETO_RULES,
-    GO_THRESHOLD,
-    NO_GO_THRESHOLD,
-    compute_weighted_score,
-    check_veto_rules,
-    extract_legal_signal,
-    extract_smeta_signal,
-    extract_pto_signal,
-    extract_procurement_signal,
-    extract_logistics_signal,
-    calculate_risk_level,
-)
-from src.schemas.verdict import (
-    AgentSignal,
-    DecisionMethod,
-    RiskLevel,
-    TenderVerdict,
-    VerdictReport,
-    VerdictReportBuilder,
-)
+if TYPE_CHECKING:
+    from src.schemas.verdict import (
+        AgentSignal,
+        DecisionMethod,
+        RiskLevel,
+        TenderVerdict,
+        VerdictReport,
+        VerdictReportBuilder,
+    )
 
 
 # =============================================================================
 # Fallback Decision
 # =============================================================================
 
-def fallback_decide(state: Dict[str, Any]) -> VerdictReport:
+def fallback_decide(state: Dict[str, Any]) -> "VerdictReport":
     """
     Принять решение по тендеру без LLM.
 
@@ -71,6 +58,25 @@ def fallback_decide(state: Dict[str, Any]) -> VerdictReport:
     Raises:
         ValueError: если state не содержит minimal required данных
     """
+    from src.core.pm_agent import (
+        DEFAULT_AGENT_WEIGHTS,
+        DEFAULT_VETO_RULES,
+        compute_weighted_score,
+        check_veto_rules,
+        extract_legal_signal,
+        extract_smeta_signal,
+        extract_pto_signal,
+        extract_procurement_signal,
+        extract_logistics_signal,
+        calculate_risk_level,
+    )
+    from src.schemas.verdict import (
+        DecisionMethod,
+        RiskLevel,
+        TenderVerdict,
+        VerdictReportBuilder,
+    )
+
     lot_id = state.get("current_lot_id", "UNKNOWN")
     builder = VerdictReportBuilder(lot_id=lot_id, project_id=state.get("project_id"))
 
@@ -245,6 +251,18 @@ def quick_health_check(state: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         {"can_decide": bool, "zone": str, "recommendation": str}
     """
+    from src.core.pm_agent import (
+        DEFAULT_AGENT_WEIGHTS,
+        DEFAULT_VETO_RULES,
+        compute_weighted_score,
+        check_veto_rules,
+        extract_legal_signal,
+        extract_smeta_signal,
+        extract_pto_signal,
+        extract_procurement_signal,
+        extract_logistics_signal,
+    )
+
     signals = [
         extract_legal_signal(state),
         extract_smeta_signal(state),

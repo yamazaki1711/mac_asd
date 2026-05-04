@@ -21,15 +21,38 @@ MAC_ASD v12.0 — Lessons Learned Service.
   await lessons_service.verify_lesson(lesson_id=1)
 """
 
+from __future__ import annotations
+
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
-from sqlalchemy import select, and_
-from src.core.llm_engine import llm_engine
-from src.db.models import LessonLearned
-from src.db.init_db import Session
+
+if TYPE_CHECKING:
+    from src.db.models import LessonLearned
 
 logger = logging.getLogger(__name__)
+
+# Lazy accessors — defer heavy imports to first use
+_db = None
+_llm = None
+
+
+def _lazy_db():
+    global _db
+    if _db is None:
+        from sqlalchemy import select, and_
+        from src.db.init_db import Session
+        from src.db.models import LessonLearned
+        _db = (select, and_, Session, LessonLearned)
+    return _db
+
+
+def _lazy_llm():
+    global _llm
+    if _llm is None:
+        from src.core.llm_engine import llm_engine
+        _llm = llm_engine
+    return _llm
 
 
 # Порог подтверждений для мутации в автоматическое правило
@@ -81,8 +104,9 @@ class LessonsService:
         """
         # Генерируем эмбеддинг из title + description для качественного RAG-поиска
         embed_text = f"{title}\n{description}"
-        embedding = await llm_engine.embed(embed_text)
-        
+        embedding = await _lazy_llm().embed(embed_text)
+
+        _, _, Session, LessonLearned = _lazy_db()
         lesson = LessonLearned(
             lot_number=lot_number,
             work_type=work_type,
@@ -133,11 +157,13 @@ class LessonsService:
         Returns:
             Список словарей с данными уроков
         """
+        llm_engine = _lazy_llm()
         query_embedding = await llm_engine.embed(query)
-        
+
+        select, and_, Session, LessonLearned = _lazy_db()
         with Session() as session:
             stmt = select(LessonLearned)
-            
+
             # Фильтры
             conditions = []
             if work_type and work_type != "*":
@@ -153,10 +179,10 @@ class LessonsService:
                 conditions.append(LessonLearned.severity == severity)
             if verified_only:
                 conditions.append(LessonLearned.verified == True)
-            
+
             if conditions:
                 stmt = stmt.where(and_(*conditions))
-            
+
             # Векторный поиск
             stmt = stmt.order_by(
                 LessonLearned.embedding.l2_distance(query_embedding)
@@ -274,6 +300,7 @@ class LessonsService:
         Returns:
             Обновлённый объект LessonLearned или None
         """
+        _, _, Session, LessonLearned = _lazy_db()
         with Session() as session:
             lesson = session.query(LessonLearned).filter_by(id=lesson_id).first()
             if not lesson:
@@ -307,6 +334,7 @@ class LessonsService:
         Returns:
             True если удалён, False если не найден
         """
+        _, _, Session, LessonLearned = _lazy_db()
         with Session() as session:
             lesson = session.query(LessonLearned).filter_by(id=lesson_id).first()
             if not lesson:
@@ -330,6 +358,7 @@ class LessonsService:
         Returns:
             Список автоматических правил
         """
+        select, _, Session, LessonLearned = _lazy_db()
         with Session() as session:
             stmt = select(LessonLearned).where(LessonLearned.auto_rule == True)
             if work_type and work_type != "*":
@@ -372,9 +401,10 @@ class LessonsService:
         Returns:
             Список словарей с данными уроков
         """
+        select, _, Session, LessonLearned = _lazy_db()
         with Session() as session:
             stmt = select(LessonLearned)
-            
+
             if work_type and work_type != "*":
                 stmt = stmt.where(
                     (LessonLearned.work_type == work_type) | (LessonLearned.work_type == "*")
