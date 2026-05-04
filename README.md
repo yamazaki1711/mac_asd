@@ -16,7 +16,10 @@ export ASD_PROFILE=dev_linux    # или mac_studio
 
 # Тесты
 pip install -e ".[dev]"
-pytest tests/ -v                           # 590 passed, 15 skipped, 605 collected
+pytest tests/ -v                           # 752 passed, 15 skipped, 767 collected
+
+# Веб-интерфейс
+PYTHONPATH=. python src/web/app.py        # http://localhost:8080
 
 # E2E forensic
 PYTHONPATH=. python tests/test_e2e_forensic.py
@@ -39,8 +42,12 @@ python -m mcp_servers.asd_core.server
 | Сметчик | Gemma 4 31B | ФЕР/ТЕР, НМЦК, рентабельность, КС-2/КС-3 |
 | Закупщик | Gemma 4 31B | Тендеры, поставщики, лаб. контроль |
 | Логист | Gemma 4 31B | Снабжение, КП, доставка |
-| Делопроизводитель | Gemma 4 E4B | Регистрация, архив, реестр ИД |
+| Делопроизводитель | Gemma 4 E4B | Регистрация, архив, реестр ИД, NumberingService |
 | Auditor (RedTeam) | Rule-based | 8 forensic-проверок, перекрёстный аудит агентов, без LLM-as-Judge |
+
+### Веб-интерфейс (локальный)
+
+6 страниц на Flask (localhost:8080): дашборд проекта, проекты, документы, evidence graph, HITL-вопросы, отчёты. Drag & drop загрузка. Авто-бэкапы БД/графов/артефактов. Telegram-бот для приёма WorkEntry от полевых инженеров.
 
 ### Ключевые модули
 
@@ -81,6 +88,11 @@ python -m mcp_servers.asd_core.server
 | Container (DI) | `src/core/container.py` | Dependency Injection: единая точка сборки компонентов |
 | Google Workspace | `src/core/integrations/google.py` | Drive, Sheets, Docs, Gmail через OAuth2/Service Account |
 | Document Repository | `src/core/document_repository.py` | Абстракция хранилища документов (локальные + Google Drive) |
+| **Web UI** | `src/web/app.py` | Flask-интерфейс: дашборд, проекты, документы, HITL, evidence graph, отчёты |
+| **Backup System** | `src/core/backup_service.py` | Авто-бэкапы: PostgreSQL, NetworkX-графы, артефакты |
+| **Telegram Scout** | `src/core/telegram_scout.py` | Мониторинг 40+ Telegram-каналов: тендеры, поставщики |
+| **Forensic Checks** | `src/core/evidence_graph.py` | batch_coverage, orphan_certificates, certificate_reuse |
+| **NumberingService** | `src/core/services/numbering_service.py` | Сквозная нумерация документов: АОСР, письма, реестры |
 
 ### Evidence Graph v2 — два режима, один граф
 
@@ -124,7 +136,7 @@ src/
 ├── agents/          # LangGraph: workflow.py, nodes.py, nodes_v2.py, state.py
 │   └── skills/      # PTO: work_spec, vor_check, pd_analysis, act_generator, compliance_skill
 ├── core/
-│   ├── evidence_graph.py, inference_engine.py   # Evidence Graph v2
+│   ├── evidence_graph.py, inference_engine.py   # Evidence Graph v2 (+ forensic checks)
 │   ├── project_loader.py                        # Нулевой слой: ПД/РД → baseline
 │   ├── chain_builder.py, hitl_system.py          # Package 11: цепочки, HITL
 │   ├── journal_reconstructor.py                  # Package 11: реконструкция ОЖР
@@ -134,41 +146,47 @@ src/
 │   ├── graph_service.py, auditor.py        # Forensic KAG
 │   ├── hybrid_classifier.py                # Classifier + Guidance
 │   ├── completeness_matrix.py              # Матрица комплектности ИД
+│   ├── backup_service.py                   # Авто-бэкапы БД/графов/артефактов
 │   ├── llm_engine.py, backends/            # MLX/Ollama/DeepSeek
 │   ├── knowledge/                          # Инвалидация знаний, реестр шаблонов
 │   ├── integrations/google.py              # Google Workspace (Drive, Sheets, Docs, Gmail)
 │   ├── services/                           #   pto_agent, smeta_agent, legal_documents,
-│   │   │   id_requirements.py, work_entry.py  #   NormativeGuard, WorkEntry
+│   │   │   id_requirements.py, work_entry.py  #   NormativeGuard, WorkEntry, NumberingService
 │   │   ├── ppr_generator/                  #   Генератор ППР (6 ТТК + ПЗ + графика)
 │   │   ├── is_generator/                   #   Генератор исполнительных схем
 │   │   └── shared/                         #   gost_stamp (ГОСТ 21.101-2020)
 │   ├── rag_pipeline.py, parser_engine.py
 │   └── ram_manager.py, container.py, lessons_service.py
-├── schemas/          # Pydantic
-├── db/               # SQLAlchemy + Alembic
-└── config.py         # Профили (dev_linux / mac_studio)
+├── web/               # Flask UI (6 страниц, HITL-интерфейс)
+├── schemas/           # Pydantic
+├── db/                # SQLAlchemy + Alembic
+└── config.py          # Профили (dev_linux / mac_studio)
 
-mcp_servers/asd_core/ # FastMCP (74 инструмента)
-tests/                # 605 тестов (590 passed, 15 skipped)
-agents/               # Промпты агентов (Markdown)
-scripts/              # Утилиты: run_inventory.py, run_benchmark.py, generate_synthetic_docs.py
-traps/                # БЛС — 61 ловушка, 11 категорий (YAML)
-infrastructure/       # Docker Compose
-library/              # 284 файла, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
+mcp_servers/asd_core/  # FastMCP (74 инструмента)
+tests/                 # 767 тестов (752 passed, 15 skipped)
+agents/                # Промпты агентов (Markdown)
+scripts/               # Утилиты: run_inventory.py, run_benchmark.py, generate_synthetic_docs.py
+traps/                 # БЛС — 61 ловушка, 10 категорий (YAML)
+infrastructure/        # Docker Compose
+library/               # 284 файла, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
 ```
 
 ## Документация
 
 | Файл | Содержание |
 |------|-----------|
-| `AGENTS.md` | Манифест оркестратора — протоколы, workflow, правила |
-| `docs/CONCEPT_v12.md` | Концепция системы |
+| `agents.md` | Манифест оркестратора — протоколы, workflow, правила |
+| `docs/COMPREHENSIVE_ANALYSIS_20260505.md` | **Свежий** комплексный анализ: 752 теста, 83K LOC, Grok P0 |
+| `docs/STATUS.md` | Сводный статус проекта (актуализирован 05.05.2026) |
+| `docs/CONCEPT_v13.md` | Концепция системы |
 | `docs/COMPONENT_ARCHITECTURE.md` | Внутренняя архитектура компонентов |
 | `docs/CORE_LOGIC_DESIGN.md` | Логика переходов, OCR-конвейер, RAM-менеджмент |
 | `docs/MCP_TOOLS_SPEC.md` | Спецификация MCP инструментов |
 | `docs/DATA_SCHEMA.md` | Схема PostgreSQL |
 | `docs/MODEL_STRATEGY.md` | Стратегия моделей и управление памятью |
 | `docs/DEPLOYMENT_PLAN.md` | План развёртывания на Mac Studio |
+| `docs/STRATEGY.md` | Стратегия антикризисной команды (4 человека) |
+| `docs/BUILDING_LIFECYCLE_WORKFLOW.md` | Жизненный цикл объекта строительства |
 | `docs/id_pipeline_architecture.md` | Архитектура единого конвейера ИД (ИС + ППР + АОСР) |
 | `docs/ppr_generator.md` | Концепция ППР-генератора |
 

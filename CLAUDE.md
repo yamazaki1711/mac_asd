@@ -50,8 +50,13 @@ docs/                  Architecture, schema, MCP spec
 - **Chain Builder**: MaterialBatch→Cert→AOSR→KS-2 цепочки, разрывы, статусы
 - **HITL System**: Human-in-the-Loop вопросы с приоритетами (critical/high/medium/low)
 - **Journal Reconstructor v2**: 5 этапов восстановления ОЖР, цветовая разметка (🟢/🟡/🔴)
+- **NumberingService**: автономная сквозная нумерация документов (АОСР, письма, реестры)
+- **Forensic Checks**: batch_coverage, orphan_certificates, certificate_reuse в EvidenceGraph v2
 - **NormativeGuard**: SSOT-валидация (normative_index.json), все ГОСТ/СП/ФЗ проверяются
 - **IDRequirementsRegistry**: SSOT состава ИД по 344/пр (33 вида работ → обязательный шлейф)
+- **Web UI**: Flask (localhost:8080) — дашборд, проекты, документы, HITL, evidence graph
+- **Backup System**: авто-бэкапы БД, NetworkX-графов, артефактов
+- **Telegram Bot**: приём WorkEntry от полевых инженеров → автоматическая генерация АОСР
 
 ## Rules & Conventions
 
@@ -85,7 +90,7 @@ docs/                  Architecture, schema, MCP spec
 
 ### Testing
 - `pytest tests/ -v` — всегда после изменений модулей
-- Test coverage: 590/605 passed (97.5%), 15 skipped
+- Test coverage: 752/767 passed (98.0%), 15 skipped
 - E2E: `PYTHONPATH=. python tests/test_e2e_forensic.py`
 
 ### Git & Commits

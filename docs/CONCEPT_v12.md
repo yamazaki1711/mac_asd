@@ -5,25 +5,26 @@
 | Параметр | Значение |
 |----------|----------|
 | **Версия** | v13.0 |
-| **Дата** | 4 мая 2026 (обновлено: Package 5 ✅, Package 11 ✅, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, PTO Skills ✅ VorCheck/PDAnalysis/ActGenerator) |
-| **Статус** | Активная разработка (Core + Юрист + Lessons Learned завершены, Package 5 ✅ ПТО реализован, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, Сметчик/Дело реализованы, Закупщик/Логист частично, IS Generator в разработке) |
+| **Дата** | 5 мая 2026 (обновлено: Web UI ✅, Backup System ✅, Telegram Bot ✅, Forensic Checks ✅, все P0 Grok закрыты, 752 теста) |
+| **Статус** | Инженерная готовность ~80%. Все P0-задачи Grok закрыты. Основные пробелы: Alembic-миграции для новых таблиц, Google OAuth, Knowledge Invalidation index. |
 | **Целевая платформа** | Mac Studio, Apple Silicon M4 Max, 128GB Unified Memory |
 | **Оркестратор** | Llama 3.3 70B 4-bit (Руководитель проекта/PM) — MLX, ~40GB |
 | **Рабочие агенты (5)** | Gemma 4 31B 4-bit (MLX-VLM, shared, ~23GB, 128K context) — ПТО, Юрист, Сметчик, Закупщик, Логист |
 | **Делопроизводитель** | Gemma 4 E4B 4-bit (MLX, ~3GB) |
 | **Embeddings** | bge-m3-mlx-4bit (~0.3GB, 1024 dim, мультиязычный) |
-| **Gemma 4** | ✅ ВОССТАНОВЛЕНА в v12.0 как основная модель для всех рабочих агентов (128K контекст) |
-| **Qwen3.5-27B** | ❌ УДАЛЕНА из модельного ряда в v12.0 — заменена на Gemma 4 31B для всех рабочих агентов |
-| **LLM-бэкенд** | MLX (единственный для LLM), Ollama удалён — embeddings через MLX |
+| **Dev-модель** | DeepSeek V4 Pro[1M] (dev_linux) / Ollama gemma3:12b (RTX 5060) |
+| **LLM-бэкенд** | MLX (prod), Ollama/DeepSeek API (dev) |
 | **Агенты** | 8 специализированных (1 оркестратор + 5 рабочих через shared Gemma 4 31B + 1 Делопроизводитель на Gemma 4 E4B + 1 Аудитор rule-based) |
 | **Виды работ** | 33 вида работ (IDRequirementsRegistry — SSOT для кросс-агентных маппингов + id_requirements.yaml) |
-| **БЛС** | 61 ловушка в 10 категориях (включая termination и insurance) + 21 seed-ловушка + NormativeGuard (SSOT-валидация через library/normative/normative_index.json) |
+| **БЛС** | 61 ловушка в 10 категориях + NormativeGuard (SSOT-валидация через library/normative/normative_index.json) |
 | **Опытный контур** | Lessons Learned: 3 уровня (БД → RAG-инъекция → Skill Mutation) |
 | **ИС-чертежи** | IS Generator: 2 пути (DWG→DXF→SVG→PDF + PDF-overlay), ezdxf + cairosvg + ODA File Converter |
+| **Веб-интерфейс** | Flask (localhost:8080): 6 страниц, HITL, дашборд, drag&drop загрузка |
 | **Кэш** | In-process cache (cachetools) — Redis удалён |
 | **Миграции БД** | Alembic (вместо create_all) |
-| **MCP** | v13.0.0 (75+ инструментов) |
-| **Тесты** | 478/493 пройдено (97%), библиотека: 284 файлов, 101 MB |
+| **MCP** | v13.0.0 (74 инструмента) |
+| **Тесты** | 752/767 пройдено (98.0%), 15 skipped. 32 тестовых файла. Библиотека: 284 файла, 101 MB |
+| **LOC** | 83,375 Python (src: 52,066, tests: 12,183, mcp_servers: 5,375) |
 | **Философия** | Полностью локальная, оффлайн, автономная — мобильный офис антикризисного управления ИД |
 
 ---
