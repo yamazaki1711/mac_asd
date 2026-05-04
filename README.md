@@ -16,7 +16,7 @@ export ASD_PROFILE=dev_linux    # или mac_studio
 
 # Тесты
 pip install -e ".[dev]"
-pytest tests/ -v                           # 508 passed, 3 failed, 15 skipped, 511 total
+pytest tests/ -v                           # 590 passed, 15 skipped, 605 collected
 
 # E2E forensic
 PYTHONPATH=. python tests/test_e2e_forensic.py
@@ -35,22 +35,22 @@ python -m mcp_servers.asd_core.server
 |-------|--------|--------|
 | Руководитель проекта | Llama 3.3 70B | Оркестрация, PM Agent (weighted scoring → LLM reasoning → veto) |
 | ПТО | Gemma 4 31B VLM | ВОР, чертежи, АОСР, сверка ПД, 33 вида работ, OCR |
-| Юрист | Gemma 4 31B | БЛС (61 ловушка), контракты, претензии, иски |
+| Юрист | Gemma 4 31B | БЛС (61 ловушка, 11 категорий), контракты, претензии, иски |
 | Сметчик | Gemma 4 31B | ФЕР/ТЕР, НМЦК, рентабельность, КС-2/КС-3 |
 | Закупщик | Gemma 4 31B | Тендеры, поставщики, лаб. контроль |
 | Логист | Gemma 4 31B | Снабжение, КП, доставка |
 | Делопроизводитель | Gemma 4 E4B | Регистрация, архив, реестр ИД |
-| Auditor (RedTeam) | Llama 3.3 70B | Forensic-проверки, перекрёстный аудит агентов |
+| Auditor (RedTeam) | Rule-based | 8 forensic-проверок, перекрёстный аудит агентов, без LLM-as-Judge |
 
 ### Ключевые модули
 
 | Модуль | Файл | Что делает |
 |--------|------|------------|
 || Ingestion Pipeline | `src/core/ingestion.py` | Сканы → OCR → классификация (18 типов) → извлечение сущностей → VLM fallback |
-|| **Quality Cascade** | `src/core/quality_metrics.py` | **Новый**. Каскад качества (АФИДА): измерение потерь на 5 этапах конвейера, waterfall |
-|| **Evidence Graph v2** | `src/core/evidence_graph.py` | **Новый**. Единый граф: 7 типов узлов, 11 типов связей, confidence на всём |
-| **Inference Engine** | `src/core/inference_engine.py` | **Новый**. Symbolic inference: 6 правил вывода дат/фактов из улик |
-| **ProjectLoader** | `src/core/project_loader.py` | **Новый**. Нулевой слой: парсинг ПД/РД → baseline WorkUnit'ов |
+|| **Quality Cascade** | `src/core/quality_metrics.py` | Каскад качества (АФИДА): измерение потерь на 5 этапах конвейера, waterfall |
+|| **Evidence Graph v2** | `src/core/evidence_graph.py` | Единый граф: 7 типов узлов, 11 типов связей, confidence на всём |
+| **Inference Engine** | `src/core/inference_engine.py` | Symbolic inference: 6 правил вывода дат/фактов из улик |
+| **ProjectLoader** | `src/core/project_loader.py` | Нулевой слой: парсинг ПД/РД → baseline WorkUnit'ов |
 | Forensic KAG | `src/core/graph_service.py` | Оригинальный граф (12 типов узлов) — обратная совместимость |
 | Auditor | `src/core/auditor.py` | Rule-based RedTeam: 8 проверок (кросс-агентные + forensic + классификация), без LLM-as-Judge |
 | Output Pipeline | `src/core/output_pipeline.py` | Генерация DOCX по 344/пр (АОСР, Times New Roman 12pt, нумерация) |
@@ -60,8 +60,8 @@ python -m mcp_servers.asd_core.server
 | PM Agent | `src/core/pm_agent.py` | Принятие решений: weighted scoring → LLM reasoning → veto, оркестрация агентов |
 | AgentState v2.0 | `src/agents/state.py` | Состояние конвейера: audit trail, confidence, rollback |
 | LLMEngine | `src/core/llm_engine.py` | Единый интерфейс к MLX/Ollama |
-| WorkTypeRegistry | `src/agents/skills/common/` | SSOT: 32 вида работ → маппинги (сметные, юридические, ФЕР), из Пособия по ИД Вып.2 |
-| БЛС | `traps/default_traps.yaml` | 61 ловушка субподрядчика в 10 категориях + pgvector RAG |
+| WorkTypeRegistry | `src/agents/skills/common/` | SSOT: 33 вида работ → маппинги (сметные, юридические, ФЕР), из Пособия по ИД Вып.2 |
+| БЛС | `traps/default_traps.yaml` | 61 ловушка субподрядчика в 11 категориях + pgvector RAG |
 | Lessons Learned | `src/core/lessons_service.py` | Институциональная память: БД → RAG-инъекция → Skill Mutation |
 | Knowledge Engine | `src/core/knowledge/` | Инвалидация знаний, реестр шаблонов (149 DOCX из id-prosto), загрузчик |
 | Journal Restorer | `src/core/services/journal_restorer.py` | Forensic-восстановление ОЖР по косвенным документам |
@@ -69,13 +69,13 @@ python -m mcp_servers.asd_core.server
 | HITL System | `src/core/hitl_system.py` | **Package 11**. Вопросы оператору, приоритеты, обновление графа |
 | Journal Reconstructor v2 | `src/core/journal_reconstructor.py` | **Package 11**. 5 этапов, цветовая разметка, вывод JSON/таблица |
 | Completeness Matrix | `src/core/completeness_matrix.py` | Матрица комплектности ИД по 344/пр (13 позиций) + замечания |
-| **IDRequirementsRegistry** | `src/core/services/id_requirements.py` | **Новый**. SSOT состава ИД: 33 вида работ → обязательный шлейф документов по 344/пр |
-| **NormativeGuard** | `src/core/services/legal_service.py` | **Новый**. Валидация: все ГОСТ/СП/ФЗ из ответов LLM проверяются по library/normative/ |
-| **PTO_VorCheck** | `src/agents/skills/pto/vor_check.py` | **Новый**. Сверка ВОР↔ПД: fuzzy-мэтчинг, 4 типа расхождений (rapidfuzz + trigram) |
-| **PTO_PDAnalysis** | `src/agents/skills/pto/pd_analysis.py` | **Новый**. 3-стадийный анализ ПД: пространственные коллизии + комплектность ГОСТ 21.1101 + LLM-семантика |
-| **PTO_ActGenerator** | `src/agents/skills/pto/act_generator.py` | **Новый**. Генерация DOCX актов: АОСР/входной/скрытые/освидетельствование (docxtpl + python-docx) |
-| **ConstructionElement** | `src/db/models.py` | **Новый**. Физическая структура: Захватки + Конструктивы + ElementDocument |
-| **WorkEntry** | `src/core/services/work_entry.py` | **Новый**. Цифровой ОЖР: парсер Telegram-сообщений → WorkEntry → триггер АОСР |
+| **IDRequirementsRegistry** | `src/core/services/id_requirements.py` | SSOT состава ИД: 33 вида работ → обязательный шлейф документов по 344/пр |
+| **NormativeGuard** | `src/core/services/legal_service.py` | Валидация: все ГОСТ/СП/ФЗ из ответов LLM проверяются по library/normative/ |
+| **PTO_VorCheck** | `src/agents/skills/pto/vor_check.py` | Сверка ВОР↔ПД: fuzzy-мэтчинг, 4 типа расхождений (rapidfuzz + trigram) |
+| **PTO_PDAnalysis** | `src/agents/skills/pto/pd_analysis.py` | 3-стадийный анализ ПД: пространственные коллизии + комплектность ГОСТ 21.1101 + LLM-семантика |
+| **PTO_ActGenerator** | `src/agents/skills/pto/act_generator.py` | Генерация DOCX актов: АОСР/входной/скрытые/освидетельствование (docxtpl + python-docx) |
+| **ConstructionElement** | `src/db/models.py` | Физическая структура: Захватки + Конструктивы + ElementDocument |
+| **WorkEntry** | `src/core/services/work_entry.py` | Цифровой ОЖР: парсер Telegram-сообщений → WorkEntry → триггер АОСР |
 | Batch ID Generator | `src/core/services/batch_id_generator.py` | Сквозная нумерация документов АОСР-{project}-{seq:04d} |
 | Telegram Scout | `src/core/telegram_scout.py` | Мониторинг Telegram-каналов: тендеры, поставщики, стройки |
 | Container (DI) | `src/core/container.py` | Dependency Injection: единая точка сборки компонентов |
@@ -121,15 +121,15 @@ python -m mcp_servers.asd_core.server
 
 ```
 src/
-├── agents/          # LangGraph: граф (workflow.py), узлы (nodes.py), состояние (state.py)
-│   └── skills/      # WorkTypeRegistry, work_spec, contract_risks, rate_lookup
+├── agents/          # LangGraph: workflow.py, nodes.py, nodes_v2.py, state.py
+│   └── skills/      # PTO: work_spec, vor_check, pd_analysis, act_generator, compliance_skill
 ├── core/
-│   ├── evidence_graph.py, inference_engine.py   # Evidence Graph v2 (НОВОЕ)
-│   ├── project_loader.py                        # Нулевой слой: ПД/РД → baseline (НОВОЕ)
-│   ├── chain_builder.py, hitl_system.py          # Package 11: цепочки, HITL (НОВОЕ)
-│   ├── journal_reconstructor.py                  # Package 11: реконструкция ОЖР (НОВОЕ)
-│   ├── scan_detector.py, vlm_classifier.py      # VLM-интеграция (НОВОЕ)
-│   ├── quality_metrics.py                       # Каскад качества (НОВОЕ)
+│   ├── evidence_graph.py, inference_engine.py   # Evidence Graph v2
+│   ├── project_loader.py                        # Нулевой слой: ПД/РД → baseline
+│   ├── chain_builder.py, hitl_system.py          # Package 11: цепочки, HITL
+│   ├── journal_reconstructor.py                  # Package 11: реконструкция ОЖР
+│   ├── scan_detector.py, vlm_classifier.py      # VLM-интеграция
+│   ├── quality_metrics.py                       # Каскад качества
 │   ├── ingestion.py, output_pipeline.py         # Пайплайны
 │   ├── graph_service.py, auditor.py        # Forensic KAG
 │   ├── hybrid_classifier.py                # Classifier + Guidance
@@ -138,9 +138,9 @@ src/
 │   ├── knowledge/                          # Инвалидация знаний, реестр шаблонов
 │   ├── integrations/google.py              # Google Workspace (Drive, Sheets, Docs, Gmail)
 │   ├── services/                           #   pto_agent, smeta_agent, legal_documents,
-│   │   │   id_requirements.py, work_entry.py  #   NormativeGuard, WorkEntry (НОВОЕ)
-│   │   ├── ppr_generator/                  #   ppr_generator, is_generator
-│   │   ├── is_generator/                   #   journal_restorer, batch_id_generator
+│   │   │   id_requirements.py, work_entry.py  #   NormativeGuard, WorkEntry
+│   │   ├── ppr_generator/                  #   Генератор ППР (6 ТТК + ПЗ + графика)
+│   │   ├── is_generator/                   #   Генератор исполнительных схем
 │   │   └── shared/                         #   gost_stamp (ГОСТ 21.101-2020)
 │   ├── rag_pipeline.py, parser_engine.py
 │   └── ram_manager.py, container.py, lessons_service.py
@@ -148,11 +148,11 @@ src/
 ├── db/               # SQLAlchemy + Alembic
 └── config.py         # Профили (dev_linux / mac_studio)
 
-mcp_servers/asd_core/ # FastMCP (75+ инструментов)
-tests/                # 511 тестов (508 passed, 3 failed, 15 skipped)
+mcp_servers/asd_core/ # FastMCP (74 инструмента)
+tests/                # 605 тестов (590 passed, 15 skipped)
 agents/               # Промпты агентов (Markdown)
 scripts/              # Утилиты: run_inventory.py, run_benchmark.py, generate_synthetic_docs.py
-traps/                # БЛС — 61 ловушка (YAML)
+traps/                # БЛС — 61 ловушка, 11 категорий (YAML)
 infrastructure/       # Docker Compose
 library/              # 284 файла, 101 MB — ГОСТы, СП, шаблоны, образцы (локально, не в Git)
 ```

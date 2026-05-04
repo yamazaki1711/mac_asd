@@ -8,18 +8,18 @@
 - **Language:** Python 3.11+
 - **Framework:** LangGraph + FastMCP + SQLAlchemy + Alembic
 - **DB:** PostgreSQL 16 + pgvector (localhost:5433)
-- **Profiles:** `ASD_PROFILE=dev_linux` (DeepSeek API) | `mac_studio` (MLX)
-- **Current:** dev_linux via DeepSeek V4 Pro[1m]
+- **Profiles:** `ASD_PROFILE=dev_linux` (Ollama/gemma3:12b) | `deepseek` (DeepSeek API) | `mac_studio` (MLX)
+- **Current:** dev_linux via Ollama (gemma3:12b)
 
 ## Project Structure
 
 ```
 src/core/              Evidence Graph v2, Inference Engine, ProjectLoader, LLMEngine, services
 src/agents/            LangGraph StateGraph (state.py, workflow.py, nodes.py), skills
-mcp_servers/asd_core/  FastMCP: 75+ tools (7 agents + auditor)
-tests/                 511 tests (508 passed)
+mcp_servers/asd_core/  FastMCP: 74 tools (7 agents + auditor)
+tests/                 605 tests (590 passed, 15 skipped)
 agents/                Prompts (Markdown) for 8 agents
-traps/                 БЛС: 61 ловушка в 10 категориях (YAML)
+traps/                 БЛС: 61 ловушка в 11 категориях (YAML)
 library/               Local: ГОСТы, СП, шаблоны (not in Git)
 infrastructure/        Docker: PostgreSQL 16 + pgvector
 docs/                  Architecture, schema, MCP spec
@@ -35,7 +35,7 @@ docs/                  Architecture, schema, MCP spec
 - **Закупщик** (Gemma 4 31B): тендеры, поставщики, лаб. контроль
 - **Логист** (Gemma 4 31B): снабжение, КП, доставка
 - **Делопроизводитель** (Gemma 4 E4B): регистрация, письма, реестр ИД
-- **Auditor** (Llama 3.3 70B): rule-based RedTeam, 8 проверок (без LLM-as-Judge)
+- **Auditor** (rule-based): RedTeam, 8 проверок (без LLM-as-Judge)
 
 ### PTO Skills
 - **PTO_WorkSpec** (`work_spec.py`, 2464 loc): 33 WorkType, SSOT шлейфа ИД
@@ -62,7 +62,7 @@ docs/                  Architecture, schema, MCP spec
 
 ### LLM & Inference
 - **All LLM calls:** через LLMEngine только. Никаких прямых import deepseek/anthropic
-- **LLMEngine route:** dev_linux → DeepSeek API, mac_studio → MLX backend
+- **LLMEngine route:** dev_linux → Ollama (gemma3:12b), deepseek → DeepSeek API, mac_studio → MLX backend
 - **Prompts:** in `agents/` (Markdown), referenced by agent name
 - **Thinking mode:** используется для Юриста (contracts, трудные решения) и ПТО (сложная сверка)
 
@@ -85,7 +85,7 @@ docs/                  Architecture, schema, MCP spec
 
 ### Testing
 - `pytest tests/ -v` — всегда после изменений модулей
-- Test coverage: 508/511 passed (99.4%)
+- Test coverage: 590/605 passed (97.5%), 15 skipped
 - E2E: `PYTHONPATH=. python tests/test_e2e_forensic.py`
 
 ### Git & Commits
@@ -116,8 +116,8 @@ docs/                  Architecture, schema, MCP spec
 
 ## Performance & Memory
 
-- **Dev (DeepSeek V4 Pro[1m]):** 1M контекст, reasoning режим для сложных задач
-- **Tokens:** Кэширование system prompt + проект контекст (DeepSeek cache цены ~1/4 от input)
+- **Dev (gemma3:12b via Ollama):** 128K контекст, локально на RTX 5060
+- **Tokens:** Ollama — локально, без лимитов; DeepSeek API — кэширование system prompt + проект контекст
 - **Session:** одна сессия = один package, не переключайся между задачами (горячий кэш)
 - **Контекст:** `/compact` при длинных сессиях (>100K tokens)
 
