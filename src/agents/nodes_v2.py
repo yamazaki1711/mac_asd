@@ -37,27 +37,19 @@ from src.agents.nodes import (
     legal_protocol_node,
     legal_claim_node,
     legal_lawsuit_node,
-    _safe_agent_chat,
-    _compute_agent_confidence,
-    _get_lessons_context,
-    _extract_work_type,
 )
 from src.core.exceptions import (
     LLMUnavailableError,
-    LLMResponseError,
     NetworkError,
     QueueFullError,
     RAMRejectedError,
 )
 from src.agents.state import (
     AgentState,
-    StepLog,
-    StepStatus,
     add_revision,
     start_step,
     complete_step,
     fail_step,
-    create_initial_state,
 )
 from src.core.llm_engine import llm_engine
 from src.core.pm_agent import (
