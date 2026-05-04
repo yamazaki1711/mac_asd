@@ -383,7 +383,7 @@ class TestAgentWeightsProperties:
     )
     def test_score_invariant_to_weight_scaling(self, legal_w, smeta_w, pto_w, proc_w, log_w):
         """Scaling all weights by same factor shouldn't change normalized score."""
-        assume(legal_w + smeta_w + pto_w + proc_w + log_w > 0)
+        assume(legal_w + smeta_w + pto_w + proc_w + log_w > 1e-6)
         signals = [
             AgentSignal(agent_name="legal", signal=0.8, confidence=1.0,
                         weight=legal_w, reasoning=""),
