@@ -1576,7 +1576,7 @@ WORK_REGULATIONS: Dict[str, List[Dict[str, str]]] = {
     ],
     WorkType.FINISHING_FLOORS: [
         *COMMON_REGULATIONS,
-        {"code": "СП 29.13330.2011", "note": "Полы", "status": "действует"},
+        {"code": "СП 29.13330.2021", "note": "Полы", "status": "действует"},
     ],
     WorkType.FINISHING_WALLS_CEILINGS: [
         *COMMON_REGULATIONS,
@@ -2041,7 +2041,7 @@ WORK_DATE_RULES: Dict[str, List[Dict[str, str]]] = {
     WorkType.FINISHING_FLOORS: [
         {
             "rule": "АОСР на каждый слой пола оформляется до устройства следующего слоя",
-            "source": "СП 29.13330.2011",
+            "source": "СП 29.13330.2021",
         },
         {
             "rule": "Акт приёмки готовых поверхностей — после устройства финишного покрытия",
@@ -2049,7 +2049,7 @@ WORK_DATE_RULES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "rule": "При бетонных полах — дата АОСР на стяжку = дата протокола прочности (аналогично бетонным работам)",
-            "source": "СП 29.13330.2011",
+            "source": "СП 29.13330.2021",
         },
     ],
 

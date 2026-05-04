@@ -188,66 +188,6 @@ def _add_fallback_note(builder: VerdictReportBuilder):
 
 
 # =============================================================================
-# Health-Aware Router
-# =============================================================================
-
-class HealthAwareRouter:
-    """
-    Роутер с проверкой здоровья PM-модели.
-
-    Автоматически переключается на fallback_decide() если Llama 70B недоступна.
-    """
-
-    def __init__(self, llm_engine=None):
-        self._llm = llm_engine
-        self._pm_healthy = True
-        self._consecutive_failures = 0
-        self._max_failures_before_fallback = 2
-
-    async def is_pm_healthy(self) -> bool:
-        """Проверить доступность PM-модели."""
-        if not self._llm:
-            return False
-
-        try:
-            await self._llm.chat(
-                "pm",
-                [{"role": "user", "content": "ping"}],
-                temperature=0.0,
-                num_ctx=256,
-                keep_alive="0m",
-            )
-            self._pm_healthy = True
-            self._consecutive_failures = 0
-            return True
-        except (OSError, ValueError, RuntimeError) as e:
-            self._consecutive_failures += 1
-            logger.warning("PM health check failed (%d/%d): %s",
-                          self._consecutive_failures, self._max_failures_before_fallback, e)
-            if self._consecutive_failures >= self._max_failures_before_fallback:
-                self._pm_healthy = False
-            return False
-
-    async def decide(self, state: Dict[str, Any]) -> VerdictReport:
-        """
-        Принять решение с автоматическим fallback.
-
-        Если PM-модель доступна → rule-based fallback с сигналами + veto.
-        Если нет → использует rule-based fallback.
-        """
-        if not await self.is_pm_healthy():
-            return fallback_decide(state)
-
-        # PM LLM доступен — используем полный PM с weighted scoring
-        try:
-            from src.core.pm_agent import ProjectManager
-            pm = ProjectManager(llm_engine=self._llm)
-            return pm.decide(state)
-        except Exception:
-            return fallback_decide(state)
-
-
-# =============================================================================
 # Quick API
 # =============================================================================
 
