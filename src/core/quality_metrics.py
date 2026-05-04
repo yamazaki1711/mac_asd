@@ -518,10 +518,239 @@ class InstrumentedPipeline:
 
 
 # =============================================================================
+# OCR Accuracy Metrics (CER/WER)
+# =============================================================================
+
+
+@dataclass
+class OCRAccuracyResult:
+    """Результат замера точности OCR."""
+    cer: float = 0.0               # Character Error Rate (0.0–1.0)
+    wer: float = 0.0               # Word Error Rate (0.0–1.0)
+    ground_truth_chars: int = 0
+    ocr_chars: int = 0
+    substitutions: int = 0
+    deletions: int = 0
+    insertions: int = 0
+    correct_chars: int = 0
+    correct_words: int = 0
+    total_words: int = 0
+
+    @property
+    def accuracy_pct(self) -> float:
+        """Точность в процентах (100% - CER%)."""
+        return max(0.0, (1.0 - self.cer) * 100)
+
+    def format_report(self) -> str:
+        """Форматированный отчёт."""
+        return (
+            f"OCR Accuracy: {self.accuracy_pct:.1f}%\n"
+            f"  CER: {self.cer:.3f}  WER: {self.wer:.3f}\n"
+            f"  GT chars: {self.ground_truth_chars}  OCR chars: {self.ocr_chars}\n"
+            f"  Sub: {self.substitutions}  Del: {self.deletions}  Ins: {self.insertions}\n"
+            f"  Correct words: {self.correct_words}/{self.total_words}"
+        )
+
+
+class OCRAccuracy:
+    """Измеритель точности OCR через сопоставление с эталонным текстом.
+
+    Вычисляет Character Error Rate (CER) и Word Error Rate (WER)
+    по стандартным метрикам Левенштейна.
+
+    Использование:
+        gt = "эталонный текст"
+        ocr = "распознанный текст с ошибкой"
+        result = OCRAccuracy.measure(gt, ocr)
+        print(result.format_report())
+    """
+
+    @staticmethod
+    def measure(ground_truth: str, ocr_text: str) -> OCRAccuracyResult:
+        """Вычислить CER и WER между эталоном и результатом OCR.
+
+        Args:
+            ground_truth: эталонный текст (ручная транскрипция)
+            ocr_text: текст, полученный от OCR
+
+        Returns:
+            OCRAccuracyResult с CER, WER и детализацией ошибок
+        """
+        gt = ground_truth.strip()
+        ocr = ocr_text.strip()
+
+        if not gt:
+            return OCRAccuracyResult()
+
+        # Character-level edit distance (CER)
+        sub_c, del_c, ins_c, correct_c = OCRAccuracy._edit_distance_chars(gt, ocr)
+        gt_len = max(len(gt), 1)
+        cer = (sub_c + del_c + ins_c) / gt_len
+
+        # Word-level edit distance (WER)
+        gt_words = gt.split()
+        ocr_words = ocr.split()
+        _, _, _, correct_w = OCRAccuracy._edit_distance_words(gt_words, ocr_words)
+        total_w = max(len(gt_words), 1)
+        wer_total = OCRAccuracy._word_edit_ops(gt_words, ocr_words)
+        wer = min(1.0, wer_total / total_w)
+
+        return OCRAccuracyResult(
+            cer=min(cer, 1.0),
+            wer=wer,
+            ground_truth_chars=len(gt),
+            ocr_chars=len(ocr),
+            substitutions=sub_c,
+            deletions=del_c,
+            insertions=ins_c,
+            correct_chars=correct_c,
+            correct_words=correct_w,
+            total_words=total_w,
+        )
+
+    @staticmethod
+    def _edit_distance_chars(s1: str, s2: str) -> tuple:
+        """Levenshtein distance на уровне символов.
+
+        Returns: (substitutions, deletions, insertions, correct_chars)
+        """
+        m, n = len(s1), len(s2)
+        if m == 0:
+            return (0, 0, n, 0)
+        if n == 0:
+            return (0, m, 0, 0)
+
+        # DP matrix
+        d = [[0] * (n + 1) for _ in range(m + 1)]
+        for i in range(m + 1):
+            d[i][0] = i
+        for j in range(n + 1):
+            d[0][j] = j
+
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if s1[i - 1] == s2[j - 1]:
+                    d[i][j] = d[i - 1][j - 1]
+                else:
+                    d[i][j] = min(
+                        d[i - 1][j] + 1,      # deletion
+                        d[i][j - 1] + 1,      # insertion
+                        d[i - 1][j - 1] + 1,  # substitution
+                    )
+
+        # Backtrack to count operations
+        sub, deletes, inserts, correct = 0, 0, 0, 0
+        i, j = m, n
+        while i > 0 or j > 0:
+            if i > 0 and j > 0 and s1[i - 1] == s2[j - 1]:
+                correct += 1
+                i -= 1
+                j -= 1
+            elif i > 0 and j > 0 and d[i][j] == d[i - 1][j - 1] + 1:
+                sub += 1
+                i -= 1
+                j -= 1
+            elif i > 0 and d[i][j] == d[i - 1][j] + 1:
+                deletes += 1
+                i -= 1
+            else:
+                inserts += 1
+                j -= 1
+
+        return (sub, deletes, inserts, correct)
+
+    @staticmethod
+    def _edit_distance_words(w1: list, w2: list) -> tuple:
+        """Levenshtein distance на уровне слов."""
+        return OCRAccuracy._edit_distance_chars(
+            ' '.join(w1), ' '.join(w2),
+        )
+
+    @staticmethod
+    def _word_edit_ops(w1: list, w2: list) -> int:
+        """Количество операций редактирования на уровне слов."""
+        m, n = len(w1), len(w2)
+        d = [[0] * (n + 1) for _ in range(m + 1)]
+        for i in range(m + 1):
+            d[i][0] = i
+        for j in range(n + 1):
+            d[0][j] = j
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if w1[i - 1] == w2[j - 1]:
+                    d[i][j] = d[i - 1][j - 1]
+                else:
+                    d[i][j] = 1 + min(d[i - 1][j], d[i][j - 1], d[i - 1][j - 1])
+        return d[m][n]
+
+    @staticmethod
+    def benchmark_page(
+        pdf_path: Path,
+        page_num: int,
+        ground_truth: str,
+        dpi: int = 300,
+    ) -> OCRAccuracyResult:
+        """OCR одной страницы PDF и сравнение с эталоном.
+
+        Args:
+            pdf_path: путь к PDF
+            page_num: номер страницы (0-based)
+            ground_truth: эталонный текст страницы
+            dpi: разрешение для рендеринга
+
+        Returns:
+            OCRAccuracyResult с CER/WER
+        """
+        import subprocess
+        import tempfile
+        import os as _os
+
+        try:
+            import fitz
+        except ImportError:
+            logger.error("PyMuPDF not available for benchmark")
+            return OCRAccuracyResult()
+
+        doc = fitz.open(str(pdf_path))
+        if page_num >= len(doc):
+            doc.close()
+            return OCRAccuracyResult()
+
+        page = doc[page_num]
+        pix = page.get_pixmap(dpi=dpi)
+        img_bytes = pix.tobytes("png")
+        doc.close()
+
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+            f.write(img_bytes)
+            tmp_path = f.name
+
+        ocr_text = ""
+        try:
+            for psm in (6, 3):
+                result = subprocess.run(
+                    ['tesseract', tmp_path, 'stdout', '-l', 'rus+eng', f'--psm', str(psm)],
+                    capture_output=True, text=True, timeout=30,
+                )
+                text = result.stdout.strip()
+                if len(text) > 20:
+                    ocr_text = text
+                    break
+        finally:
+            try:
+                _os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        return OCRAccuracy.measure(ground_truth, ocr_text)
+
+
+# =============================================================================
 # Singleton
 # =============================================================================
 
 quality_cascade = QualityCascade()
+ocr_accuracy = OCRAccuracy()
 
 
 def instrument_pipeline(pipeline) -> InstrumentedPipeline:

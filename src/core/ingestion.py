@@ -435,8 +435,8 @@ class OCREngine:
 
     Использует:
       - PyMuPDF (fitz) для текстовых PDF — быстро, без OCR
-      - rapidocr для изображений и сканов без текстового слоя
-      - Tesseract как резервный вариант
+      - Tesseract (rus+eng) как основной OCR для сканов
+      - PSM 6 (uniform block) primary, PSM 3 (auto) fallback
     """
 
     def extract_text(self, file_path: Path) -> Tuple[str, int]:
@@ -494,66 +494,50 @@ class OCREngine:
         return ("\n".join(full_text), page_count)
 
     def _ocr_page(self, page) -> str:
-        """OCR страницы. Tesseract (rus+eng) primary для кириллицы. RapidOCR GPU — fallback."""
-        pix = page.get_pixmap(dpi=200)
+        """OCR страницы. Tesseract (rus+eng) primary, multi-PSM fallback."""
+        pix = page.get_pixmap(dpi=300)
         img_bytes = pix.tobytes("png")
 
-        # Primary: Tesseract (native Cyrillic support, slower but accurate)
         import tempfile, subprocess
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             f.write(img_bytes)
             tmp_path = f.name
         try:
-            result = subprocess.run(
-                ['tesseract', tmp_path, 'stdout', '-l', 'rus+eng', '--psm', '6'],
-                capture_output=True, text=True, timeout=30
-            )
-            text = result.stdout.strip()
-            if len(text) > 20:
-                return text
-        except Exception as e:
-            logger.debug("Tesseract failed: %s", e)
+            # Primary: PSM 6 (uniform block of text) — best for construction forms
+            for psm in (6, 3):
+                try:
+                    result = subprocess.run(
+                        ['tesseract', tmp_path, 'stdout', '-l', 'rus+eng', f'--psm', str(psm)],
+                        capture_output=True, text=True, timeout=30,
+                    )
+                    text = result.stdout.strip()
+                    if len(text) > 20:
+                        return text
+                except Exception as e:
+                    logger.debug("Tesseract PSM %d failed: %s", psm, e)
         finally:
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
 
-        # Fallback: RapidOCR GPU (onnxruntime-gpu, CUDA/TensorRT)
-        # NOTE: Chinese-optimized model misreads Cyrillic as Latin.
-        # PaddleOCR v5 with native Cyrillic will replace this.
-        try:
-            from rapidocr import RapidOCR
-            engine = RapidOCR()
-            output = engine(img_bytes)
-            if hasattr(output, 'txts') and output.txts:
-                return "\n".join(str(t) for t in output.txts if t)
-        except ImportError:
-            pass
-        except Exception as e:
-            logger.debug("RapidOCR failed: %s", e)
-
         return ""
 
     def _extract_image(self, file_path: Path) -> Tuple[str, int]:
-        """OCR изображения через rapidocr."""
-        try:
-            from rapidocr import RapidOCR
-            engine = RapidOCR()
-            result, _ = engine(str(file_path))
-            if result:
-                lines = [item[1] for item in result if item[1]]
-                return ("\n".join(lines), 1)
-        except ImportError:
-            pass
-
-        # Tesseract fallback
+        """OCR изображения через Tesseract (rus+eng)."""
         import subprocess
-        result = subprocess.run(
-            ['tesseract', str(file_path), 'stdout', '-l', 'rus+eng', '--psm', '6'],
-            capture_output=True, text=True, timeout=30
-        )
-        return (result.stdout, 1)
+        for psm in (6, 3):
+            try:
+                result = subprocess.run(
+                    ['tesseract', str(file_path), 'stdout', '-l', 'rus+eng', f'--psm', str(psm)],
+                    capture_output=True, text=True, timeout=30,
+                )
+                text = result.stdout.strip()
+                if len(text) > 20:
+                    return (text, 1)
+            except Exception as e:
+                logger.debug("Tesseract image OCR PSM %d failed: %s", psm, e)
+        return ("", 1)
 
     def _extract_docx(self, file_path: Path) -> Tuple[str, int]:
         """Извлечь текст из DOCX."""
