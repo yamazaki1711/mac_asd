@@ -56,6 +56,9 @@ from mcp_servers.asd_core.tools.evidence_tools import (
 from mcp_servers.asd_core.tools.chain_tools import (
     asd_chain_build, asd_chain_report, asd_chain_validate,
 )
+from mcp_servers.asd_core.tools.journal_tools import (
+    asd_journal_reconstruct, asd_journal_export, asd_journal_verify,
+)
 from mcp_servers.asd_core.tools.lab_tools import (
     asd_lab_control_plan_create, asd_lab_sample_register, asd_lab_report_review,
     asd_lab_organization_search, asd_lab_quote_request, asd_lab_quote_compare,
@@ -146,6 +149,11 @@ mcp.add_tool(asd_evidence_get_chain)
 mcp.add_tool(asd_chain_build)
 mcp.add_tool(asd_chain_report)
 mcp.add_tool(asd_chain_validate)
+
+# Группа 7d: Journal Reconstructor (3 инструмента)
+mcp.add_tool(asd_journal_reconstruct)
+mcp.add_tool(asd_journal_export)
+mcp.add_tool(asd_journal_verify)
 
 # Группа 8: Лабораторный контроль — ПТО (3 инструмента)
 mcp.add_tool(asd_lab_control_plan_create)

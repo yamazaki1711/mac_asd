@@ -388,8 +388,8 @@ class JournalReconstructor:
                 # Вычислить даты работ: поставка + typical rate
                 try:
                     from src.core.inference_engine import inference_engine
-                    rate_info = inference_engine._rates.get(wu_type, 
-                                inference_engine._rates.get('default', {'rate': 1, 'unit': 'ед/день'}))
+                    rate_info = inference_engine.rates.get(wu_type,
+                                inference_engine.rates.get('default', {'rate': 1, 'unit': 'ед/день'}))
                     daily_rate = rate_info.get('rate', 1)
                 except (ImportError, AttributeError, KeyError, TypeError) as e:
                     logger.debug("Rate lookup failed for '%s': %s", wu_type, e)

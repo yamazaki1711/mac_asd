@@ -77,6 +77,11 @@ class InferenceEngine:
         self._rates = _load_rates()
         self._total_inferences = 0
 
+    @property
+    def rates(self) -> Dict[str, Dict[str, Any]]:
+        """Публичный доступ к typical_rates (типовые темпы работ)."""
+        return self._rates
+
     def run_all(self, graph) -> List[InferenceResult]:
         """
         Запустить все inference-правила на графе.
