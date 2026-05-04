@@ -19,6 +19,8 @@ MAC_ASD v12.0 — PTO MCP Tools.
 import logging
 from typing import Any, Dict, List, Optional
 
+from src.core.llm_engine import llm_engine
+
 logger = logging.getLogger(__name__)
 
 
@@ -387,31 +389,195 @@ async def asd_enrich_geo_context(
 
 # ─── Заглушки (будущие инструменты) ────────────────────
 
-async def asd_vor_check(vor_data: Dict[str, Any], pd_id: str) -> Dict[str, Any]:
-    """Сверка ВОР с ПД (объёмы, единицы, наименования)."""
-    logger.info("asd_vor_check: vs pd_id %s", pd_id)
+_vor_check: Optional["PTO_VorCheck"] = None
+
+
+async def asd_vor_check(
+    vor_items: List[Dict[str, Any]],
+    pd_items: List[Dict[str, Any]],
+    pd_id: str = "",
+    volume_tolerance_pct: float = 5.0,
+) -> Dict[str, Any]:
+    """
+    Сверка ВОР с проектной документацией.
+
+    Построчное сравнение позиций с fuzzy matching. Выявляет расхождения в объёмах,
+    несовпадение единиц измерения, отсутствующие и лишние позиции.
+
+    Args:
+        vor_items: Список позиций ВОР [{"name": str, "quantity": float, "unit": str}, ...]
+        pd_items: Список позиций ПД [{"name": str, "quantity": float, "unit": str}, ...]
+        pd_id: Идентификатор проектной документации (опционально)
+        volume_tolerance_pct: Допустимое расхождение объёмов в % (по умолчанию 5.0)
+
+    Returns:
+        {
+            "status": "success" | "partial" | "error",
+            "total_vor_items": int,
+            "total_pd_items": int,
+            "matches": [...],
+            "missing_in_pd": [...],
+            "extra_in_vor": [...],
+            "discrepancies": [...],
+            "summary": {...},
+            "errors": [...]
+        }
+    """
+    from src.agents.skills.pto.vor_check import PTO_VorCheck
+
+    global _vor_check
+    if _vor_check is None:
+        _vor_check = PTO_VorCheck()
+
+    logger.info("asd_vor_check: vor_items=%d, pd_items=%d, pd_id=%s",
+                len(vor_items), len(pd_items), pd_id)
+
+    result = await _vor_check.execute({
+        "vor_items": vor_items,
+        "pd_items": pd_items,
+        "volume_tolerance_pct": volume_tolerance_pct,
+    })
+
     return {
-        "status": "success",
-        "action": "VOR Check Complete",
-        "discrepancies": [],
+        "status": result.status.value,
+        "total_vor_items": result.data.get("total_vor_items", 0),
+        "total_pd_items": result.data.get("total_pd_items", 0),
+        "matches": result.data.get("matches", []),
+        "missing_in_pd": result.data.get("missing_in_pd", []),
+        "extra_in_vor": result.data.get("extra_in_vor", []),
+        "discrepancies": result.data.get("discrepancies", []),
+        "summary": result.data.get("summary", {}),
+        "errors": result.errors,
+        "warnings": result.warnings,
     }
 
 
-async def asd_pd_analysis(pd_id: str) -> Dict[str, Any]:
-    """Комплексный анализ ПД (коллизии, неучтённые объёмы/материалы)."""
-    logger.info("asd_pd_analysis: pd_id %s", pd_id)
+_pd_analysis: Optional["PTO_PDAnalysis"] = None
+
+
+async def asd_pd_analysis(
+    sections: List[Dict[str, Any]],
+    pd_id: str = "",
+    check_completeness: bool = True,
+    check_collisions: bool = True,
+    check_semantic: bool = False,
+) -> Dict[str, Any]:
+    """
+    Комплексный анализ проектной документации.
+
+    Выявляет коллизии между разделами (АР/КР/ИОС), проверяет комплектность
+    разделов по ГОСТ Р 21.1101-2013, ищет неучтённые объёмы.
+
+    Args:
+        sections: Список разделов ПД [{"code": str, "name": str, "content": str, "key_positions": [...]}, ...]
+        pd_id: Идентификатор ПД (опционально)
+        check_completeness: Проверка комплектности разделов (по умолчанию true)
+        check_collisions: Поиск пространственных коллизий (по умолчанию true)
+        check_semantic: LLM-анализ текста на противоречия (по умолчанию false)
+
+    Returns:
+        {
+            "status": "success" | "partial" | "error",
+            "sections_analyzed": int,
+            "collisions": [...],
+            "completeness": {...},
+            "llm_used": bool,
+            "summary": {...},
+            "errors": [...]
+        }
+    """
+    from src.agents.skills.pto.pd_analysis import PTO_PDAnalysis
+
+    global _pd_analysis
+    if _pd_analysis is None:
+        _pd_analysis = PTO_PDAnalysis(llm_engine=llm_engine)
+
+    logger.info("asd_pd_analysis: sections=%d, pd_id=%s", len(sections), pd_id)
+
+    result = await _pd_analysis.execute({
+        "sections": sections,
+        "check_completeness": check_completeness,
+        "check_collisions": check_collisions,
+        "check_semantic": check_semantic,
+        "enable_llm": check_semantic,
+    })
+
     return {
-        "status": "success",
-        "action": "PD Analysis Complete",
-        "collisions": [],
+        "status": result.status.value,
+        "sections_analyzed": result.data.get("sections_analyzed", 0),
+        "collisions": result.data.get("collisions", []),
+        "completeness": result.data.get("completeness", {}),
+        "llm_used": result.data.get("llm_used", False),
+        "summary": result.data.get("summary", {}),
+        "errors": result.errors,
+        "warnings": result.warnings,
     }
 
 
-async def asd_generate_act(act_type: str, context_id: str) -> Dict[str, Any]:
-    """Генерация акта (АОСР, АООК, акты приёмки, входной контроль)."""
-    logger.info("asd_generate_act: %s", act_type)
-    return {
-        "status": "success",
+_act_generator: Optional["PTO_ActGenerator"] = None
+
+
+async def asd_generate_act(
+    act_type: str,
+    context: Dict[str, Any],
+    output_dir: str = "",
+    template_path: str = "",
+) -> Dict[str, Any]:
+    """
+    Генерация акта исполнительной документации в формате DOCX.
+
+    Поддерживаемые типы: aosr, incoming_control, hidden_works, inspection.
+
+    Args:
+        act_type: Тип акта — "aosr" | "incoming_control" | "hidden_works" | "inspection"
+        context: Данные для заполнения акта {
+            "act_number": str, "act_date": str, "project_name": str,
+            "object_name": str, "customer_name": str, "contractor_name": str,
+            "work_description": str, "volume": float, "unit": str,
+            "materials": [...], "commission_members": [...],
+            "signatures": [...], "decision": str, ...
+        }
+        output_dir: Директория для сохранения (по умолчанию data/exports/acts)
+        template_path: Путь к кастомному шаблону DOCX (опционально)
+
+    Returns:
+        {
+            "status": "success" | "error",
+            "act_type": str,
+            "file_path": str,
+            "filename": str,
+            "template_used": str or None,
+            "size_bytes": int,
+            "errors": [...]
+        }
+    """
+    from src.agents.skills.pto.act_generator import PTO_ActGenerator
+
+    global _act_generator
+    if _act_generator is None:
+        _act_generator = PTO_ActGenerator()
+
+    logger.info("asd_generate_act: type=%s", act_type)
+
+    params: Dict[str, Any] = {
         "act_type": act_type,
-        "mock_content": f"Акт формата {act_type}...",
+        "context": context,
+    }
+    if output_dir:
+        params["output_dir"] = output_dir
+    if template_path:
+        params["template_path"] = template_path
+
+    result = await _act_generator.execute(params)
+
+    return {
+        "status": result.status.value,
+        "act_type": result.data.get("act_type", act_type),
+        "file_path": result.data.get("file_path", ""),
+        "filename": result.data.get("filename", ""),
+        "template_used": result.data.get("template_used"),
+        "size_bytes": result.data.get("size_bytes", 0),
+        "note": result.data.get("note", ""),
+        "errors": result.errors,
+        "warnings": result.warnings,
     }
