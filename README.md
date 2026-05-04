@@ -19,7 +19,7 @@ pip install -e ".[dev]"
 pytest tests/ -v                           # 590 passed, 15 skipped, 605 collected (dev_linux)
 
 # Веб-интерфейс
-PYTHONPATH=. python src/web/app.py        # http://localhost:8080
+PYTHONPATH=. uvicorn src.web.app:app --host 127.0.0.1 --port 8080
 
 # E2E forensic
 PYTHONPATH=. python tests/test_e2e_forensic.py
@@ -47,7 +47,7 @@ python -m mcp_servers.asd_core.server
 
 ### Веб-интерфейс (локальный)
 
-6 страниц на Flask (localhost:8080): дашборд проекта, проекты, документы, evidence graph, HITL-вопросы, отчёты. Drag & drop загрузка. Авто-бэкапы БД/графов/артефактов. Telegram-бот для приёма WorkEntry от полевых инженеров.
+6 страниц на FastAPI + Jinja2 (localhost:8080): дашборд проекта, проекты, документы, evidence graph, HITL-вопросы, отчёты. Drag & drop загрузка. Авто-бэкапы БД/графов/артефактов. Telegram-бот для приёма WorkEntry от полевых инженеров.
 
 ### Ключевые модули
 
@@ -88,7 +88,7 @@ python -m mcp_servers.asd_core.server
 | Container (DI) | `src/core/container.py` | Dependency Injection: единая точка сборки компонентов |
 | Google Workspace | `src/core/integrations/google.py` | Drive, Sheets, Docs, Gmail через OAuth2/Service Account |
 | Document Repository | `src/core/document_repository.py` | Абстракция хранилища документов (локальные + Google Drive) |
-| **Web UI** | `src/web/app.py` | Flask-интерфейс: дашборд, проекты, документы, HITL, evidence graph, отчёты |
+| **Web UI** | `src/web/app.py` | FastAPI-интерфейс: дашборд, проекты, документы, HITL, evidence graph, отчёты |
 | **Backup System** | `src/core/backup.py` | Авто-бэкапы: PostgreSQL, NetworkX-графы, артефакты |
 | **Telegram Bot** | `src/core/telegram_bot.py` | Приём WorkEntry через Telegram |
 | **Forensic Checks** | `src/core/evidence_graph.py` | batch_coverage, orphan_certificates, certificate_reuse |
@@ -157,7 +157,7 @@ src/
 │   │   └── shared/                         #   gost_stamp (ГОСТ 21.101-2020)
 │   ├── rag_pipeline.py, parser_engine.py
 │   └── ram_manager.py, container.py, lessons_service.py
-├── web/               # Flask UI (6 страниц, HITL-интерфейс)
+├── web/               # FastAPI UI (6 страниц, HITL-интерфейс)
 ├── schemas/           # Pydantic
 ├── db/                # SQLAlchemy + Alembic
 └── config.py          # Профили (dev_linux / mac_studio)
