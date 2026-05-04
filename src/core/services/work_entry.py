@@ -210,17 +210,75 @@ class WorkEntryService:
                 "hint": 'Формат: "Захватка N, вид работы завершено, объём"',
             }
 
-        # Определяем следующий шаг
         next_action = "pending"
         if parsed["is_completion"] and parsed["work_type"]:
             next_action = "ready_for_aosr"
 
+        work_entry_id = await self._persist_entry(
+            project_id=project_id,
+            parsed=parsed,
+            raw_text=raw_text,
+            source=source,
+            source_message_id=source_message_id,
+        )
+
         return {
             "status": "ok",
+            "work_entry_id": work_entry_id,
             "parsed": parsed,
             "next_action": next_action,
             "suggestion": self._generate_suggestion(parsed),
         }
+
+    async def _persist_entry(
+        self,
+        project_id: int,
+        parsed: Dict[str, Any],
+        raw_text: str,
+        source: str = "telegram",
+        source_message_id: Optional[str] = None,
+    ) -> Optional[int]:
+        try:
+            from src.db.init_db import Session
+            from src.db.models import WorkEntry as WorkEntryModel, ConstructionZone
+
+            with Session() as session:
+                zone_name = parsed.get("zone_name") or "Неизвестная зона"
+                zone = session.query(ConstructionZone).filter(
+                    ConstructionZone.project_id == project_id,
+                    ConstructionZone.name == zone_name,
+                ).first()
+
+                if zone is None:
+                    zone = ConstructionZone(
+                        project_id=project_id,
+                        name=zone_name,
+                        status="in_progress",
+                    )
+                    session.add(zone)
+                    session.flush()
+
+                entry = WorkEntryModel(
+                    project_id=project_id,
+                    zone_id=zone.id,
+                    work_type=parsed.get("work_type") or "unknown",
+                    description=parsed.get("description", raw_text[:500]),
+                    volume=parsed.get("volume"),
+                    source=source,
+                    source_message_id=source_message_id,
+                    raw_text=raw_text,
+                    parsed_ok=True,
+                    status="processed" if parsed.get("is_completion") else "pending",
+                )
+                session.add(entry)
+                session.flush()
+                entry_id = entry.id
+                session.commit()
+                logger.info("WorkEntry %d saved: %s → zone %s", entry_id, raw_text[:80], zone_name)
+                return entry_id
+        except Exception as e:
+            logger.warning("WorkEntry DB save skipped (DB unavailable?): %s", e)
+            return None
 
     def _generate_suggestion(self, parsed: Dict[str, Any]) -> str:
         """Сгенерировать подсказку оператору."""
