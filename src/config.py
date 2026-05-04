@@ -1,5 +1,5 @@
 """
-MAC_ASD v12.0 — Конфигурация с поддержкой профилей.
+MAC_ASD v13.0 — Конфигурация с поддержкой профилей.
 
 Profiles:
     dev_linux  — Linux + Ollama (разработка, RTX 5060 8GB)
@@ -26,6 +26,7 @@ Usage:
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -94,7 +95,7 @@ def _detect_project_root() -> Path:
 class Settings(BaseSettings):
     # --- Project Info ---
     PROJECT_NAME: str = "MAC_ASD"
-    VERSION: str = "12.0"
+    VERSION: str = "13.0"
 
     # --- Profile ---
     ASD_PROFILE: str = os.getenv("ASD_PROFILE", "dev_linux")
@@ -249,10 +250,11 @@ class Settings(BaseSettings):
         """True если запущено на Mac Studio (профиль mac_studio)."""
         return self.ASD_PROFILE == "mac_studio"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 settings = Settings()

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mac-asd"
-version = "12.0.0"
+version = "13.0.0"
 description = "Multi-Agent Construction AI System for Automated Subcontracting Decisions"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -54,6 +54,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-mock>=3.12",
+    "hypothesis>=6.100",
     "ruff>=0.4.0",
     "mypy>=1.10",
 ]

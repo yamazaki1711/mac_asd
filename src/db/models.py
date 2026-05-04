@@ -1,7 +1,22 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, JSON, Boolean, Index
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
+
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    # Fallback when pgvector extension not available (e.g., CI without PostgreSQL)
+    from sqlalchemy.types import UserDefinedType
+
+    class Vector(UserDefinedType):  # type: ignore
+        """Dummy Vector type for environments without pgvector."""
+
+        def __init__(self, dim=None):
+            self.dim = dim
+            super().__init__()
+
+        def get_col_spec(self, **kw):
+            return "VECTOR(%d)" % self.dim if self.dim else "VECTOR"
 
 Base = declarative_base()
 

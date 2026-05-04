@@ -26,9 +26,17 @@ from src.core.exceptions import (
     QueueFullError,
 )
 
-import docx
-import fitz  # PyMuPDF
 import os
+
+try:
+    import docx  # noqa: F401
+except ImportError:
+    docx = None  # type: ignore
+
+try:
+    import fitz  # PyMuPDF  # noqa: F401
+except ImportError:
+    fitz = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 from src.db.models import AuditLog
@@ -406,13 +414,13 @@ async def pto_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     if file_path and os.path.exists(file_path):
         logger.info("PTO reading file: %s", os.path.basename(file_path))
-        if file_path.endswith(".docx"):
+        if file_path.endswith(".docx") and docx is not None:
             doc = docx.Document(file_path)
             document_text = "\n".join([para.text for para in doc.paragraphs])
-        elif file_path.endswith(".pdf"):
+        elif file_path.endswith(".pdf") and fitz is not None:
             with fitz.open(file_path) as doc:
                 document_text = "\n".join([page.get_text() for page in doc])
-    
+
     # v12.0: RAG-инъекция уроков (Lessons Learned)
     lessons = await _get_lessons_context("ПТО", state['task_description'], work_type)
     # v12.0: RAG-контекст из документов проекта
@@ -590,10 +598,10 @@ async def legal_node(state: Dict[str, Any]) -> Dict[str, Any]:
     # v12.0: Извлечение текста из файла
     if file_path and os.path.exists(file_path):
         logger.info("Legal reading file: %s", os.path.basename(file_path))
-        if file_path.endswith(".docx"):
+        if file_path.endswith(".docx") and docx is not None:
             doc = docx.Document(file_path)
             document_text = "\n".join([para.text for para in doc.paragraphs])
-        elif file_path.endswith(".pdf"):
+        elif file_path.endswith(".pdf") and fitz is not None:
             with fitz.open(file_path) as doc:
                 document_text = "\n".join([page.get_text() for page in doc])
 
