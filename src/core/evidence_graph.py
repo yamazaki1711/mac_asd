@@ -174,6 +174,68 @@ def confidence_label(conf: float) -> str:
 
 
 # =============================================================================
+# Forensic Finding (ported from graph_service.py — unified audit type)
+# =============================================================================
+
+class ForensicSeverity(str, Enum):
+    CRITICAL = "critical"   # Блокирующее нарушение (подлог, фальсификация)
+    HIGH = "high"           # Серьёзное расхождение
+    MEDIUM = "medium"       # Потенциальная проблема
+    INFO = "info"           # Информационное сообщение
+
+
+@dataclass
+class ForensicFinding:
+    """Результат forensic-проверки."""
+    check_name: str
+    severity: ForensicSeverity
+    description: str
+    node_ids: List[str] = field(default_factory=list)
+    edge_ids: List[Tuple[str, str]] = field(default_factory=list)
+    recommendation: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "check": self.check_name,
+            "severity": self.severity.value,
+            "description": self.description,
+            "affected_nodes": self.node_ids,
+            "recommendation": self.recommendation,
+        }
+
+
+# =============================================================================
+# Material Catalog — проблемные/снятые с производства материалы
+# =============================================================================
+
+OBSOLETE_MATERIALS: Dict[str, Dict[str, Any]] = {
+    "Шпунт Л5": {
+        "obsolete": True,
+        "replaced_by": "Шпунт Ларсена Л5-УМ",
+        "reason": (
+            "Снят с производства. Выпускался в СССР (г. Луганск). "
+            "Ширина профиля 425 мм (Л5-УМ — 400 мм). "
+            "На рынке РФ доступен только Б/У. "
+            "Применение Б/У шпунта на новом строительстве требует отдельного "
+            "обоснования и экспертизы остаточного сечения."
+        ),
+        "gost_old": "ГОСТ СССР (отменён)",
+        "gost_new": "ГОСТ Р 53629-2009",
+        "production_status": "снят с производства (1991)",
+        "geometry": {"width_mm": 425, "note": "Не совместим с Л5-УМ (400 мм) по замковому соединению"},
+    },
+    "Шпунт Л4": {
+        "obsolete": True,
+        "replaced_by": "Шпунт Ларсена Л4-УМ",
+        "reason": "Снят с производства. Советский стандарт. Отсутствует на рынке РФ как новый прокат.",
+        "gost_old": "ГОСТ СССР (отменён)",
+        "gost_new": "ГОСТ Р 53629-2009",
+        "production_status": "снят с производства (1991)",
+    },
+}
+
+
+# =============================================================================
 # Edge Attributes
 # =============================================================================
 
@@ -701,25 +763,35 @@ class EvidenceGraph:
 
     # ── Forensic Checks ──────────────────────────────────────────────────
 
-    def check_batch_coverage(self) -> List[Dict[str, Any]]:
+    def check_batch_coverage(self) -> List[ForensicFinding]:
         """
         Проверка покрытия: Σ объёмов в АОСР ≤ размер партии сертификата.
 
         Выявляет сертификаты, где использованный объём превышает
         заявленный размер партии — признак подлога или дублирования.
         """
-        findings = []
+        findings: List[ForensicFinding] = []
         for nid, data in self.graph.nodes(data=True):
             if data.get("node_type") != "MaterialBatch":
                 continue
             batch_qty = data.get("quantity", 0)
             material = data.get("material_name", nid)
+            batch_num = data.get("batch_number", "?")
             if batch_qty <= 0:
+                findings.append(ForensicFinding(
+                    check_name="batch_coverage",
+                    severity=ForensicSeverity.HIGH,
+                    description=(
+                        f"MaterialBatch {nid} ({material}, партия №{batch_num}): "
+                        f"не указан размер партии. Невозможно проверить покрытие."
+                    ),
+                    node_ids=[nid],
+                    recommendation="Укажите quantity в MaterialBatch.",
+                ))
                 continue
 
-            # Sum usage from linked WorkUnits
             total_used = 0.0
-            affected_wus = []
+            affected_wus: List[str] = []
             for succ in self.graph.successors(nid):
                 if self.graph.nodes[succ].get("node_type") != "WorkUnit":
                     continue
@@ -731,120 +803,258 @@ class EvidenceGraph:
             if total_used > batch_qty:
                 excess = total_used - batch_qty
                 excess_pct = (excess / batch_qty * 100) if batch_qty > 0 else 0
-                findings.append({
-                    "check": "batch_coverage",
-                    "severity": "critical",
-                    "material_batch_id": nid,
-                    "material": material,
-                    "batch_quantity": batch_qty,
-                    "total_used": total_used,
-                    "excess": excess,
-                    "excess_pct": round(excess_pct, 1),
-                    "affected_work_units": affected_wus,
-                    "description": (
-                        f"Сертификат {material} покрывает {batch_qty}, "
+                findings.append(ForensicFinding(
+                    check_name="batch_coverage",
+                    severity=ForensicSeverity.CRITICAL,
+                    description=(
+                        f"КРИТИЧЕСКОЕ НЕСООТВЕТСТВИЕ: сертификат {material} "
+                        f"(партия №{batch_num}) покрывает {batch_qty}, "
                         f"но по {len(affected_wus)} WorkUnit использовано {total_used:.1f} "
-                        f"(превышение на {excess:.1f}, +{excess_pct:.0f}%)"
+                        f"(превышение на {excess:.1f}, +{excess_pct:.0f}%). "
+                        f"Сертификат не может подтверждать качество всего объёма. "
+                        f"Вероятные причины: подлог (ксерокопия сертификата от другой партии), "
+                        f"отсутствие входного контроля, ошибка комплектации ИД."
                     ),
-                })
+                    node_ids=[nid] + affected_wus,
+                    recommendation=(
+                        f"1. Запросить у поставщика сертификаты на весь объём ({total_used:.1f}). "
+                        f"2. Поднять ЖВК (журнал входного контроля) — проверить фактическое поступление. "
+                        f"3. При невозможности — оформлять АОСР только на подтверждённый объём ({batch_qty}). "
+                        f"4. На оставшиеся {excess:.1f} — отдельный акт с новым сертификатом."
+                    ),
+                ))
+            elif len(affected_wus) >= 2:
+                findings.append(ForensicFinding(
+                    check_name="batch_coverage",
+                    severity=ForensicSeverity.INFO,
+                    description=(
+                        f"Сертификат {material} использован в {len(affected_wus)} WorkUnit "
+                        f"на общий объём {total_used:.1f} из {batch_qty}. Покрытие полное."
+                    ),
+                    node_ids=[nid] + affected_wus,
+                    recommendation="Убедиться в наличии входного контроля по каждой поставке.",
+                ))
         return findings
 
-    def check_orphan_certificates(self) -> List[Dict[str, Any]]:
+    def check_orphan_certificates(self) -> List[ForensicFinding]:
         """
         Найти сертификаты без привязки к WorkUnit (осиротевшие).
-
-        Сертификат без WorkUnit = материал не привязан ни к одной работе.
-        Либо сертификат лишний, либо работа не зафиксирована.
         """
-        orphans = []
+        orphans: List[ForensicFinding] = []
         for nid, data in self.graph.nodes(data=True):
             if data.get("node_type") != "Document":
                 continue
             if data.get("doc_type") not in (DocType.CERTIFICATE.value,
                                              DocType.PASSPORT.value):
                 continue
-            # Check if this document is connected to any MaterialBatch or WorkUnit
-            has_connection = False
-            for pred in self.graph.predecessors(nid):
-                has_connection = True
-                break
-            for succ in self.graph.successors(nid):
-                has_connection = True
-                break
+            has_connection = any(True for _ in self.graph.predecessors(nid)) or \
+                             any(True for _ in self.graph.successors(nid))
             if not has_connection:
-                orphans.append({
-                    "check": "orphan_certificate",
-                    "severity": "medium",
-                    "document_id": nid,
-                    "doc_type": data.get("doc_type"),
-                    "doc_number": data.get("doc_number", ""),
-                    "description": (
-                        f"Сертификат {data.get('doc_number', nid)} "
-                        f"не привязан ни к одной партии материала или работе"
+                orphans.append(ForensicFinding(
+                    check_name="orphan_certificates",
+                    severity=ForensicSeverity.MEDIUM,
+                    description=(
+                        f"Сертификат-сирота: {nid} ({data.get('doc_number', '?')}) "
+                        f"— не привязан ни к одной партии материала или работе"
                     ),
-                })
+                    node_ids=[nid],
+                    recommendation="Привяжите к MaterialBatch через certificate_id или удалите.",
+                ))
         return orphans
 
-    def check_certificate_reuse(self) -> List[Dict[str, Any]]:
+    def check_certificate_reuse(self) -> List[ForensicFinding]:
         """
-        Проверить сертификаты, использованные в нескольких WorkUnit.
+        Проверить сертификаты (MaterialBatch), использованные в нескольких WorkUnit.
 
         Один сертификат на несколько работ = риск подлога (ксерокопия).
         """
-        findings = []
+        findings: List[ForensicFinding] = []
         for nid, data in self.graph.nodes(data=True):
             if data.get("node_type") != "MaterialBatch":
                 continue
-            work_units = []
+            work_units: List[str] = []
             for succ in self.graph.successors(nid):
                 if self.graph.nodes[succ].get("node_type") == "WorkUnit":
                     work_units.append(succ)
             if len(work_units) >= 2:
-                findings.append({
-                    "check": "certificate_reuse",
-                    "severity": "high",
-                    "material_batch_id": nid,
-                    "material": data.get("material_name", nid),
-                    "work_units_count": len(work_units),
-                    "work_unit_ids": work_units,
-                    "description": (
-                        f"Сертификат на {data.get('material_name', nid)} "
-                        f"использован в {len(work_units)} WorkUnit "
-                        f"— риск подлога или ошибки комплектации"
+                material = data.get("material_name", nid)
+                # Check if there's a document confirmation chain
+                cert_id = data.get("certificate_id", "")
+                findings.append(ForensicFinding(
+                    check_name="certificate_reuse",
+                    severity=ForensicSeverity.HIGH,
+                    description=(
+                        f"Сертификат на {material} использован в {len(work_units)} WorkUnit "
+                        f"— риск подлога (ксерокопия сертификата) или ошибки комплектации. "
+                        f"Невозможно подтвердить, что весь материал из одной партии."
                     ),
-                })
+                    node_ids=[nid] + work_units,
+                    recommendation=(
+                        "1. Поднять ЖВК — проверить даты и номера партий. "
+                        "2. Сверить номер партии сертификата с ТТН/УПД. "
+                        "3. При отсутствии ЖВК — оформить акт входного контроля "
+                        "(если есть ТТН) или запросить дубликаты сертификатов у поставщика."
+                    ),
+                ))
         return findings
 
-    def run_all_forensic_checks(self) -> Dict[str, Any]:
-        """Запустить все forensic-проверки и вернуть сводку."""
-        batch = self.check_batch_coverage()
-        orphans = self.check_orphan_certificates()
-        reuse = self.check_certificate_reuse()
+    def run_all_forensic_checks(self) -> List[ForensicFinding]:
+        """
+        Запустить все forensic-проверки по графу.
 
-        critical = [f for f in batch if f["severity"] == "critical"]
-        high = [f for f in reuse if f["severity"] == "high"]
-        medium = [f for f in orphans if f["severity"] == "medium"]
+        Используется Агентом-Аудитором (Стройконтроль) для полного аудита
+        документации объекта. Возвращает объединённый список находок,
+        отсортированный по критичности.
 
+        Returns:
+            List[ForensicFinding] — унифицированный тип для Auditor
+        """
+        all_findings: List[ForensicFinding] = []
+
+        all_findings.extend(self.check_batch_coverage())
+        all_findings.extend(self.check_certificate_reuse())
+        all_findings.extend(self.check_orphan_certificates())
+
+        # Сортировка: CRITICAL → HIGH → MEDIUM → INFO
+        severity_order = {
+            ForensicSeverity.CRITICAL: 0,
+            ForensicSeverity.HIGH: 1,
+            ForensicSeverity.MEDIUM: 2,
+            ForensicSeverity.INFO: 3,
+        }
+        all_findings.sort(key=lambda f: severity_order.get(f.severity, 99))
+
+        logger.info(
+            "Forensic audit complete: %d findings (%d critical, %d high, %d medium, %d info)",
+            len(all_findings),
+            sum(1 for f in all_findings if f.severity == ForensicSeverity.CRITICAL),
+            sum(1 for f in all_findings if f.severity == ForensicSeverity.HIGH),
+            sum(1 for f in all_findings if f.severity == ForensicSeverity.MEDIUM),
+            sum(1 for f in all_findings if f.severity == ForensicSeverity.INFO),
+        )
+
+        return all_findings
+
+    def run_all_forensic_checks_dict(self) -> Dict[str, Any]:
+        """Legacy wrapper: возвращает Dict для обратной совместимости."""
+        findings = self.run_all_forensic_checks()
+        critical = [f for f in findings if f.severity == ForensicSeverity.CRITICAL]
+        high = [f for f in findings if f.severity == ForensicSeverity.HIGH]
+        medium = [f for f in findings if f.severity == ForensicSeverity.MEDIUM]
         return {
-            "batch_coverage": {
-                "findings": batch,
-                "critical_count": len(critical),
-            },
-            "orphan_certificates": {
-                "findings": orphans,
-                "orphan_count": len(orphans),
-            },
-            "certificate_reuse": {
-                "findings": reuse,
-                "reuse_count": len(reuse),
-            },
+            "findings": [f.to_dict() for f in findings],
             "summary": {
-                "total_findings": len(batch) + len(orphans) + len(reuse),
+                "total_findings": len(findings),
                 "critical": len(critical),
                 "high": len(high),
                 "medium": len(medium),
+                "info": len(findings) - len(critical) - len(high) - len(medium),
             },
         }
+
+    # ── Material Spec Validation ──────────────────────────────────────────
+
+    def validate_material_spec(self, material_name: str) -> List[ForensicFinding]:
+        """
+        Проверить спецификацию материала на известные проблемы:
+          - Снят с производства (obsolete)
+          - Неверная марка (геометрия не совпадает с современным аналогом)
+          - Требуется Б/У обоснование
+
+        Использует OBSOLETE_MATERIALS — словарь известных проблемных материалов.
+        """
+        findings: List[ForensicFinding] = []
+
+        if material_name in OBSOLETE_MATERIALS:
+            info = OBSOLETE_MATERIALS[material_name]
+            findings.append(ForensicFinding(
+                check_name="material_spec_validation",
+                severity=ForensicSeverity.CRITICAL,
+                description=(
+                    f"МАТЕРИАЛ СНЯТ С ПРОИЗВОДСТВА: «{material_name}». {info['reason']}"
+                ),
+                recommendation=(
+                    f"Замена: {info['replaced_by']} ({info['gost_new']}). "
+                    f"Если проектом предусмотрен именно {material_name} — "
+                    f"необходимо обоснование применения Б/У материала с экспертизой "
+                    f"остаточного сечения и согласование с заказчиком/авторским надзором."
+                ),
+            ))
+
+        for obsolete_name, info in OBSOLETE_MATERIALS.items():
+            if obsolete_name.lower() in material_name.lower() and material_name != obsolete_name:
+                findings.append(ForensicFinding(
+                    check_name="material_spec_validation",
+                    severity=ForensicSeverity.HIGH,
+                    description=(
+                        f"Возможна опечатка в спецификации: «{material_name}». "
+                        f"Ближайшее совпадение: «{obsolete_name}» — {info['reason']}"
+                    ),
+                    recommendation=f"Уточните марку материала. Возможно, имеется в виду {info['replaced_by']}.",
+                ))
+
+        return findings
+
+    # ── Certificate Adapter ───────────────────────────────────────────────
+
+    def add_certificate(
+        self,
+        cert_id: str,
+        material_name: str,
+        batch_number: str = "",
+        batch_size: float = 0.0,
+        unit: str = "",
+        supplier: str = "",
+        issue_date: str = "",
+        gost: str = "",
+    ) -> str:
+        """
+        Добавить сертификат качества в EvidenceGraph v2 модель.
+
+        Создаёт два узла:
+          - Document (DocType.CERTIFICATE) — сам документ сертификата
+          - MaterialBatch — партия материала со ссылкой на документ
+
+        Связь: MaterialBatch → Document (REFERENCES) — авто при add_material_batch.
+
+        Args:
+            cert_id: идентификатор узла (также используется как doc_number)
+
+        Returns:
+            cert_id созданного узла Document
+        """
+        from datetime import date as date_type
+        parsed_date = None
+        if issue_date:
+            try:
+                parsed_date = date_type.fromisoformat(issue_date)
+            except (ValueError, TypeError):
+                pass
+
+        self.add_document(
+            doc_type=DocType.CERTIFICATE,
+            doc_number=cert_id,
+            doc_date=parsed_date,
+            content_summary=f"Сертификат на {material_name}, партия {batch_number}",
+            confidence=1.0,
+            node_id=cert_id,
+        )
+
+        mat_id = self._make_node_id("MB")
+        self.add_material_batch(
+            material_name=material_name,
+            batch_number=batch_number,
+            quantity=batch_size,
+            unit=unit,
+            gost=gost,
+            supplier=supplier,
+            certificate_id=cert_id,
+            node_id=mat_id,
+        )
+
+        logger.info("Certificate added: %s → MaterialBatch %s (%s, партия %s)",
+                     cert_id, mat_id, material_name, batch_number)
+        return cert_id
 
     def summary(self) -> Dict[str, Any]:
         """Сводка по графу."""

@@ -154,7 +154,7 @@ JOURNAL_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
     "concrete_journal": {
         "name": "Журнал бетонных работ",
-        "form": "СП 70.13330.2012, Приложение Ф",
+        "form": "СП 70.13330.2025, Приложение Ф",
         "status": TemplateStatus.ACTIVE,
         "columns": [
             "Дата/время укладки",
@@ -169,7 +169,7 @@ JOURNAL_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
     "welding_journal": {
         "name": "Журнал сварочных работ",
-        "form": "СП 70.13330.2012, Приложение В",
+        "form": "СП 70.13330.2025, Приложение В",
         "status": TemplateStatus.ACTIVE,
         "sections": 4,
         "section_names": [
@@ -181,7 +181,7 @@ JOURNAL_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
     "mounting_journal": {
         "name": "Журнал работ по монтажу строительных конструкций",
-        "form": "СП 70.13330.2012, Приложение А",
+        "form": "СП 70.13330.2025, Приложение А",
         "status": TemplateStatus.ACTIVE,
         "columns": [
             "Дата выполнения работ",
@@ -193,12 +193,12 @@ JOURNAL_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
     "anticorrosion_journal": {
         "name": "Журнал антикоррозионной защиты сварных соединений",
-        "form": "СП 70.13330.2012, Приложение Г",
+        "form": "СП 70.13330.2025, Приложение Г",
         "status": TemplateStatus.ACTIVE,
     },
     "monolithic_journal": {
         "name": "Журнал замоноличивания монтажных стыков",
-        "form": "СП 70.13330.2012, Приложение Д",
+        "form": "СП 70.13330.2025, Приложение Д",
         "status": TemplateStatus.ACTIVE,
     },
     "earthwork_journal": {

@@ -631,7 +631,7 @@ def build_report():
         "GOST R 71750-2024 — intelligent systems terminology in construction-road machinery",
         "GOST R 21.1101-2013 — design documentation system, core requirements",
         "SP 543.1325800.2024 — construction control, Appendix A (ID per work type)",
-        "SP 70.13330.2012 — load-bearing structures",
+        "SP 70.13330.2025 — load-bearing structures",
         "SP 48.13330.2019 — construction organization",
         "VSN 012-88 — welding (oil & gas)",
         "PP RF №468 — acceptance of completed construction works",

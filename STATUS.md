@@ -77,11 +77,11 @@
 | # | Проблема | Приоритет |
 |---|----------|-----------|
 | 1 | Нет ПП РФ в pp_rf/ (ни одного файла) | HIGH |
-| 2 | СП 70.13330.2012 → 2025: deadline 01.06.2026 (~80 refs) | CRITICAL |
+| 2 | ~~СП 70.13330.2025 → 2025~~: **RESOLVED** (05.05.2026, ~50 замен в 11 файлах) | ~~CRITICAL~~ ✅ |
 | 3 | Library покрытие ~14% (15 из 105+ документов) | MEDIUM |
 | 4 | 7 missing MCP wrappers (WorkEntry, Inference, HITL) | MEDIUM |
-| 5 | Forensic-дубликаты (evidence_graph vs graph_service) | CRITICAL |
-| 6 | ChainStatus коллизия (2 enum с одним именем) | CRITICAL |
+| 5 | ~~Forensic-дубликаты~~: **RESOLVED** (05.05.2026, методы портированы в evidence_graph, graph_service помечен deprecated) | ~~CRITICAL~~ ✅ |
+| 6 | ~~ChainStatus коллизия~~: **RESOLVED** (05.05.2026, переименован в LinkStatus) | ~~CRITICAL~~ ✅ |
 | 7 | nodes.py vs nodes_v2.py частичный дубликат | MEDIUM |
 | 8 | ~230 неиспользуемых импортов | LOW |
 
@@ -114,7 +114,7 @@
 - **Расширен индекс:** добавлены `expected` документы с приоритетами (8 critical, 6 high, 9 medium)
 - **Алиасы:** расширены с 10 до 24 (включая ссылки на конкретные статьи ГК РФ)
 - **Критические действия:**
-  1. Скачать СП 70.13330.2025 до 01.06.2026 (замена СП 70.13330.2012)
+  1. ~~Скачать СП 70.13330.2025 до 01.06.2026 (замена СП 70.13330.2025)~~ ✅ RESOLVED (05.05.2026)
   2. Заполнить pp_rf/ — ПП РФ 468 и 87 критически необходимы (директория пуста)
   3. Скачать 8 critical документов (СП 68, СП 126, ГОСТ 18105, ГОСТ 10180, ГОСТ 22690, ГОСТ 7473, ПП РФ 468, ПП РФ 87)
 - **id_requirements.yaml:** 33 типа работ валидны, ~25 устаревших ГОСТ/СП ссылок (для обновления в цикле 3)
@@ -160,8 +160,8 @@
 #### CRITICAL — отложены до v14 (требуют отдельного PR)
 | # | Проблема | Описание |
 |---|----------|----------|
-| 2 | Forensic-дубликаты: check_batch_coverage, check_certificate_reuse, check_orphan_certificates, run_all_forensic_checks | Две параллельные реализации в evidence_graph.py и graph_service.py с разными сигнатурами и возвращаемыми типами |
-| 3 | Коллизия ChainStatus: chain_builder.py (COMPLETE/PARTIAL/BROKEN/EMPTY) vs completeness_matrix.py (VERIFIED/MISSING/INCOMPLETE/STALE/UNVERIFIED) | Разные enum с одинаковым именем |
+| 2 | ~~Forensic-дубликаты~~: RESOLVED (05.05.2026, портированы в evidence_graph, graph_service deprecated) | ~~Две параллельные реализации~~ ✅ |
+| 3 | ~~Коллизия ChainStatus~~: RESOLVED (05.05.2026, переименован в LinkStatus) | ~~Разные enum с одинаковым именем~~ ✅ |
 | 4 | Коллизия EdgeType: evidence_graph.py (15 значений) vs graph_service.py (9 значений) | Разные enum с одинаковым именем |
 | 5 | Коллизия EventType: evidence_graph.py (DELIVERY/INSPECTION/...) vs is_generator/events.py (PIPELINE_STARTED/...) | Разные enum с одинаковым именем |
 | 6 | Коллизия ClassificationResult: domain_classifier.py vs hybrid_classifier.py | Разные dataclass с одинаковым именем |
@@ -170,7 +170,7 @@
 | # | Проблема | Приоритет | Цикл |
 |---|----------|-----------|------|
 | 1 | Нет ПП РФ в library/normative/pp_rf/ (ни одного) | HIGH | 3 |
-| 2 | СП 70.13330.2012 → 2025: ~50 упоминаний в artifacts/, ~15 в id_requirements.yaml | HIGH | 3 |
+| 2 | ~~СП 70.13330.2025 → 2025~~: **RESOLVED** (05.05.2026, все замены выполнены) | ~~HIGH~~ ✅ | 3 |
 | 3 | Library покрытие ~20% (15 из 100+ нормативных документов) | MEDIUM | 3 |
 | 4 | logistics/procurement домены ТГ недопредставлены (1-2 канала) | MEDIUM | 3 |
 | 5 | TELEGRAM_BOT_TOKEN отсутствует — WorkEntry бот не работает | MEDIUM | 3 |
@@ -246,12 +246,12 @@
 | # | Проблема | Приоритет | Цикл |
 |---|----------|-----------|------|
 | 1 | Нет ПП РФ в pp_rf/ (ни одного файла) | HIGH | 5 |
-| 2 | СП 70.13330.2012 → 2025: deadline 01.06.2026 | HIGH | 5 |
+| 2 | ~~СП 70.13330.2025 → 2025~~: **RESOLVED** (05.05.2026) | ~~HIGH~~ ✅ | 5 |
 | 3 | Library покрытие ~20% (15 из 100+ документов) | MEDIUM | — |
 | 4 | logistics/procurement ТГ-домены недопредставлены | MEDIUM | 5 |
 | 5 | TELEGRAM_BOT_TOKEN отсутствует | MEDIUM | 5 |
-| 6 | Forensic-дубликаты (evidence_graph vs graph_service) | CRITICAL | v14 |
-| 7 | ChainStatus коллизия (2 enum с одним именем) | CRITICAL | v14 |
+| 6 | ~~Forensic-дубликаты~~: RESOLVED (05.05.2026) | ~~CRITICAL~~ ✅ | v14 |
+| 7 | ~~ChainStatus коллизия~~: RESOLVED (05.05.2026) | ~~CRITICAL~~ ✅ | v14 |
 | 8 | MLXBackend — полный стаб | LOW | v14 |
 | 9 | vlm_classifier: blocking requests в async | MEDIUM | 5 |
 

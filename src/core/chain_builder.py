@@ -403,7 +403,7 @@ class ChainBuilder:
                 severity=GapSeverity.MEDIUM,
                 description=f"Протокол испытаний отсутствует ({chain.work_type})",
                 missing_doc_type="test_protocol",
-                required_by="СП 70.13330.2012"
+                required_by="СП 70.13330.2025"
             ))
         
         # 6. Спецжурнал
@@ -413,7 +413,7 @@ class ChainBuilder:
                 severity=GapSeverity.LOW,
                 description=f"Спецжурнал отсутствует ({req_journal})",
                 missing_doc_type="journal",
-                required_by="СП 70.13330.2012"
+                required_by="СП 70.13330.2025"
             ))
         
         return gaps

@@ -119,7 +119,7 @@ QUESTION_TEMPLATES = {
         },
         "journal": {
             "text": "{journal_name} на {work_type} — вёлся?",
-            "context": "СП 70.13330.2012 требует {journal_name} для {work_type}. Журнал не найден.",
+            "context": "СП 70.13330.2025 требует {journal_name} для {work_type}. Журнал не найден.",
             "suggestions": [
                 "Журнал есть, приложу",
                 "Журнал не вёлся",

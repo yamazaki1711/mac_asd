@@ -1,6 +1,18 @@
 """
 ASD v12.0 — Forensic Knowledge Graph (NetworkX).
 
+**DEPRECATED: переходите на src.core.evidence_graph (EvidenceGraph v2).**
+
+Этот модуль сохранён для обратной совместимости (legacy API).
+Forensic-методы (validate_material_spec, add_certificate, run_all_forensic_checks,
+check_batch_coverage, check_certificate_reuse, check_orphan_certificates)
+портированы в evidence_graph.py и здесь выдают DeprecationWarning.
+
+Non-forensic методы (add_document, add_aosr, add_scan, add_batch, add_material,
+add_supplier, add_ttn, add_input_control, add_reference, link_*, get_*, traversal)
+пока сохраняются без изменений — они используются в IngestionPipeline,
+RAGService и RAGPipeline.
+
 Два режима графа:
   Тактика (сопровождение):   Project → Event → AgentResult
   Стратегия (восстановление): Scan → Document → Certificate → Batch → InputControl → AOSR
@@ -15,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import pickle
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -25,6 +38,15 @@ import networkx as nx
 from src.config import settings
 
 logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "graph_service is deprecated; use evidence_graph (EvidenceGraph v2) instead. "
+    "Forensic methods (validate_material_spec, add_certificate, run_all_forensic_checks, "
+    "check_batch_coverage, check_certificate_reuse, check_orphan_certificates) "
+    "are ported to src.core.evidence_graph.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 # =============================================================================
@@ -340,7 +362,11 @@ class GraphService:
         issue_date: str = "",
         gost: str = "",
     ) -> None:
-        """Добавить узел сертификата качества."""
+        """Добавить узел сертификата качества (DEPRECATED: используйте evidence_graph.add_certificate)."""
+        warnings.warn(
+            "GraphService.add_certificate() is deprecated. Use evidence_graph.add_certificate() instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         self._add_node(
             cert_id, NodeType.CERTIFICATE,
             material_name=material_name, batch_number=batch_number,
@@ -577,13 +603,14 @@ class GraphService:
 
     def check_batch_coverage(self, cert_id: str) -> List[ForensicFinding]:
         """
-        Проверка покрытия партии сертификата.
+        Проверка покрытия партии сертификата (DEPRECATED: используйте evidence_graph.check_batch_coverage).
 
         Σ quantity_used (по всем АОСР, ссылающимся на сертификат) ≤ batch_size.
-
-        Выявляет: использование материала сверх объёма сертифицированной партии.
-        Причина: подлог (ксерокопия сертификата), ошибка ПТО, отсутствие входного контроля.
         """
+        warnings.warn(
+            "GraphService.check_batch_coverage() is deprecated. Use evidence_graph.check_batch_coverage() instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         findings: List[ForensicFinding] = []
 
         if not self.graph.has_node(cert_id):
@@ -665,11 +692,12 @@ class GraphService:
 
     def check_certificate_reuse(self) -> List[ForensicFinding]:
         """
-        Проверить сертификаты, использованные в 2+ АОСР без входного контроля.
-
-        Выявляет: потенциальный подлог — один сертификат подкладывается
-        к нескольким актам, но записи входного контроля отсутствуют.
+        Проверить сертификаты, использованные в 2+ АОСР без входного контроля (DEPRECATED: используйте evidence_graph.check_certificate_reuse).
         """
+        warnings.warn(
+            "GraphService.check_certificate_reuse() is deprecated. Use evidence_graph.check_certificate_reuse() instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         findings: List[ForensicFinding] = []
 
         for node_id, node_data in self.graph.nodes(data=True):
@@ -757,11 +785,12 @@ class GraphService:
 
     def check_orphan_certificates(self) -> List[ForensicFinding]:
         """
-        Найти все сертификаты, не привязанные к входному контролю (orphan).
-
-        Используется при инвентаризации: показывает сертификаты, которые есть в деле,
-        но их невозможно привязать к фактическим поставкам.
+        Найти все сертификаты, не привязанные к входному контролю (orphan) (DEPRECATED: используйте evidence_graph.check_orphan_certificates).
         """
+        warnings.warn(
+            "GraphService.check_orphan_certificates() is deprecated. Use evidence_graph.check_orphan_certificates() instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         findings: List[ForensicFinding] = []
         for node_id, data in self.graph.nodes(data=True):
             if data.get("type") != NodeType.CERTIFICATE.value:
@@ -800,13 +829,12 @@ class GraphService:
 
     def validate_material_spec(self, material_name: str) -> List[ForensicFinding]:
         """
-        Проверить спецификацию материала на известные проблемы:
-          - Снят с производства (obsolete)
-          - Неверная марка (геометрия не совпадает с современным аналогом)
-          - Требуется Б/У обоснование
-
-        Использует OBSOLETE_MATERIALS — словарь известных проблемных материалов.
+        Проверить спецификацию материала на известные проблемы (DEPRECATED: используйте evidence_graph.validate_material_spec).
         """
+        warnings.warn(
+            "GraphService.validate_material_spec() is deprecated. Use evidence_graph.validate_material_spec() instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         findings: List[ForensicFinding] = []
 
         # Прямое совпадение
@@ -848,11 +876,15 @@ class GraphService:
 
     def run_all_forensic_checks(self) -> List[ForensicFinding]:
         """
-        Запустить все forensic-проверки по графу.
+        Запустить все forensic-проверки по графу (DEPRECATED: используйте evidence_graph.run_all_forensic_checks).
 
         Используется Агентом-Аудитором (Стройконтроль) для полного аудита
         документации объекта. Возвращает объединённый список находок.
         """
+        warnings.warn(
+            "GraphService.run_all_forensic_checks() is deprecated. Use evidence_graph.run_all_forensic_checks() instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         all_findings: List[ForensicFinding] = []
 
         # 1. Проверка покрытия партий для всех сертификатов

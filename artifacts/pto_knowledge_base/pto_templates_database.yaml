@@ -1031,35 +1031,35 @@ normative_documents:
   - number: Приложение Н
     name: Акт приёмки оборудования после комплексного опробования
     id: СП_68.13330.2017_Приложение_Н
-- name: СП 70.13330.2012
-  full_name: СП 70.13330.2012 - Несущие и ограждающие конструкции
+- name: СП 70.13330.2025
+  full_name: СП 70.13330.2025 - Несущие и ограждающие конструкции
   status: null
   form_count: 8
   forms:
   - number: Приложение А
     name: Журнал работ по монтажу строительных конструкций
-    id: СП_70.13330.2012_Приложение_А
+    id: СП_70.13330.2025_Приложение_А
   - number: Приложение Б
     name: Журнал сварочных работ
-    id: СП_70.13330.2012_Приложение_Б
+    id: СП_70.13330.2025_Приложение_Б
   - number: Приложение В
     name: Журнал антикоррозионной защиты сварных соединений
-    id: СП_70.13330.2012_Приложение_В
+    id: СП_70.13330.2025_Приложение_В
   - number: Приложение Г
     name: Журнал замоноличивания монтажных стыков и узлов
-    id: СП_70.13330.2012_Приложение_Г
+    id: СП_70.13330.2025_Приложение_Г
   - number: Приложение Д
     name: Журнал выполнения монтажных соединений на болтах с контролируемым натяжением
-    id: СП_70.13330.2012_Приложение_Д
+    id: СП_70.13330.2025_Приложение_Д
   - number: Приложение Е
     name: Журнал контрольной тарировки динамометрических ключей
-    id: СП_70.13330.2012_Приложение_Е
+    id: СП_70.13330.2025_Приложение_Е
   - number: Приложение И
     name: Акт испытания конструкций здания и сооружения
-    id: СП_70.13330.2012_Приложение_И
+    id: СП_70.13330.2025_Приложение_И
   - number: Приложение Ф
     name: Журнал бетонных работ
-    id: СП_70.13330.2012_Приложение_Ф
+    id: СП_70.13330.2025_Приложение_Ф
 - name: СП 71.13330.2017
   full_name: СП 71.13330.2017 - Изоляционные и отделочные покрытия
   status: null
@@ -2832,7 +2832,7 @@ document_templates:
 - id: tpl_026
   form_number: Приложение А
   name: Журнал работ по монтажу строительных конструкций
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -2871,7 +2871,7 @@ document_templates:
 - id: tpl_027
   form_number: Приложение Б
   name: Журнал сварочных работ
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -2910,7 +2910,7 @@ document_templates:
 - id: tpl_028
   form_number: Приложение В
   name: Журнал антикоррозионной защиты сварных соединений
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -2947,7 +2947,7 @@ document_templates:
 - id: tpl_029
   form_number: Приложение Г
   name: Журнал замоноличивания монтажных стыков и узлов
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -2984,7 +2984,7 @@ document_templates:
 - id: tpl_030
   form_number: Приложение Д
   name: Журнал выполнения монтажных соединений на болтах с контролируемым натяжением
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -3021,7 +3021,7 @@ document_templates:
 - id: tpl_031
   form_number: Приложение Е
   name: Журнал контрольной тарировки динамометрических ключей
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -3058,7 +3058,7 @@ document_templates:
 - id: tpl_032
   form_number: Приложение И
   name: Акт испытания конструкций здания и сооружения
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации
@@ -3095,7 +3095,7 @@ document_templates:
 - id: tpl_033
   form_number: Приложение Ф
   name: Журнал бетонных работ
-  normative_document: СП 70.13330.2012
+  normative_document: СП 70.13330.2025
   nd_status: null
   relevant_work_categories:
   - Системы автоматизации

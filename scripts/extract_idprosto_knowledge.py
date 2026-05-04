@@ -91,7 +91,7 @@ def extract_normative_refs(text: str) -> List[str]:
     """Extract individual normative references from a text cell."""
     refs = set()
 
-    # Match patterns like: СП 70.13330.2012, ГОСТ Р 51872-2024, Приказ Минстроя №344/пр
+    # Match patterns like: СП 70.13330.2025, ГОСТ Р 51872-2024, Приказ Минстроя №344/пр
     patterns = [
         r'(СП\s*[\d.]+[\w\d.-]*)',
         r'(ГОСТ\s*(?:Р\s*)?[\d.]+[\w\d.-]*)',
