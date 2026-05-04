@@ -1,7 +1,7 @@
 # АСД v12.0 — ПЛАН РАЗВЁРТЫВАНИЯ
 
-| **Дата:** 3 мая 2026
-| **Статус:** Активная разработка (Package 1, 5, 11 завершены, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, Mac Studio M4 Max 128GB)
+| **Дата:** 4 мая 2026
+| **Статус:** Активная разработка (Package 1, 5, 11 завершены, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, PTO Skills ✅ VorCheck/PDAnalysis/ActGenerator, Mac Studio M4 Max 128GB) (Linux dev ✅ DeepSeek V4 Pro[1m])
 **Цель:** Пошаговая инструкция по развертыванию ASD на Mac Studio M4 Max 128GB
 
 ---

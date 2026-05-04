@@ -1,13 +1,13 @@
-# АСД v12.0 — СПЕЦИФИКАЦИЯ MCP ИНСТРУМЕНТОВ
+# АСД v13.0 — СПЕЦИФИКАЦИЯ MCP ИНСТРУМЕНТОВ
 
-**Дата:** 3 мая 2026
-**Статус:** Package 5 ✅ (Evidence Graph, Inference Engine, ProjectLoader), Package 11 ✅ (Chain Builder, HITL, Journal Reconstructor), Artifact Store ✅, Legal Service ✅ (FZ-44/223 lookup, RAG, NormativeGuard), Vision Cascade ✅ (Stage 1/2, Gemma 4 31B Cloud VLM fallback), Auditor ✅, IDRequirementsRegistry ✅, WorkEntry ✅
+**Дата:** 4 мая 2026
+**Статус:** Package 5 ✅ (Evidence Graph, Inference Engine, ProjectLoader), Package 11 ✅ (Chain Builder, HITL, Journal Reconstructor), Artifact Store ✅, Legal Service ✅ (FZ-44/223 lookup, RAG, NormativeGuard), Vision Cascade ✅ (Stage 1/2, Gemma 4 31B Cloud VLM fallback), Auditor ✅, IDRequirementsRegistry ✅, WorkEntry ✅, PTO Skills ✅ (VorCheck, PDAnalysis, ActGenerator — 3 реальных модуля вместо заглушек)
 
 ---
 
 ## 1. ОБЗОР
 
-Архитектура АСД v12.0 использует модель **Gemma 4 31B 4-bit** (MLX-VLM, 128K контекст) для пяти рабочих агентов (Юрист, ПТО, Сметчик, Закупщик, Логист), работающих через разделяемую память (shared memory) LLMEngine. Агент **Делопроизводитель** использует **Gemma 4 E4B 4-bit** (8K контекст). Агент **Руководитель проекта** (PM/руководитель) использует **Llama 3.3 70B 4-bit** для стратегического планирования и оркестрации. Gemma 4 31B (MLX-VLM) обеспечивает встроенную vision-поддержку для OCR сложных документов без отдельной vision-модели.
+Архитектура АСД v13.0 использует модель **Gemma 4 31B 4-bit** (mac_studio) / **DeepSeek V4 Pro[1m]** (dev_linux) (MLX-VLM, 128K контекст) для пяти рабочих агентов (Юрист, ПТО, Сметчик, Закупщик, Логист), работающих через разделяемую память (shared memory) LLMEngine. Агент **Делопроизводитель** использует **Gemma 4 E4B 4-bit** (8K контекст). Агент **Руководитель проекта** (PM/руководитель) использует **Llama 3.3 70B 4-bit** для стратегического планирования и оркестрации. Gemma 4 31B (MLX-VLM) обеспечивает встроенную vision-поддержку для OCR сложных документов без отдельной vision-модели.
 
 *   Общее количество инструментов: **82** (74 в mcp_servers/asd_core/, включая Evidence Graph, Chain Builder, HITL, Journal Reconstructor, Artifact Store, Legal Service, Vision Cascade, WorkEntry; +8 служебных MCP server-тулов).
 *   Агенты: Руководитель проекта (PM, Llama 3.3 70B), ПТО, Сметчик, Юрист, Закупщик, Логист (все — Gemma 4 31B), Делопроизводитель (Gemma 4 E4B), Аудитор (rule-based).
@@ -385,105 +385,70 @@
 
 ### 3.1. asd_vor_check
 
-**Описание:** Сверка ВОР с проектной документацией. Построчное сравнение позиций с fuzzy matching. Выявляет расхождения в объёмах, неучтённые работы и позиции, отсутствующие в ВОР. Результаты обогащаются контекстным анализом через Gemma 4 31B для определения критичности расхождений.
+**Описание:** Сверка ВОР с проектной документацией. Построчное сравнение позиций с fuzzy matching (rapidfuzz token_sort_ratio, fallback — character trigram Jaccard). Выявляет 4 типа расхождений: volume_mismatch, unit_mismatch, missing_in_pd, extra_in_vor. Реализован как `PTO_VorCheck(SkillBase)` в `src/agents/skills/pto/vor_check.py` (326 строк). **Статус: ✅ реальный модуль (май 2026).**
 
 **Аргументы:**
 | Параметр | Тип | Обязательно | Описание |
 |----------|-----|-------------|----------|
-| `vor_file` | string | ✅ | Путь к файлу ВОР (полученного) |
-| `pd_file` | string | ✅ | Путь к файлу ПД/РД (из проекта) |
-| `fuzzy_threshold` | float | ❌ | Порог fuzzy matching (по умолч. 0.85) |
+| `vor_items` | list[dict] | ✅ | Список позиций ВОР [{"name": str, "quantity": float, "unit": str}, ...] |
+| `pd_items` | list[dict] | ✅ | Список позиций ПД [{"name": str, "quantity": float, "unit": str}, ...] |
+| `pd_id` | string | ❌ | Идентификатор ПД (для логов) |
+| `volume_tolerance_pct` | float | ❌ | Допустимое расхождение объёмов в % (по умолч. 5.0) |
 
 **Возвращает:**
 ```json
 {
-  "success": true,
-  "vor_items": 12270,
-  "pd_items": 11850,
-  "matches": 11200,
+  "status": "success",
+  "total_vor_items": 156,
+  "total_pd_items": 148,
+  "matches": [{"vor_index": 0, "pd_index": 0, "vor_name": "...", "pd_name": "...", "match_score": 95.2, "vor_quantity": 500.0, "pd_quantity": 450.0, "vor_unit": "м3", "pd_unit": "м3"}],
+  "missing_in_pd": [{"name": "Монтаж ограждения", "quantity": 200, "unit": "м"}],
+  "extra_in_vor": [{"name": "Демонтаж сооружений", "quantity": 1, "unit": "компл"}],
   "discrepancies": [
-    {
-      "vor_item": {
-        "name": "Устройство щебёночной подготовки",
-        "volume": 1500.0,
-        "unit": "м³"
-      },
-      "pd_item": {
-        "name": "Устройство щебёночной подготовки",
-        "volume": 1200.0,
-        "unit": "м³"
-      },
-      "diff_volume": 300.0,
-      "diff_percent": 25.0,
-      "diff_type": "volume_mismatch"
-    }
+    {"type": "volume_mismatch", "severity": "critical", "vor_name": "...", "pd_name": "...", "vor_quantity": 500.0, "pd_quantity": 450.0, "diff_pct": 11.1, "detail": "Расхождение объёмов 11.1%: ВОР → 500.0 м3, ПД → 450.0 м3"},
+    {"type": "unit_mismatch", "severity": "high", "vor_name": "...", "pd_name": "...", "vor_unit": "м3", "pd_unit": "т", "detail": "Несовпадение единиц измерения"},
+    {"type": "missing_in_pd", "severity": "high", "vor_name": "...", "detail": "Позиция ВОР не найдена в ПД"},
+    {"type": "extra_in_vor", "severity": "medium", "pd_name": "...", "detail": "Позиция ПД не учтена в ВОР"}
   ],
-  "unaccounted_in_vor": [
-    {"name": "Монтаж ограждения", "volume": 200, "unit": "м²"}
-  ],
-  "unaccounted_in_pd": [
-    {"name": "Демонтаж временных сооружений", "volume": 1, "unit": "компл."}
-  ],
-  "summary": {
-    "total_discrepancies": 23,
-    "volume_increase_percent": 15.3,
-    "unaccounted_in_vor_count": 5,
-    "unaccounted_in_pd_count": 3
-  }
+  "summary": {"matched_items": 140, "missing_in_pd": 5, "extra_in_vor": 3, "total_discrepancies": 10, "critical": 2, "high": 5, "medium": 2, "low": 1},
+  "errors": [],
+  "warnings": []
 }
 ```
+
+**Severity:** critical (>10% объёма) | high (unit mismatch, missing) | medium (<5% объёма) | low (незначительные)
 
 ---
 
 ### 3.2. asd_pd_analysis
 
-**Описание:** Комплексный анализ проектной документации. Выявление коллизий между разделами (АР/КР/ИОС), неучтённых объёмов и проверка комплектности разделов по ГОСТ Р 21.1101-2013. OCR сканов выполняется через vision-возможности Gemma 4 31B (MLX-VLM) при обнаружении сложных графических элементов.
+**Описание:** Комплексный анализ проектной документации. Три стадии: (1) rule-based пространственные коллизии — пересечения осей/отметок/размеров между разделами; (2) проверка комплектности разделов по ГОСТ Р 21.1101-2013 (9 обязательных разделов: АР, КР, ИОС1-5, ПОС, ПМ); (3) LLM-семантический анализ противоречий (опционально, с keyword fallback). Реализован как `PTO_PDAnalysis(SkillBase)` в `src/agents/skills/pto/pd_analysis.py` (418 строк). **Статус: ✅ реальный модуль (май 2026).**
 
 **Аргументы:**
 | Параметр | Тип | Обязательно | Описание |
 |----------|-----|-------------|----------|
-| `pd_files` | list[string] | ✅ | Список файлов ПД (АР, КР, ИОС, и т.д.) |
+| `sections` | list[dict] | ✅ | Список разделов ПД [{"code": "АР", "name": "...", "content": "...", "key_positions": [...]}, ...] |
+| `pd_id` | string | ❌ | Идентификатор ПД (для логов) |
 | `check_completeness` | bool | ❌ | Проверка комплектности разделов (по умолч. true) |
-| `check_collisions` | bool | ❌ | Поиск коллизий (по умолч. true) |
-| `check_unaccounted` | bool | ❌ | Поиск неучтённых объёмов (по умолч. true) |
+| `check_collisions` | bool | ❌ | Поиск пространственных коллизий (по умолч. true) |
+| `check_semantic` | bool | ❌ | LLM-анализ текста на противоречия (по умолч. false) |
 
 **Возвращает:**
 ```json
 {
-  "success": true,
-  "files_analyzed": 12,
-  "total_pages": 2450,
-  "analysis_time_seconds": 420,
-  "completeness": {
-    "required_sections": ["АР", "КР", "ИОС1", "ИОС2", "ИОС3", "ПОС", "ПМ"],
-    "present": ["АР", "КР", "ИОС1", "ИОС2", "ПОС"],
-    "missing": ["ИОС3", "ПМ"],
-    "completeness_percent": 71.4
-  },
+  "status": "success",
+  "sections_analyzed": 7,
   "collisions": [
-    {
-      "type": "spatial",
-      "section_a": "КР (лист 45)",
-      "section_b": "ИОС1 (лист 12)",
-      "description": "Труба ventilation пересекает несущую балку на отм. +3.600",
-      "severity": "high"
-    }
+    {"type": "spatial", "severity": "high", "section_a": "АР", "section_b": "КР", "description": "Возможная коллизия размеров: АР → 200мм, КР → 400мм в осях {'А'}", "gost_ref": "ГОСТ Р 21.1101-2013 п. 4.2"},
+    {"type": "xref", "severity": "medium", "section_a": "АР", "section_b": "ИОС7", "description": "Ссылка на отсутствующий раздел: АР ссылается на ИОС7", "gost_ref": "ГОСТ Р 21.1101-2013 п. 4.1"},
+    {"type": "completeness", "severity": "high", "section_a": "ИОС3", "description": "Отсутствует обязательный раздел ПД: ИОС3", "gost_ref": "ГОСТ Р 21.1101-2013"},
+    {"type": "semantic", "severity": "medium", "section_a": "АР", "section_b": "КР", "description": "Возможное расхождение размеров: 200мм (АР) vs 400мм (КР)"}
   ],
-  "unaccounted_volumes": [
-    {
-      "work": "Гидроизоляция фундамента",
-      "in_vor": false,
-      "in_pd": true,
-      "volume": 450.0,
-      "unit": "м²"
-    }
-  ],
-  "summary": {
-    "missing_sections": 2,
-    "collisions_found": 3,
-    "unaccounted_volumes": 5,
-    "risk_level": "medium"
-  }
+  "completeness": {"required_sections": {...}, "present": ["АР","КР","ИОС1","ИОС2","ПОС"], "missing": ["ИОС3","ИОС4","ИОС5","ПМ"], "completeness_pct": 55.6, "required_by": "ГОСТ Р 21.1101-2013"},
+  "llm_used": false,
+  "summary": {"total_collisions": 5, "critical": 0, "high": 3, "medium": 2, "low": 0},
+  "errors": [],
+  "warnings": []
 }
 ```
 
@@ -491,29 +456,28 @@
 
 ### 3.3. asd_generate_act
 
-**Описание:** Генерация акта (АОСР, входной контроль, скрытые работы, освидетельствование). Формирует DOCX по шаблону с автозаполнением реквизитов из контракта и ProtocolPartyInfo. Данные о представителях и материалах обогащаются через Gemma 4 31B.
+**Описание:** Генерация акта исполнительной документации в формате DOCX. Поддерживает 4 типа: aosr, incoming_control, hidden_works, inspection. Использует docxtpl (Jinja2 inside DOCX) для заполнения шаблонов из `library/templates/acts/aosr/`, с fallback на python-docx при отсутствии шаблона. Реализован как `PTO_ActGenerator(SkillBase)` в `src/agents/skills/pto/act_generator.py` (273 строки). **Статус: ✅ реальный модуль (май 2026).**
 
 **Аргументы:**
 | Параметр | Тип | Обязательно | Описание |
 |----------|-----|-------------|----------|
-| `act_type` | string | ✅ | "aosr" \| "incoming_control" \| "hidden_works" \| "inspection" |
-| `work_description` | string | ✅ | Описание работ |
-| `contract_id` | int | ❌ | ID контракта |
-| `project_id` | string | ❌ | ID проекта |
-| `representatives` | list[dict] | ❌ | Представители (подписанты) |
-| `materials` | list[dict] | ❌ | Использованные материалы |
-| `drawings` | list[string] | ❌ | Чертежи/схемы (приложения) |
-| `custom_data` | dict | ❌ | Произвольные данные для акта |
+| `act_type` | string | ✅ | Тип акта: "aosr" \| "incoming_control" \| "hidden_works" \| "inspection" |
+| `context` | dict | ✅ | Данные акта: {act_number, act_date, project_name, object_name, customer_name, contractor_name, work_description, volume, unit, materials, commission_members, signatures, decision, ...} |
+| `output_dir` | string | ❌ | Директория сохранения (по умолч. data/exports/acts) |
+| `template_path` | string | ❌ | Путь к кастомному шаблону DOCX (опционально) |
 
 **Возвращает:**
 ```json
 {
-  "success": true,
-  "file_path": "/Users/oleg/MAC_ASD/data/exports/acts/aosr_20260420_001.docx",
+  "status": "success",
   "act_type": "aosr",
-  "act_number": 1,
-  "act_date": "2026-04-20",
-  "message": "Акт освидетельствования скрытых работ сгенерирован"
+  "file_path": "/home/oleg/MAC_ASD/data/exports/acts/aosr_20260504_153901.docx",
+  "filename": "aosr_20260504_153901.docx",
+  "template_used": "library/templates/acts/aosr/3_AOSR.docx",
+  "size_bytes": 45231,
+  "note": "Файл сохранён локально. Для загрузки в Google Диск используйте asd_drive_upload.",
+  "errors": [],
+  "warnings": []
 }
 ```
 
@@ -827,7 +791,7 @@
 ```json
 {
   "success": true,
-  "system": "АСД v12.0",
+  "system": "АСД v13.0",
   "components": {
     "llm_engine": {
       "status": "running",
@@ -1835,7 +1799,7 @@ LLMEngine обеспечивает поддержку профилей (dev_linu
 
 ### 17.5. БЛС (Библиотека Ловушек Сторон)
 
-АСД v12.0 содержит **61 ловушка** в 10 категориях:
+АСД v13.0 содержит **61 ловушка** в 10 категориях:
 
 | ID | Статья | Название | Критичность |
 |----|--------|----------|-------------|
@@ -1863,4 +1827,4 @@ LLMEngine обеспечивает поддержку профилей (dev_linu
 
 ---
 
-Документ актуализирован для АСД v12.0 (3 мая 2026). Спецификации инструментов используются при реализации MCP-тулов в Packages 2-12. Добавлены: Package 5 (Evidence Graph, Inference Engine, ProjectLoader), Package 11 (Chain Builder, HITL, Journal Reconstructor), Artifact Store (версионированное файловое хранилище), Legal Service (FZ-44/223 lookup, RAG, NormativeGuard), Vision Cascade (Стадия 1/2, Gemma 4 31B Cloud VLM fallback). Все агенты используют Gemma 4 31B через разделяемую память LLMEngine; Руководитель проекта использует Llama 3.3 70B. Визионный анализ выполняется Gemma 4 31B VLM по требованию.
+Документ актуализирован для АСД v13.0 (4 мая 2026). Спецификации инструментов используются при реализации MCP-тулов. Добавлены: Package 5 (Evidence Graph, Inference Engine, ProjectLoader), Package 11 (Chain Builder, HITL, Journal Reconstructor), Artifact Store, Legal Service (FZ-44/223 lookup, RAG, NormativeGuard), Vision Cascade (Stage 1/2), PTO Skills (VorCheck, PDAnalysis, ActGenerator — реальные модули, май 2026). Все агенты используют Gemma 4 31B (mac_studio) / DeepSeek V4 (dev_linux) через разделяемую память LLMEngine.

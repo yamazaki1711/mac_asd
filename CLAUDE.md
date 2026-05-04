@@ -16,8 +16,8 @@
 ```
 src/core/              Evidence Graph v2, Inference Engine, ProjectLoader, LLMEngine, services
 src/agents/            LangGraph StateGraph (state.py, workflow.py, nodes.py), skills
-mcp_servers/asd_core/  FastMCP: 82+ tools (7 agents + auditor)
-tests/                 493 tests (478 passed)
+mcp_servers/asd_core/  FastMCP: 75+ tools (7 agents + auditor)
+tests/                 511 tests (508 passed)
 agents/                Prompts (Markdown) for 8 agents
 traps/                 БЛС: 61 ловушка в 10 категориях (YAML)
 library/               Local: ГОСТы, СП, шаблоны (not in Git)
@@ -37,6 +37,12 @@ docs/                  Architecture, schema, MCP spec
 - **Делопроизводитель** (Gemma 4 E4B): регистрация, письма, реестр ИД
 - **Auditor** (Llama 3.3 70B): rule-based RedTeam, 8 проверок (без LLM-as-Judge)
 
+### PTO Skills
+- **PTO_WorkSpec** (`work_spec.py`, 2464 loc): 33 WorkType, SSOT шлейфа ИД
+- **PTO_VorCheck** (`vor_check.py`): fuzzy-сверка ВОР↔ПД (rapidfuzz + trigram fallback)
+- **PTO_PDAnalysis** (`pd_analysis.py`): 3-стадийный анализ ПД (spatial + completeness + LLM)
+- **PTO_ActGenerator** (`act_generator.py`): генерация DOCX актов (docxtpl + python-docx)
+- **PTOComplianceSkill** (`compliance_skill.py`): объединение work_spec + idprosto + templates
 ### Core Systems
 - **Evidence Graph v2**: единый граф (7 типов узлов, 11 связей, confidence framework)
 - **Inference Engine**: 6 symbolic-правил восстановления дат/фактов из улик
@@ -79,7 +85,7 @@ docs/                  Architecture, schema, MCP spec
 
 ### Testing
 - `pytest tests/ -v` — всегда после изменений модулей
-- Test coverage: 478/493 passed (97%)
+- Test coverage: 508/511 passed (99.4%)
 - E2E: `PYTHONPATH=. python tests/test_e2e_forensic.py`
 
 ### Git & Commits

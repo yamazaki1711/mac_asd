@@ -1,4 +1,4 @@
-# MAC ASD v12.0
+# MAC ASD v13.0
 
 Мультиагентная система на базе LLM для строительного документооборота. Два режима: forensic-восстановление исполнительной документации на проблемных ОКС и сопровождение стройки (тендеры, снабжение, генерация ИД, претензии).
 
@@ -16,7 +16,7 @@ export ASD_PROFILE=dev_linux    # или mac_studio
 
 # Тесты
 pip install -e ".[dev]"
-pytest tests/ -v                           # 478 passed, 15 skipped, 493 total
+pytest tests/ -v                           # 508 passed, 3 failed, 15 skipped, 511 total
 
 # E2E forensic
 PYTHONPATH=. python tests/test_e2e_forensic.py
@@ -34,7 +34,7 @@ python -m mcp_servers.asd_core.server
 | Агент | Модель | Задачи |
 |-------|--------|--------|
 | Руководитель проекта | Llama 3.3 70B | Оркестрация, PM Agent (weighted scoring → LLM reasoning → veto) |
-| ПТО | Gemma 4 31B VLM | ВОР, чертежи, спецификации, OCR, 20 видов работ |
+| ПТО | Gemma 4 31B VLM | ВОР, чертежи, АОСР, сверка ПД, 33 вида работ, OCR |
 | Юрист | Gemma 4 31B | БЛС (61 ловушка), контракты, претензии, иски |
 | Сметчик | Gemma 4 31B | ФЕР/ТЕР, НМЦК, рентабельность, КС-2/КС-3 |
 | Закупщик | Gemma 4 31B | Тендеры, поставщики, лаб. контроль |
@@ -71,6 +71,9 @@ python -m mcp_servers.asd_core.server
 | Completeness Matrix | `src/core/completeness_matrix.py` | Матрица комплектности ИД по 344/пр (13 позиций) + замечания |
 | **IDRequirementsRegistry** | `src/core/services/id_requirements.py` | **Новый**. SSOT состава ИД: 33 вида работ → обязательный шлейф документов по 344/пр |
 | **NormativeGuard** | `src/core/services/legal_service.py` | **Новый**. Валидация: все ГОСТ/СП/ФЗ из ответов LLM проверяются по library/normative/ |
+| **PTO_VorCheck** | `src/agents/skills/pto/vor_check.py` | **Новый**. Сверка ВОР↔ПД: fuzzy-мэтчинг, 4 типа расхождений (rapidfuzz + trigram) |
+| **PTO_PDAnalysis** | `src/agents/skills/pto/pd_analysis.py` | **Новый**. 3-стадийный анализ ПД: пространственные коллизии + комплектность ГОСТ 21.1101 + LLM-семантика |
+| **PTO_ActGenerator** | `src/agents/skills/pto/act_generator.py` | **Новый**. Генерация DOCX актов: АОСР/входной/скрытые/освидетельствование (docxtpl + python-docx) |
 | **ConstructionElement** | `src/db/models.py` | **Новый**. Физическая структура: Захватки + Конструктивы + ElementDocument |
 | **WorkEntry** | `src/core/services/work_entry.py` | **Новый**. Цифровой ОЖР: парсер Telegram-сообщений → WorkEntry → триггер АОСР |
 | Batch ID Generator | `src/core/services/batch_id_generator.py` | Сквозная нумерация документов АОСР-{project}-{seq:04d} |
@@ -145,8 +148,8 @@ src/
 ├── db/               # SQLAlchemy + Alembic
 └── config.py         # Профили (dev_linux / mac_studio)
 
-mcp_servers/asd_core/ # FastMCP (82+ инструментов)
-tests/                # 493 теста (478 passed, 15 skipped)
+mcp_servers/asd_core/ # FastMCP (75+ инструментов)
+tests/                # 511 тестов (508 passed, 3 failed, 15 skipped)
 agents/               # Промпты агентов (Markdown)
 scripts/              # Утилиты: run_inventory.py, run_benchmark.py, generate_synthetic_docs.py
 traps/                # БЛС — 61 ловушка (YAML)

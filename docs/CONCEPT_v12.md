@@ -1,11 +1,11 @@
 # АСД — АРХИТЕКТУРНО-СТРОИТЕЛЬНАЯ СИСТЕМА
 
-## КОНЦЕПЦИЯ v12.0
+## КОНЦЕПЦИЯ v13.0
 
 | Параметр | Значение |
 |----------|----------|
-| **Версия** | v12.0 |
-| **Дата** | 3 мая 2026 (обновлено: Package 5 ✅, Package 11 ✅, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅) |
+| **Версия** | v13.0 |
+| **Дата** | 4 мая 2026 (обновлено: Package 5 ✅, Package 11 ✅, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, PTO Skills ✅ VorCheck/PDAnalysis/ActGenerator) |
 | **Статус** | Активная разработка (Core + Юрист + Lessons Learned завершены, Package 5 ✅ ПТО реализован, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, Сметчик/Дело реализованы, Закупщик/Логист частично, IS Generator в разработке) |
 | **Целевая платформа** | Mac Studio, Apple Silicon M4 Max, 128GB Unified Memory |
 | **Оркестратор** | Llama 3.3 70B 4-bit (Руководитель проекта/PM) — MLX, ~40GB |
@@ -22,7 +22,7 @@
 | **ИС-чертежи** | IS Generator: 2 пути (DWG→DXF→SVG→PDF + PDF-overlay), ezdxf + cairosvg + ODA File Converter |
 | **Кэш** | In-process cache (cachetools) — Redis удалён |
 | **Миграции БД** | Alembic (вместо create_all) |
-| **MCP** | v12.0.0 (82+ инструментов) |
+| **MCP** | v13.0.0 (75+ инструментов) |
 | **Тесты** | 478/493 пройдено (97%), библиотека: 284 файлов, 101 MB |
 | **Философия** | Полностью локальная, оффлайн, автономная — мобильный офис антикризисного управления ИД |
 
@@ -1237,4 +1237,4 @@ PYTHONPATH=. python scripts/generate_synthetic_docs.py --count 100 --all-types -
 
 ---
 
-*АСД v12.0 — мобильный автономный офис антикризисного управления ИД. Всегда в интересах подрядчика. Полностью локально. 27 апреля 2026.*
+*АСД v13.0 — мобильный автономный офис антикризисного управления ИД. Всегда в интересах подрядчика. Полностью локально. 4 мая 2026.*

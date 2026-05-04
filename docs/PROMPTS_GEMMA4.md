@@ -1,8 +1,9 @@
-# АСД v12.0 — СИСТЕМНЫЕ ПРОМПТЫ АГЕНТОВ (Gemma 4 31B / Llama 3.3)
+# АСД v13.0 — СИСТЕМНЫЕ ПРОМПТЫ АГЕНТОВ (Gemma 4 31B / Llama 3.3 / DeepSeek V4)
 
-**Дата:** 2 мая 2026
+**Дата:** 4 мая 2026
 **Статус:** Активная разработка
-**Модели:** Gemma 4 31B 4-bit (ПТО/Юрист/Сметчик/Закупщик/Логист, MLX-VLM, shared, 128K контекст), Gemma 4 E4B 4-bit (Делопроизводитель, 8K контекст), Llama 3.3 70B 4-bit (Руководитель проекта/PM), bge-m3-mlx-4bit (embeddings)
+**Модели (mac_studio):** Gemma 4 31B 4-bit (ПТО/Юрист/Сметчик/Закупщик/Логист, MLX-VLM, shared, 128K), Gemma 4 E4B 4-bit (Делопроизводитель, 8K), Llama 3.3 70B 4-bit (PM), bge-m3-mlx-4bit (embeddings)
+**Модели (dev_linux):** DeepSeek V4 Pro[1m] (все агенты), bge-m3 (Ollama, embeddings)
 
 ---
 

@@ -1,6 +1,6 @@
-# АСД v12.0 — СХЕМА ДАННЫХ
+# АСД v13.0 — СХЕМА ДАННЫХ
 
-| **Дата:** 3 мая 2026
+| **Дата:** 4 мая 2026
 | **Статус:** Активная разработка (Package 1, 5, 11 завершены, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, Package 4 частично реализован)
 **СУБД:** PostgreSQL 16 + pgvector + pg_trgm
 **Модели:** Gemma 4 31B 4-bit (ПТО/Юрист/Сметчик/Закупщик/Логист), Gemma 4 E4B 4-bit (Делопроизводитель), Llama 3.3 70B 4-bit (Руководитель проекта/PM), bge-m3-mlx-4bit (embeddings)

@@ -1,4 +1,4 @@
-# AGENTS.MD — Манифест Оркестратора АСД v12.0 (Полный Жизненный Цикл)
+# AGENTS.MD — Манифест Оркестратора АСД v13.0 (Полный Жизненный Цикл)
 
 > Этот файл — главная инструкция для PM-агента (оркестратора) по управлению субагентами.
 > PM читает этот файл при каждом запуске для определения логики маршрутизации.
@@ -26,7 +26,7 @@
 | Агент             | config.yaml           | prompt.md            | Группа инструментов MCP       |
 |-------------------|-----------------------|----------------------|-------------------------------|
 | PM                | `agents/pm/`          | `agents/pm/`         | graph, task, artifact, google, work_entry |
-| ПТО               | `agents/pto/`         | `agents/pto/`        | vision, graph, pto, lab, work_entry |
+| ПТО               | `agents/pto/`         | `agents/pto/`        | vision, graph, pto(11 tools: WorkSpec + VorCheck + PDAnalysis + ActGen), lab, work_entry |
 | Сметчик           | `agents/smeta/`       | `agents/smeta/`      | smeta, graph, google          |
 | Юрист             | `agents/legal/`       | `agents/legal/`      | legal, rag, graph             |
 | Закупщик          | `agents/procurement/` | `agents/procurement/`| procurement, rag, graph, lab  |

@@ -1,8 +1,8 @@
-# АСД v12.0 — ДЕТАЛЬНАЯ АРХИТЕКТУРА КОМПОНЕНТОВ
+# АСД v13.0 — ДЕТАЛЬНАЯ АРХИТЕКТУРА КОМПОНЕНТОВ
 
-| **Дата:** 3 мая 2026
-| **Платформа:** Mac Studio M4 Max 128GB Unified Memory
-| **Статус:** Активная разработка (Package 1 ✅, Package 5 ✅ Evidence Graph/Inference/ProjectLoader, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅)
+| **Дата:** 4 мая 2026
+| **Платформа:** Linux (dev) / Mac Studio M4 Max 128GB Unified Memory (prod)
+| **Статус:** Активная разработка (Package 1 ✅, Package 5 ✅ Evidence Graph/Inference/ProjectLoader, Package 11 ✅ Chain Builder/HITL/Journal Reconstructor v2, Auditor ✅, IDRequirementsRegistry ✅, NormativeGuard ✅, WorkEntry ✅, PTO Skills ✅ VorCheck/PDAnalysis/ActGenerator)
 
 ---
 
@@ -1685,8 +1685,8 @@ GoogleWorkspaceService (src/core/integrations/google.py) позволяет вс
 
 ---
 
-*Этот документ описывает внутреннюю архитектуру всех компонентов АСД v12.0.
-Документ актуализирован 2 мая 2026. Package 5 (Evidence Graph v2, Inference Engine, ProjectLoader)
-и Package 11 (Chain Builder, HITL System, Journal Reconstructor v2) — реализованы.
-Библиотека: 284 файла, 101 MB. Все 5 рабочих агентов используют единую копию Gemma 4 31B
-(128K контекст) через shared memory, Делопроизводитель использует Gemma 4 E4B.*
+*Этот документ описывает внутреннюю архитектуру всех компонентов АСД v13.0.
+Документ актуализирован 4 мая 2026. Package 5 (Evidence Graph v2, Inference Engine, ProjectLoader),
+Package 11 (Chain Builder, HITL System, Journal Reconstructor v2), PTO Skills (VorCheck, PDAnalysis,
+ActGenerator) — реализованы. Библиотека: 284 файла, 101 MB. Все 5 рабочих агентов используют
+единую копию Gemma 4 31B (128K контекст) через shared memory, Делопроизводитель — Gemma 4 E4B.*
