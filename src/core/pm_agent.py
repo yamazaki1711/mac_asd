@@ -736,12 +736,15 @@ def compute_weighted_score(signals: List[AgentSignal]) -> WeightedScoringResult:
 
     for s in signals:
         effective_weight = s.weight * s.confidence
+        if effective_weight < 1e-12:
+            contributions[s.agent_name] = 0.0
+            continue
         contribution = s.signal * effective_weight
         numerator += contribution
         denominator += effective_weight
         contributions[s.agent_name] = round(contribution, 4)
 
-    if denominator == 0:
+    if denominator == 0.0:
         normalized_score = 0.5
     else:
         normalized_score = numerator / denominator

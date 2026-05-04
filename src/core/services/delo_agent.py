@@ -35,6 +35,9 @@ class DeloDocStatus(str, Enum):
     ARCHIVED = "archived"         # В архиве
 
 
+DocStatus = DeloDocStatus  # backward-compatible alias
+
+
 class DeliveryMethod(str, Enum):
     PAPER = "paper"                # Бумажный носитель
     ELECTRONIC = "electronic"      # Электронно (ЭДО/XML)
@@ -95,6 +98,11 @@ class DocRegistry:
     """Полный реестр ИД по проекту."""
     project_id: int
     project_name: str
+    customer: str = ""                # Заказчик (наименование)
+    contractor: str = "ООО «КСК №1»"  # Подрядчик
+    developer: str = ""               # Застройщик
+    object_address: str = ""          # Адрес объекта строительства
+    contract_number: str = ""         # Номер договора подряда
     entries: List[DocRegistryEntry] = field(default_factory=list)
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -130,6 +138,11 @@ class DocRegistry:
         return {
             "project_id": self.project_id,
             "project_name": self.project_name,
+            "customer": self.customer,
+            "contractor": self.contractor,
+            "developer": self.developer,
+            "object_address": self.object_address,
+            "contract_number": self.contract_number,
             "total_docs": self.total_docs,
             "accepted": self.accepted_count,
             "rejected": self.rejected_count,
@@ -173,14 +186,32 @@ class DeloAgent:
         from src.core.llm_engine import llm_engine as _llm
         self._llm = llm_engine or _llm
         self._registries: Dict[int, DocRegistry] = {}
+        self._persistence_dir: Optional[str] = None
 
     # -------------------------------------------------------------------------
     # Registry Operations
     # -------------------------------------------------------------------------
 
-    def create_registry(self, project_id: int, project_name: str) -> DocRegistry:
+    def create_registry(
+        self,
+        project_id: int,
+        project_name: str,
+        customer: str = "",
+        contractor: str = "ООО «КСК №1»",
+        developer: str = "",
+        object_address: str = "",
+        contract_number: str = "",
+    ) -> DocRegistry:
         """Создать реестр ИД по проекту."""
-        registry = DocRegistry(project_id=project_id, project_name=project_name)
+        registry = DocRegistry(
+            project_id=project_id,
+            project_name=project_name,
+            customer=customer,
+            contractor=contractor,
+            developer=developer,
+            object_address=object_address,
+            contract_number=contract_number,
+        )
         self._registries[project_id] = registry
         logger.info("Registry created: project %d — %s", project_id, project_name)
         return registry
@@ -376,8 +407,8 @@ class DeloAgent:
         return {
             "project_name": registry.project_name,
             "project_code": f"PRJ-{project_id}",
-            "customer": getattr(registry, 'customer', 'Заказчик'),
-            "contractor": getattr(registry, 'contractor', 'ООО «КСК №1»'),
+            "customer": registry.customer or "Заказчик",
+            "contractor": registry.contractor or "ООО «КСК №1»",
             "date": datetime.now().strftime("%d.%m.%Y"),
             "documents": [
                 {
@@ -412,18 +443,18 @@ class DeloAgent:
                 "aosr_number": e.reg_id,
                 "project_name": registry.project_name,
                 "work_type": e.work_type,
-                "object_address": getattr(registry, 'object_address', ''),
-                "executor_company": getattr(registry, 'contractor', 'ООО «КСК №1»'),
-                "customer_company": getattr(registry, 'customer', 'Заказчик'),
-                "developer_company": getattr(registry, 'developer', ''),
+                "object_address": registry.object_address,
+                "executor_company": registry.contractor or "ООО «КСК №1»",
+                "customer_company": registry.customer or "Заказчик",
+                "developer_company": registry.developer,
                 "decision": "разрешается",
                 "date": e.prepared_date or datetime.now().strftime("%d.%m.%Y"),
                 "materials": [],
                 "certificates": [],
                 "design_docs": [],
                 "commission_members": [
-                    {"name": "", "role": "Представитель заказчика", "company": getattr(registry, 'customer', '')},
-                    {"name": "", "role": "Представитель подрядчика", "company": getattr(registry, 'contractor', '')},
+                    {"name": "", "role": "Представитель заказчика", "company": registry.customer},
+                    {"name": "", "role": "Представитель подрядчика", "company": registry.contractor},
                     {"name": "", "role": "Представитель стройконтроля", "company": ""},
                 ],
             }
@@ -457,7 +488,7 @@ class DeloAgent:
                 "num": i,
                 "rd_type": "ИД",
                 "queue": "1",
-                "contractor": getattr(registry, 'contractor', ''),
+                "contractor": registry.contractor,
                 "aosr_first": e.reg_id,
                 "aosr_last": "",
                 "month_object": "",
@@ -465,11 +496,11 @@ class DeloAgent:
 
         return {
             "date": datetime.now().strftime("%d.%m.%Y"),
-            "place": getattr(registry, 'object_address', 'г. Москва'),
+            "place": registry.object_address or "г. Москва",
             "object_name": registry.project_name,
-            "object_address": getattr(registry, 'object_address', ''),
-            "sender": {"org": sender_org or getattr(registry, 'contractor', 'ООО «КСК №1»'), "rep": sender_rep},
-            "receiver": {"org": receiver_org or getattr(registry, 'customer', 'Заказчик'), "rep": receiver_rep},
+            "object_address": registry.object_address,
+            "sender": {"org": sender_org or registry.contractor or "ООО «КСК №1»", "rep": sender_rep},
+            "receiver": {"org": receiver_org or registry.customer or "Заказчик", "rep": receiver_rep},
             "documents": documents,
             "electronic": {
                 "disks": [{"num": 1, "org": sender_org, "folder": f"{registry.project_name}", "count": 1}],
@@ -500,7 +531,7 @@ class DeloAgent:
                 "work_type": e.work_type,
                 "received_date": e.accepted_date or "",
                 "status": e.status.value,
-                "contractor": getattr(registry, 'contractor', ''),
+                "contractor": registry.contractor,
                 "note": e.notes,
             })
         return rows
@@ -537,6 +568,127 @@ class DeloAgent:
                 return _json.load(f)
         except Exception:
             return {}
+
+    # -------------------------------------------------------------------------
+    # Persistence (JSON file-based)
+    # -------------------------------------------------------------------------
+
+    def set_persistence_dir(self, directory: str) -> None:
+        """Установить директорию для сохранения/загрузки реестров."""
+        from pathlib import Path
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        self._persistence_dir = directory
+
+    def save_registry(self, project_id: int) -> bool:
+        """Сохранить реестр проекта в JSON-файл."""
+        import json as _json
+        registry = self._registries.get(project_id)
+        if not registry:
+            logger.warning("No registry to save for project %d", project_id)
+            return False
+
+        if not self._persistence_dir:
+            logger.warning("Persistence dir not set — skipping save")
+            return False
+
+        out_path = f"{self._persistence_dir}/registry_{project_id}.json"
+        data = registry.to_dict()
+        # Datetime fields serialization
+        data["created_at"] = registry.created_at
+        data["entries"] = [
+            {
+                **e.to_dict(),
+                "prepared_date": e.prepared_date,
+                "accepted_date": e.accepted_date,
+                "work_type": e.work_type,
+                "counterparty": e.counterparty,
+                "file_path": e.file_path,
+                "notes": e.notes,
+            }
+            for e in registry.entries
+        ]
+        try:
+            with open(out_path, "w", encoding="utf-8") as f:
+                _json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+            logger.info("Registry saved: %s (%d entries)", out_path, len(registry.entries))
+            return True
+        except OSError as e:
+            logger.error("Failed to save registry %d: %s", project_id, e)
+            return False
+
+    def load_registry(self, project_id: int) -> Optional[DocRegistry]:
+        """Загрузить реестр проекта из JSON-файла."""
+        import json as _json
+        if not self._persistence_dir:
+            logger.warning("Persistence dir not set — cannot load")
+            return None
+
+        in_path = f"{self._persistence_dir}/registry_{project_id}.json"
+        try:
+            with open(in_path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+        except (OSError, _json.JSONDecodeError) as e:
+            logger.warning("Failed to load registry %d: %s", project_id, e)
+            return None
+
+        registry = DocRegistry(
+            project_id=project_id,
+            project_name=data.get("project_name", f"Проект {project_id}"),
+            customer=data.get("customer", ""),
+            contractor=data.get("contractor", "ООО «КСК №1»"),
+            developer=data.get("developer", ""),
+            object_address=data.get("object_address", ""),
+            contract_number=data.get("contract_number", ""),
+        )
+        registry.created_at = data.get("created_at", registry.created_at)
+
+        for e_data in data.get("entries", []):
+            entry = DocRegistryEntry(
+                reg_id=e_data.get("reg_id", ""),
+                doc_type=e_data.get("doc_type", ""),
+                doc_name=e_data.get("doc_name", ""),
+                category_344=e_data.get("category_344", "act_aosr"),
+                work_type=e_data.get("work_type", ""),
+                pages=e_data.get("pages", 0),
+                prepared_date=e_data.get("prepared_date"),
+                submitted_date=e_data.get("submitted_date"),
+                accepted_date=e_data.get("accepted_date"),
+                deadline=e_data.get("deadline"),
+                counterparty=e_data.get("counterparty", ""),
+                file_path=e_data.get("file_path"),
+                notes=e_data.get("notes", ""),
+            )
+            entry.status = DeloDocStatus(e_data.get("status", "draft"))
+            registry.entries.append(entry)
+
+        self._registries[project_id] = registry
+        logger.info("Registry loaded: project %d — %s (%d entries)", project_id, registry.project_name, len(registry.entries))
+        return registry
+
+    def save_all(self) -> Dict[int, bool]:
+        """Сохранить все реестры."""
+        results = {}
+        for pid in list(self._registries.keys()):
+            results[pid] = self.save_registry(pid)
+        return results
+
+    def load_all(self) -> Dict[int, Optional[DocRegistry]]:
+        """Загрузить все реестры из persistence-директории."""
+        import json as _json
+        from pathlib import Path as _Path
+        if not self._persistence_dir:
+            return {}
+
+        results = {}
+        p = _Path(self._persistence_dir)
+        for f in sorted(p.glob("registry_*.json")):
+            try:
+                pid = int(f.stem.replace("registry_", ""))
+                results[pid] = self.load_registry(pid)
+            except (ValueError, OSError, _json.JSONDecodeError) as e:
+                logger.warning("Failed to load %s: %s", f, e)
+                results[hash(str(f))] = None
+        return results
 
 
 delo_agent = DeloAgent()

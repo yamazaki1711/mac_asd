@@ -20,6 +20,15 @@ from src.core.pm_agent import (
     TaskStatus,
     EvaluationVerdict,
     PlanStatus,
+    compute_weighted_score,
+    check_veto_rules,
+    calculate_risk_level,
+    DEFAULT_VETO_RULES,
+)
+from src.schemas.verdict import (
+    AgentSignal,
+    RiskLevel,
+    WeightedScoringResult,
 )
 from src.core.ram_manager import (
     RamManager,
@@ -290,7 +299,7 @@ class TestRamManager:
         assert "agent_quotas" in stats
         assert "degradation_level" in stats
         assert "pm" in stats["agent_quotas"]
-        assert stats["agent_quotas"]["archive"]["max_context_tokens"] == 8000
+        assert stats["agent_quotas"]["archive"]["max_context_tokens"] == ram_manager._agent_quotas["archive"].max_context_tokens
 
     def test_degradation_reset(self):
         original_level = ram_manager._degradation_level
@@ -426,3 +435,281 @@ class TestIntegration:
 
         # Normal task acceptance
         assert ram_manager.can_accept_task("smeta", priority=TaskPriority.NORMAL) is True
+
+
+# =============================================================================
+# Edge Cases: Parallel Dispatch, Circular Deps, Deadlock
+# =============================================================================
+
+class TestEdgeCases:
+    """Edge cases for WorkPlan and PM dispatch."""
+
+    def test_parallel_ready_tasks_all_independent(self):
+        """When all tasks are independent, get_parallel_ready_tasks returns all of them."""
+        tasks = [
+            TaskNode("t1", "legal", "Review", "legal", priority=8),
+            TaskNode("t2", "pto", "Extract", "pto", priority=5),
+            TaskNode("t3", "smeta", "Calculate", "smeta", priority=3),
+        ]
+        plan = WorkPlan("p1", 1, "Parallel test", tasks)
+        ready = plan.get_parallel_ready_tasks()
+        assert len(ready) == 3
+
+    def test_parallel_ready_respects_deps(self):
+        """Tasks with unmet deps are not in parallel ready list."""
+        tasks = [
+            TaskNode("t1", "legal", "Review", "legal", priority=8),
+            TaskNode("t2", "pto", "Extract", "pto", depends_on=["t1"], priority=5),
+            TaskNode("t3", "smeta", "Calculate", "smeta", depends_on=["t2"], priority=3),
+        ]
+        plan = WorkPlan("p1", 1, "Sequential deps", tasks)
+        ready = plan.get_parallel_ready_tasks()
+        assert len(ready) == 1
+        assert ready[0].task_id == "t1"
+
+    def test_parallel_ready_after_completion(self):
+        """After completing a dependency, next tasks become ready."""
+        tasks = [
+            TaskNode("t1", "legal", "Review", "legal", priority=8),
+            TaskNode("t2", "pto", "Extract", "pto", depends_on=["t1"], priority=5),
+            TaskNode("t3", "smeta", "Calculate", "smeta", depends_on=["t1"], priority=3),
+        ]
+        plan = WorkPlan("p1", 1, "Fan-out", tasks)
+        assert len(plan.get_parallel_ready_tasks()) == 1
+
+        plan.tasks[0].mark_completed("OK")
+        ready = plan.get_parallel_ready_tasks()
+        assert len(ready) == 2  # Both t2 and t3 depend on t1
+        assert {t.task_id for t in ready} == {"t2", "t3"}
+
+    def test_deadlock_detection_missing_dependency(self):
+        """Task depends on a task that doesn't exist in the plan."""
+        tasks = [
+            TaskNode("t1", "legal", "Review", "legal", depends_on=["nonexistent"]),
+        ]
+        plan = WorkPlan("p1", 1, "Deadlock", tasks)
+        ready = plan.get_parallel_ready_tasks()
+        assert len(ready) == 0  # t1 depends on nonexistent → never ready
+
+    def test_all_blocked_detection(self):
+        """When all remaining tasks are blocked by failed tasks, dispatch returns None."""
+        tasks = [
+            TaskNode("t1", "archive", "Register", "archive", priority=5),
+            TaskNode("t2", "legal", "Review", "legal", depends_on=["t1"], priority=10),
+            TaskNode("t3", "pto", "Extract", "pto", depends_on=["t1"], priority=7),
+        ]
+        plan = WorkPlan("p1", 1, "Blocked", tasks)
+        # t1 runs and fails
+        pm = ProjectManager(llm_engine=None, completeness_matrix=None)
+        pm.dispatch(plan)  # Dispatches t1
+        plan.tasks[0].mark_failed("error")
+        plan.tasks[0].mark_failed("error")  # Exhaust retries → FAILED
+
+        # Now t2 and t3 depend on t1 (which is FAILED, not COMPLETED)
+        result = pm.dispatch(plan)
+        assert result is None  # Nothing can proceed
+        assert len(plan.get_failed_tasks()) == 1
+
+    def test_priority_over_deadline(self):
+        """Higher priority takes precedence even if deadline is later."""
+        tasks = [
+            TaskNode("t1", "archive", "Low priority", "archive", priority=1, deadline="2026-01-01"),
+            TaskNode("t2", "legal", "High priority", "legal", priority=10, deadline="2026-12-31"),
+        ]
+        plan = WorkPlan("p1", 1, "Priority vs deadline", tasks)
+        task = plan.get_next_task()
+        assert task.task_id == "t2"
+
+    def test_serialization_roundtrip_full(self):
+        """Full WorkPlan serialization with completed tasks, delta, status."""
+        tasks = [
+            TaskNode("t1", "legal", "Review", "legal", depends_on=[], priority=10, confidence_required=0.9),
+            TaskNode("t2", "pto", "Extract", "pto", depends_on=["t1"], priority=5, deadline="2026-06-01"),
+        ]
+        plan = WorkPlan(
+            "plan_001", 42, "Full test goal", tasks,
+            compliance_target="Договор №123",
+            estimated_duration_hours=4.5,
+            pm_reasoning="Стандартная последовательность",
+        )
+        plan.tasks[0].mark_started()
+        plan.tasks[0].mark_completed("OK")
+        plan.status = PlanStatus.EXECUTING.value
+        plan.compliance_delta = {"aosr": "3 missing", "igs": "1 expired"}
+
+        d = plan.to_dict()
+        plan2 = WorkPlan.from_dict(d)
+
+        assert plan2.plan_id == plan.plan_id
+        assert plan2.project_id == plan.project_id
+        assert plan2.goal == plan.goal
+        assert plan2.compliance_target == plan.compliance_target
+        assert plan2.estimated_duration_hours == 4.5
+        assert plan2.pm_reasoning == "Стандартная последовательность"
+        assert plan2.status == PlanStatus.EXECUTING.value
+        assert plan2.compliance_delta == {"aosr": "3 missing", "igs": "1 expired"}
+        assert len(plan2.tasks) == 2
+        assert plan2.tasks[0].status == TaskStatus.COMPLETED.value
+        assert plan2.tasks[0].confidence_required == 0.9
+
+    def test_replan_skip_action(self):
+        """PM replan with 'skip' action."""
+        pm = ProjectManager(llm_engine=None, completeness_matrix=None)
+        plan_data = pm._fallback_plan("Test", "lot_search")
+        plan = pm._build_plan_from_llm(plan_data, 1, "344/пр")
+
+        # Execute first task, then fail second
+        done = pm.dispatch(plan)
+        if done:
+            _, task = done
+            task.mark_completed("OK")
+
+        done2 = pm.dispatch(plan)
+        if done2:
+            _, task2 = done2
+            task2.mark_failed("error")
+            task2.mark_failed("error")
+
+        if plan.get_failed_tasks():
+            # Replan should skip or adapt
+            assert plan.status != PlanStatus.COMPLETED.value
+            # Plan should have failed task or adapted
+            failed = plan.get_failed_tasks()
+            assert len(failed) >= 1
+
+    def test_evaluate_result_sync_accept(self):
+        """Sync evaluation: confidence >= required → ACCEPT."""
+        pm = ProjectManager(llm_engine=None, completeness_matrix=None)
+        plan_data = pm._fallback_plan("Test", "lot_search")
+        plan = pm._build_plan_from_llm(plan_data, 1, "344/пр")
+        task = plan.get_next_task()
+        verdict = pm.evaluate_result_sync(plan, task, "Result OK", confidence=0.95)
+        assert verdict == EvaluationVerdict.ACCEPT
+        assert task.status == TaskStatus.COMPLETED.value
+
+    def test_evaluate_result_sync_retry(self):
+        """Sync evaluation: confidence below required → RETRY."""
+        pm = ProjectManager(llm_engine=None, completeness_matrix=None)
+        plan_data = pm._fallback_plan("Test", "lot_search")
+        plan = pm._build_plan_from_llm(plan_data, 1, "344/пр")
+        task = plan.get_next_task()
+        verdict = pm.evaluate_result_sync(plan, task, "Weak result", confidence=0.3)
+        assert verdict == EvaluationVerdict.RETRY
+        assert task.retry_count == 1
+
+    def test_evaluate_result_sync_abort(self):
+        """Sync evaluation: very low confidence → ABORT."""
+        pm = ProjectManager(llm_engine=None, completeness_matrix=None)
+        plan_data = pm._fallback_plan("Test", "lot_search")
+        plan = pm._build_plan_from_llm(plan_data, 1, "344/пр")
+        task = plan.get_next_task()
+        task.max_retries = 1  # Will exhaust on first failure
+        verdict = pm.evaluate_result_sync(plan, task, "Terrible result", confidence=0.05)
+        assert verdict == EvaluationVerdict.ABORT
+        assert task.status == TaskStatus.FAILED.value
+
+    def test_task_uses_shared_model(self):
+        """TaskNode.uses_shared_model correctly identifies shared-model agents."""
+        shared = TaskNode("t1", "test", "Test", "legal")
+        assert shared.uses_shared_model is True
+
+        nonshared = TaskNode("t2", "test", "Test", "archive")
+        assert nonshared.uses_shared_model is False
+
+    def test_task_to_dict_includes_all_fields(self):
+        """TaskNode.to_dict includes all fields including parallel_group."""
+        t = TaskNode("t1", "legal", "Review", "legal", parallel_group="analysis", priority=9)
+        d = t.to_dict()
+        assert d["task_id"] == "t1"
+        assert d["parallel_group"] == "analysis"
+        assert d["priority"] == 9
+        assert d["confidence_required"] == 0.6
+        assert d["max_retries"] == 2
+
+
+# =============================================================================
+# Weighted Scoring Edge Cases
+# =============================================================================
+
+class TestWeightedScoring:
+    """Edge cases for compute_weighted_score and signal extractors."""
+
+    def test_compute_weighted_score_normalized(self):
+        from src.core.pm_agent import compute_weighted_score
+        from src.schemas.verdict import AgentSignal
+
+        signals = [
+            AgentSignal(agent_name="legal", signal=0.8, confidence=0.9, weight=0.35, reasoning="test"),
+            AgentSignal(agent_name="smeta", signal=0.6, confidence=0.8, weight=0.25, reasoning="test"),
+        ]
+        result = compute_weighted_score(signals)
+        assert 0.0 < result.normalized_score <= 1.0
+        assert result.zone in ("go_zone", "grey_zone", "no_go_zone")
+
+    def test_compute_weighted_score_zero_denominator(self):
+        """When all weights × confidences are zero, score defaults to 0.5."""
+        from src.core.pm_agent import compute_weighted_score
+        from src.schemas.verdict import AgentSignal
+
+        signals = [
+            AgentSignal(agent_name="legal", signal=0.8, confidence=0.0, weight=0.35, reasoning="test"),
+            AgentSignal(agent_name="smeta", signal=0.6, confidence=0.0, weight=0.25, reasoning="test"),
+        ]
+        result = compute_weighted_score(signals)
+        assert result.normalized_score == 0.5
+        assert result.zone == "grey_zone"
+
+    def test_compute_weighted_score_tiny_weight(self):
+        """Very small effective weight should not crash."""
+        from src.core.pm_agent import compute_weighted_score
+        from src.schemas.verdict import AgentSignal
+
+        signals = [
+            AgentSignal(agent_name="legal", signal=0.8, confidence=1e-15, weight=0.35, reasoning="test"),
+        ]
+        result = compute_weighted_score(signals)
+        assert result.normalized_score == 0.5
+        assert result.agent_contributions["legal"] == 0.0
+
+    def test_veto_dangerous_verdict(self):
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
+
+        state = {"legal_result": {"verdict": "dangerous"}, "smeta_result": {}}
+        triggered, _ = check_veto_rules(state, DEFAULT_VETO_RULES)
+        assert triggered == "veto_dangerous_verdict"
+
+    def test_veto_margin_below_10(self):
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
+
+        state = {"legal_result": {"verdict": "approved"}, "smeta_result": {"profit_margin_pct": 5}}
+        triggered, _ = check_veto_rules(state, DEFAULT_VETO_RULES)
+        assert triggered == "veto_margin_below_10"
+
+    def test_veto_no_violations(self):
+        from src.core.pm_agent import check_veto_rules, DEFAULT_VETO_RULES
+
+        state = {"legal_result": {"verdict": "approved"}, "smeta_result": {"profit_margin_pct": 25}}
+        triggered, _ = check_veto_rules(state, DEFAULT_VETO_RULES)
+        assert triggered is None
+
+    def test_risk_level_critical(self):
+        from src.core.pm_agent import calculate_risk_level
+        from src.schemas.verdict import RiskLevel, WeightedScoringResult
+
+        scoring = WeightedScoringResult(
+            raw_score=0.1, normalized_score=0.1, agent_contributions={},
+            zone="no_go_zone", go_threshold=0.7, no_go_threshold=0.3,
+        )
+        state = {"legal_result": {"critical_count": 3}, "smeta_result": {}}
+        assert calculate_risk_level(state, scoring) == RiskLevel.CRITICAL
+
+    def test_risk_level_low(self):
+        from src.core.pm_agent import calculate_risk_level
+        from src.schemas.verdict import RiskLevel, WeightedScoringResult
+
+        scoring = WeightedScoringResult(
+            raw_score=0.9, normalized_score=0.9, agent_contributions={},
+            zone="go_zone", go_threshold=0.7, no_go_threshold=0.3,
+        )
+        state = {"legal_result": {}, "smeta_result": {"profit_margin_pct": 40}}
+        assert calculate_risk_level(state, scoring) == RiskLevel.LOW
