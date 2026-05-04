@@ -166,8 +166,14 @@ class SVGExporter:
         import io
         from ezdxf.addons.drawing import RenderContext, Frontend
         from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
-        import matplotlib.pyplot as plt
-        import matplotlib.backends.backend_svg as svg_backend
+        try:
+            import matplotlib.pyplot as plt
+            import matplotlib.backends.backend_svg as svg_backend
+        except ImportError:
+            raise ImportError(
+                "matplotlib is required for DXF→SVG fallback rendering. "
+                "Install it with: pip install matplotlib"
+            )
 
         fig = plt.figure()
         ax = fig.add_axes([0, 0, 1, 1])

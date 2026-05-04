@@ -653,8 +653,10 @@ class AuditorAgent:
             try:
                 from src.core.ingestion import ingestion_pipeline
                 documents = ingestion_pipeline.documents
-            except Exception:
-                pass
+            except ImportError as e:
+                logger.debug("Ingestion pipeline not available: %s", e)
+            except Exception as e:
+                logger.warning("Failed to load documents from ingestion pipeline: %s", e)
 
         if not documents:
             return findings

@@ -86,7 +86,7 @@ class CascadeReport:
     stages: Dict[str, StageMetrics] = field(default_factory=dict)
     total_documents: int = 0
     total_time_ms: float = 0.0
-    pipeline_version: str = "v12.0"
+    pipeline_version: str = "v13.0"
 
     @property
     def total_loss(self) -> float:

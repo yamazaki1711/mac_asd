@@ -15,7 +15,11 @@ from pathlib import Path
 from collections import defaultdict
 from typing import List, Dict
 
-import docx
+try:
+    import docx
+except ImportError:
+    print("ERROR: python-docx is required. Install: pip install python-docx")
+    sys.exit(1)
 
 LISTS_DIR = Path(r"C:\idprosto\downloads_idprosto_lists")
 FORMS_DIR = Path(r"C:\idprosto\downloads_idprosto_forms")

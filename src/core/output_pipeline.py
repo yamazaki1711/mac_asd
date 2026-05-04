@@ -33,12 +33,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from docx import Document
-from docx.shared import Pt, Cm, Inches, RGBColor, Emu
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.section import WD_ORIENT
-from docx.oxml.ns import qn
+try:
+    from docx import Document
+    from docx.shared import Pt, Cm, Inches, RGBColor, Emu
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.section import WD_ORIENT
+    from docx.oxml.ns import qn
+    _HAS_DOCX = True
+except ImportError:
+    _HAS_DOCX = False
+    Document = None  # type: ignore
+    Pt = Cm = Inches = RGBColor = Emu = None  # type: ignore
+    WD_ALIGN_PARAGRAPH = WD_TABLE_ALIGNMENT = WD_ORIENT = None  # type: ignore
+    qn = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -112,17 +120,43 @@ class A4Template:
     """Базовый класс для создания DOCX-документов формата А4."""
 
     FONT_MAIN = "Times New Roman"
-    FONT_SIZE_BODY = Pt(12)
-    FONT_SIZE_SMALL = Pt(10)
-    FONT_SIZE_TITLE = Pt(14)
-    MARGIN_TOP = Cm(2)
-    MARGIN_BOTTOM = Cm(2)
-    MARGIN_LEFT = Cm(3)    # 3 см слева — под подшивку
-    MARGIN_RIGHT = Cm(1.5)
 
     def __init__(self):
+        if not _HAS_DOCX:
+            raise ImportError(
+                "python-docx is required for document generation. "
+                "Install it with: pip install python-docx"
+            )
         self.doc = Document()
         self._setup_page()
+
+    @property
+    def FONT_SIZE_BODY(self):
+        return Pt(12)
+
+    @property
+    def FONT_SIZE_SMALL(self):
+        return Pt(10)
+
+    @property
+    def FONT_SIZE_TITLE(self):
+        return Pt(14)
+
+    @property
+    def MARGIN_TOP(self):
+        return Cm(2)
+
+    @property
+    def MARGIN_BOTTOM(self):
+        return Cm(2)
+
+    @property
+    def MARGIN_LEFT(self):
+        return Cm(3)    # 3 см слева — под подшивку
+
+    @property
+    def MARGIN_RIGHT(self):
+        return Cm(1.5)
 
     def _setup_page(self):
         """Настройка страницы А4."""

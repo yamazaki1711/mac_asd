@@ -1,5 +1,5 @@
 """
-MAC_ASD v12.0 — Main Entry Point.
+MAC_ASD v13.0 — Main Entry Point.
 
 Runs the PM-driven LangGraph pipeline:
   PM Planning → Agent Fan-Out (Send) → PM Evaluate → [cycle] → END
@@ -50,7 +50,7 @@ def _handle_signal(sig, frame):
 
 
 async def run_demo(mode: str = "lot_search"):
-    logger.info("--- MAC_ASD v12.0 | profile=%s | mode=%s ---", settings.ASD_PROFILE, mode)
+    logger.info("--- MAC_ASD v13.0 | profile=%s | mode=%s ---", settings.ASD_PROFILE, mode)
     logger.info("Project root: %s", settings.BASE_DIR)
     logger.info("Wiki path: %s", settings.wiki_path)
 
@@ -101,7 +101,7 @@ async def run_demo(mode: str = "lot_search"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MAC_ASD v12.0 — AI Subcontractor Documentation")
+    parser = argparse.ArgumentParser(description="MAC_ASD v13.0 — AI Subcontractor Documentation")
     parser.add_argument(
         "--mode", default="lot_search",
         choices=["lot_search", "construction_support"],

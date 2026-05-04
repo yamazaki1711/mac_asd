@@ -1,11 +1,9 @@
 """
-ASD v12.0 — Core Services.
-"""
+ASD v13.0 — Core Services.
 
-from src.core.services.legal_service import LegalService, legal_service
-from src.core.services.pto_agent import PTOAgent, pto_agent
-from src.core.services.delo_agent import DeloAgent, delo_agent
-from src.core.services.journal_restorer import JournalRestorer, journal_restorer
+Lazy imports to avoid cascading failures: each service module is loaded
+on first access, not at package import time.
+"""
 
 __all__ = [
     "LegalService", "legal_service",
@@ -13,6 +11,27 @@ __all__ = [
     "DeloAgent", "delo_agent",
     "JournalRestorer", "journal_restorer",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy service imports — load module only when accessed."""
+    _LAZY_IMPORTS = {
+        "LegalService": "src.core.services.legal_service",
+        "legal_service": "src.core.services.legal_service",
+        "PTOAgent": "src.core.services.pto_agent",
+        "pto_agent": "src.core.services.pto_agent",
+        "DeloAgent": "src.core.services.delo_agent",
+        "delo_agent": "src.core.services.delo_agent",
+        "JournalRestorer": "src.core.services.journal_restorer",
+        "journal_restorer": "src.core.services.journal_restorer",
+    }
+    if name not in _LAZY_IMPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = __import__(_LAZY_IMPORTS[name], fromlist=[name])
+    attr = getattr(module, name)
+    # Cache in globals so __getattr__ is only called once per name
+    globals()[name] = attr
+    return attr
 
 
 def get_batch_id_generator():

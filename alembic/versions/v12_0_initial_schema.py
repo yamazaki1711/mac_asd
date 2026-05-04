@@ -18,7 +18,21 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from pgvector.sqlalchemy import Vector
+
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    from sqlalchemy.types import UserDefinedType
+
+    class Vector(UserDefinedType):  # type: ignore
+        """Fallback Vector type when pgvector is not available."""
+
+        def __init__(self, dim=None):
+            self.dim = dim
+            super().__init__()
+
+        def get_col_spec(self, **kw):
+            return "VECTOR(%d)" % self.dim if self.dim else "VECTOR"
 
 # revision identifiers, used by Alembic.
 revision: str = "v12_0_initial"
