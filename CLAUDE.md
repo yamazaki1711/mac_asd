@@ -1,95 +1,145 @@
-# MAC_ASD v12.0 — AI Subcontractor Documentation Automation
+# MAC_ASD v13
 
-Autonomous multi-agent system for Russian construction subcontractor document management.
-Built on LangGraph + pgvector + local LLMs. mac_studio: Llama 3.3 70B + Gemma 4 31B (128K). dev_linux: Gemma 3 12B (32K).
+Мультиагентная система автоматизации исполнительной документации (ИД) для строительного подрядчика.
+Действуем всегда в интересах подрядчика (ООО «КСК №1»). Полностью локальная, offline-first.
 
-## Architecture
+## Stack & Profiles
+
+- **Language:** Python 3.11+
+- **Framework:** LangGraph + FastMCP + SQLAlchemy + Alembic
+- **DB:** PostgreSQL 16 + pgvector (localhost:5433)
+- **Profiles:** `ASD_PROFILE=dev_linux` (DeepSeek API) | `mac_studio` (MLX)
+- **Current:** dev_linux via DeepSeek V4 Pro[1m]
+
+## Project Structure
 
 ```
-User → LangGraph (PM orchestrator) → Workers → MCP Server (60+ tools)
-                                         │
-                                    Shared Gemma 4 31B
-                                         │
-                              pgvector (RAG knowledge base)
+src/core/              Evidence Graph v2, Inference Engine, ProjectLoader, LLMEngine, services
+src/agents/            LangGraph StateGraph (state.py, workflow.py, nodes.py), skills
+mcp_servers/asd_core/  FastMCP: 82+ tools (7 agents + auditor)
+tests/                 493 tests (478 passed)
+agents/                Prompts (Markdown) for 8 agents
+traps/                 БЛС: 61 ловушка в 10 категориях (YAML)
+library/               Local: ГОСТы, СП, шаблоны (not in Git)
+infrastructure/        Docker: PostgreSQL 16 + pgvector
+docs/                  Architecture, schema, MCP spec
 ```
 
-**8 agents**: PM, PTO, Legal, Smeta, Procurement, Logistics, Archive, Auditor (rule-based red-team)
+## Architecture Essence
 
-**3 deployment profiles**: `dev_linux` (Ollama), `mac_studio` (MLX, prod), `deepseek` (API, dev bridge)
+### Agents (8 total)
+- **Руководитель проекта** (Llama 3.3 70B): orchestrator, weighted scoring + LLM reasoning + veto rules
+- **ПТО** (Gemma 4 31B VLM): ВОР, чертежи, АОСР, 33 видов работ (IDRequirementsRegistry)
+- **Юрист** (Gemma 4 31B): контракты (БЛС 61 ловушка), протоколы, претензии, иски
+- **Сметчик** (Gemma 4 31B): ВОР↔смета, НМЦК, ЛСР, КС-2/КС-3
+- **Закупщик** (Gemma 4 31B): тендеры, поставщики, лаб. контроль
+- **Логист** (Gemma 4 31B): снабжение, КП, доставка
+- **Делопроизводитель** (Gemma 4 E4B): регистрация, письма, реестр ИД
+- **Auditor** (Llama 3.3 70B): rule-based RedTeam, 8 проверок (без LLM-as-Judge)
 
-## Key files
+### Core Systems
+- **Evidence Graph v2**: единый граф (7 типов узлов, 11 связей, confidence framework)
+- **Inference Engine**: 6 symbolic-правил восстановления дат/фактов из улик
+- **ProjectLoader**: нулевой слой (ПД/РД → WorkUnit PLANNED baseline)
+- **Chain Builder**: MaterialBatch→Cert→AOSR→KS-2 цепочки, разрывы, статусы
+- **HITL System**: Human-in-the-Loop вопросы с приоритетами (critical/high/medium/low)
+- **Journal Reconstructor v2**: 5 этапов восстановления ОЖР, цветовая разметка (🟢/🟡/🔴)
+- **NormativeGuard**: SSOT-валидация (normative_index.json), все ГОСТ/СП/ФЗ проверяются
+- **IDRequirementsRegistry**: SSOT состава ИД по 344/пр (33 вида работ → обязательный шлейф)
 
-| File | Purpose |
-|------|---------|
-| `src/main.py` | Entry point — creates project, runs LangGraph pipeline |
-| `src/config.py` | Central settings — 3 profiles, models, DB, credentials |
-| `src/agents/state.py` | `AgentState` TypedDict — ~40 fields, shared graph state |
-| `src/agents/nodes_v2.py` | PM orchestration nodes — planning, dispatch, eval (parallel Send support) |
-| `src/core/pm_agent.py` | PM orchestrator — `WorkPlan`, `TaskNode`, weighted scoring, veto rules |
-| `src/core/llm_engine.py` | LLM abstraction — backends (MLX, Ollama, DeepSeek) |
-| `src/core/model_router.py` | Model selection per agent profile |
-| `src/core/ram_manager.py` | RAM pressure monitoring and OOM prevention |
+## Rules & Conventions
 
-### Agent services
+### Database
+- **Миграции:** Alembic only. `alembic revision --autogenerate -m "description"` + `alembic upgrade head`
+- **Never:** `Base.metadata.create_all()`
+- **New models:** in `src/db/models.py`, then migrate
 
-| File | Agent | LLM? | Domain |
-|------|-------|------|--------|
-| `src/core/services/pto_agent.py` (893L) | PTO Engineer | Yes | Executive docs (344/pr), AOSR trails, cross-checks |
-| `src/core/services/legal_service.py` (973L) | Legal Counsel | Yes | Contract analysis, BLS traps, NormativeGuard |
-| `src/core/services/legal_documents.py` (1179L) | Legal Docs | Yes | Protocol/disagreement, claim, lawsuit generation |
-| `src/core/services/smeta_agent.py` (441L) | Cost Estimator | No | Estimates, FER rates, margin analysis |
-| `src/core/services/delo_agent.py` (542L) | Records Manager | No | Document registry, status tracking, deadlines |
-| `src/core/services/procurement_logistics.py` (401L) | Procurement & Logistics | No | Tender analysis, supplier search, route planning |
+### LLM & Inference
+- **All LLM calls:** через LLMEngine только. Никаких прямых import deepseek/anthropic
+- **LLMEngine route:** dev_linux → DeepSeek API, mac_studio → MLX backend
+- **Prompts:** in `agents/` (Markdown), referenced by agent name
+- **Thinking mode:** используется для Юриста (contracts, трудные решения) и ПТО (сложная сверка)
 
-### Knowledge layer
+### Validation & Quality
+- **NormativeGuard:** запуск на выходе всех LLM-ответов из Юриста/ПТО (проверка ГОСТ/СП/норм)
+- **IDRequirementsRegistry:** lookup состава ИД по типу работы из 33 видов
+- **Auditor.check_*:** 8 правил кросс-проверки между агентами (не пропускать)
 
-| File | Purpose |
-|------|---------|
-| `src/core/knowledge/knowledge_base.py` | pgvector RAG over DomainTraps |
-| `src/core/knowledge/domain_classifier.py` | 3-tier domain/noise classifier |
-| `src/core/knowledge/invalidation_engine.py` | Regulatory change detection, validity tracking |
-| `src/core/knowledge/idprosto_loader.py` | id-prosto.ru knowledge base loader (569 doc mappings) |
+### Code Style
+- Type hints everywhere (strict mode)
+- Pydantic models for all schemas
+- Named exports only (no default exports)
+- SQLAlchemy ORM (не raw SQL)
+- Async/await when dealing with I/O
 
-### Generated document generators
+### Graph (NetworkX)
+- Evidence Graph in-memory, serialized to `data/graphs/`
+- Never mutate nodes directly — use `evidence_graph.add_node(...)` with confidence
+- All temporal checks через Inference Engine rules, не через LLM reasoning
 
-- `src/core/services/is_generator/` — Executive Diagrams (IS): DXF parsing, PDF overlay, GOST stamps
-- `src/core/services/ppr_generator/` — Project Execution Plans (PPR): DOCX/PDF export, TTK sections
+### Testing
+- `pytest tests/ -v` — всегда после изменений модулей
+- Test coverage: 478/493 passed (97%)
+- E2E: `PYTHONPATH=. python tests/test_e2e_forensic.py`
 
-### Configuration
+### Git & Commits
+- Feature branches always: `git checkout -b feature/X`
+- Alembic version changes → include in PR
+- Never commit `.env`, API keys, or `library/normative/` (local only)
 
-- `config/id_requirements.yaml` (913L) — 20+ work types with normative requirements per 344/pr
-- `config/telegram_channels.yaml` (525L) — 38 monitored Telegram channels for trap ingestion
+## When to Use What
 
-## Data flow
+| Task | Start With | Reference |
+|------|-----------|-----------|
+| New MCP tool | `mcp_servers/asd_core/tools/` + LangGraph node | @docs/MCP_TOOLS_SPEC.md |
+| Agent prompt | `agents/{agent_name}/prompt.md` | @agents/{agent_name}/config.yaml |
+| DB schema | `src/db/models.py` + Alembic migration | @docs/DATA_SCHEMA.md |
+| Evidence Graph query | `EvidenceGraphService` + Inference Engine | @docs/COMPONENT_ARCHITECTURE.md |
+| Normative check | `NormativeGuard.validate()` against normative_index.json | @src/core/services/legal_service.py |
+| Document parsing | ParserEngine (OCR/PDF) + VLM fallback | @src/core/ingestion.py |
 
-1. **Ingestion**: TelegramScout → DomainClassifier → DomainTrap (pgvector)
-2. **Invalidation**: DomainTrap → InvalidationEngine → affected knowledge entries
-3. **Agent pipeline**: User request → PM(create_plan) → dispatch → agent execute → PM(evaluate) → next
-4. **Output**: MCP tools → DOCX/PDF generation → Google Workspace export
+## Key Files to Keep Open
 
-## Testing
+- `AGENTS.md` — workflow, event bus, маршрутизация между агентами
+- `src/agents/state.py` — единое состояние конвейера
+- `src/agents/workflow.py` — LangGraph StateGraph
+- `src/core/llm_engine.py` — интерфейс к LLM (LLMEngine)
+- `src/core/services/legal_service.py` — NormativeGuard, Юрист сервис
+- `src/core/services/id_requirements.py` — IDRequirementsRegistry (SSOT видов работ)
+- `mcp_servers/asd_core/server.py` — FastMCP регистрация инструментов
 
-- **19 test files** (8,431 lines) in `tests/`
-- Key test files: `test_smoke.py` (1153L), `test_is_generator.py` (1600L), `test_e2e_parallel_graph.py` (764L)
-- Run: `pytest tests/`
-- Gaps: knowledge layer (invalidation_engine, knowledge_base, domain_classifier) has no tests
+## Performance & Memory
 
-## Conventions
+- **Dev (DeepSeek V4 Pro[1m]):** 1M контекст, reasoning режим для сложных задач
+- **Tokens:** Кэширование system prompt + проект контекст (DeepSeek cache цены ~1/4 от input)
+- **Session:** одна сессия = один package, не переключайся между задачами (горячий кэш)
+- **Контекст:** `/compact` при длинных сессиях (>100K tokens)
 
-- **Language**: Russian domain terminology in code, English in variable names
-- **Python**: 3.11+ target, async where LLM is involved
-- **Prompts**: Russian-language, inline in agent code
-- **Schemas**: Pydantic v2 in `src/schemas/`
-- **Database**: PostgreSQL with pgvector extension, port 5433
-- **ORM**: SQLAlchemy, models in `src/db/models.py`
-- **Logging**: Structured JSON via `src/core/observability.py`
+## Common Commands
 
-## Key dependencies
+```bash
+# Тесты
+pytest tests/ -v
+pytest tests/test_agents.py::TestLegalAgent -v
 
-- LangGraph (agent orchestration)
-- pgvector (semantic search)
-- MLX / Ollama (local LLM inference)
-- python-docx (document generation)
-- PyMuPDF (PDF parsing)
-- fastmcp (MCP server)
-- cachetools (in-process caching, replaced Redis in v12)
+# Запуск MCP сервера
+python -m mcp_servers.asd_core.server
+
+# Миграции БД
+alembic revision --autogenerate -m "add_new_model"
+alembic upgrade head
+
+# Бенчмарк качества
+PYTHONPATH=. python scripts/run_benchmark.py --project-dir data/test_projects/LOS --quality-cascade
+
+# Синтетические документы
+PYTHONPATH=. python scripts/generate_synthetic_docs.py --count 100 --all-types
+```
+
+## Emergency Rollback
+
+```bash
+git reset --hard HEAD      # отмена всех изменений
+alembic downgrade -1       # откат одной миграции
+/rewind                    # в Claude Code: откат сессии
+```

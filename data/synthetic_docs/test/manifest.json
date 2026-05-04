@@ -1,0 +1,117 @@
+{
+  "documents": [
+    {
+      "file": "data/synthetic_docs/test/aosr/aosr_artifact_001.png",
+      "doc_type": "aosr",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/aosr/aosr_artifact_002.png",
+      "doc_type": "aosr",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/aosr/aosr_artifact_003.png",
+      "doc_type": "aosr",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": true
+    },
+    {
+      "file": "data/synthetic_docs/test/aosr/aosr_artifact_004.png",
+      "doc_type": "aosr",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/aosr/aosr_artifact_005.png",
+      "doc_type": "aosr",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/certificate/certificate_artifact_001.png",
+      "doc_type": "certificate",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/certificate/certificate_artifact_002.png",
+      "doc_type": "certificate",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/certificate/certificate_artifact_003.png",
+      "doc_type": "certificate",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    },
+    {
+      "file": "data/synthetic_docs/test/certificate/certificate_artifact_004.png",
+      "doc_type": "certificate",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": true
+    },
+    {
+      "file": "data/synthetic_docs/test/certificate/certificate_artifact_005.png",
+      "doc_type": "certificate",
+      "artifacts": [
+        "coffee_stain",
+        "fold_lines",
+        "blur"
+      ],
+      "intense": false
+    }
+  ],
+  "artifacts_used": [
+    "fold_lines",
+    "blur",
+    "coffee_stain"
+  ],
+  "config": {
+    "doc_types": [
+      "aosr",
+      "certificate"
+    ],
+    "count_per_type": 5,
+    "total": 10
+  }
+}

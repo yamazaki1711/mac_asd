@@ -574,3 +574,45 @@ recovery_procedure:
 ---
 
 Документ актуализирован для АСД v12.0 (2 мая 2026). Раздел 9 добавлен на основе Пособия по ИД Вып.2 (Щербаков, 425 стр.). Логика переходов реализована в LangGraph StateGraph. Все рабочие агенты используют Gemma 4 31B через LLMEngine с разделяемой памятью. Руководитель проекта (Llama 3.3 70B) выступает как руководитель, стремящийся к zero delta в комплектности ИД. Evidence Graph v2 с Inference Engine и ProjectLoader — ядро антикризисного режима. Journal Reconstructor и HITL System — следующий пакет (Package 11).
+
+---
+
+## 10. ОЦЕНКА КАЧЕСТВА КОНВЕЙЕРА (Quality Cascade) — 04.05.2026
+
+Вдохновлено анализом АФИДЫ (Газпром ЦПС, 2025): в RAG-системах только **13% потерь качества** приходится на LLM, остальные 87% — на pre-processing этапах.
+
+### 10.1. Архитектура Quality Cascade
+
+**Файл:** `src/core/quality_metrics.py`
+
+5 этапов конвейера с независимым измерением потерь:
+1. OCR (Tesseract rus+eng) — text extraction quality
+2. Классификация (keyword + hybrid fallback) — type accuracy + confidence
+3. VLM-фолбэк (Gemma 4 31B Cloud) — image-based classification
+4. Извлечение сущностей — field recall
+5. Заполнение графа — node/link completeness
+
+Формула каскада: **loss = 1 − ∏(1 − stage_loss)**
+
+Поддерживается инструментация через `InstrumentedPipeline` — прозрачная обёртка над `IngestionPipeline`.
+
+### 10.2. Доменный бенчмарк
+
+**Файл:** `scripts/run_benchmark.py`
+
+12 эталонных кейсов на проекте ЛОС + 5 доменных вопросов инженера ПТО. Механика оценки 1/0.5/0 (как в АФИДЕ).
+
+| Метрика | Без VLM | С VLM |
+|---------|:-------:|:-----:|
+| Точность классификации | 36% | **92%** |
+| UNKNOWN документов | 3 (25%) | **0** |
+| VLM-фолбэков | 0% | 92% |
+| Встроенные ссылки | 0 | **4** |
+
+### 10.3. Синтетические данные
+
+**Файл:** `scripts/generate_synthetic_docs.py`
+
+Генератор реалистичных строй-документов с 9 типами артефактов для обучения/тестирования VLM.
+
+Запуск: `PYTHONPATH=. python scripts/run_benchmark.py --project-dir data/test_projects/LOS --quality-cascade`

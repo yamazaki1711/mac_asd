@@ -48,34 +48,69 @@ SESSION_FILE = Path(__file__).parent.parent / "credentials" / "telethon_session"
 
 
 # =============================================================================
-# Поисковые запросы для пустых доменов
+# Поисковые запросы для пустых доменов (ASD-релевантные)
 # =============================================================================
 
 DOMAIN_SEARCH_QUERIES = {
     "smeta": [
         "сметчик строительный",
-        "сметное дело",
-        "смета строительство",
-        "ФЕР ТЕР расценки",
+        "сметное дело строительство",
+        "смета ФЕР ТЕР",
         "сметный консалтинг",
-        "construction estimate Russia",
+        "проектно-сметная документация",
+        "строительная смета",
     ],
     "logistics": [
-        "логистика строительство",
+        "логистика строительство снабжение",
         "поставки стройматериалов",
-        "снабжение стройка",
+        "снабжение стройплощадка",
         "перевозка строительных грузов",
-        "construction logistics",
+        "стройка логистика",
     ],
     "procurement": [
-        "тендеры строительство",
-        "госзакупки строительные",
-        "закупки стройка",
-        "44-ФЗ закупки",
-        "тендерный специалист",
-        "construction procurement Russia",
+        "тендер строительство",
+        "госзакупки строительство",
+        "закупки строительные",
+        "44 фз строительство",
+        "тендерный отдел строительство",
     ],
 }
+
+# Ключевые слова ASD-релевантности (только стройка)
+ASD_KEYWORDS = [
+    # ПТО / технадзор / стройконтроль
+    "пто", "производственно-технический", "стройконтроль", "технадзор",
+    "технический надзор", "строительный контроль",
+    # Сметы
+    "смета", "сметчик", "сметное дело", "фер", "тер", "расценк",
+    "ценообразование", "калькуляц",
+    # ИД / исполнительная
+    "исполнительная документация", "ид", "аоср", "акт скрытых работ",
+    "акт освидетельствования", "журнал работ", "общий журнал",
+    "специальный журнал", "исполнительная схема",
+    # Стройплощадка / производство
+    "стройплощадка", "прораб", "строитель", "стройка",
+    "генподряд", "субподряд", "подрядчик",
+    "монолит", "бетон", "арматура", "сваи", "фундамент",
+    "кровля", "фасад", "инженерные сети",
+    # Законодательство
+    "градостроительный кодекс", "снип", "свод правил",
+    "гост строительный", "технический регламент",
+    "44-фз", "223-фз", "строительный подряд",
+    "строительное право", "строительная экспертиза",
+    # Документация
+    "проектная документация", "рабочая документация",
+    "стройгенплан", "пос", "ппр", "ттк",
+]
+
+# Анти-ключевые слова (не релевантно строительству)
+ASD_ANTI_KEYWORDS = [
+    "дизайн интерьера", "ремонт квартир", "недвижимость",
+    "аренда офиса", "ипотека", "риэлтор",
+    "ландшафтный дизайн", "декор",
+]
+
+MIN_SUBSCRIBERS = 100  # Минимум подписчиков для релевантности
 
 
 # =============================================================================
@@ -177,7 +212,7 @@ async def validate_channels(client: TelegramClient) -> Dict[str, List]:
 
 
 # =============================================================================
-# Поиск новых каналов
+# Поиск новых каналов (глобальный + ASD-фильтр)
 # =============================================================================
 
 async def search_channels(
@@ -185,7 +220,8 @@ async def search_channels(
     domain: Optional[str] = None,
 ) -> Dict[str, List]:
     """
-    Поиск каналов через глобальный поиск Telegram.
+    Глобальный поиск каналов Telegram через SearchGlobalRequest.
+    Фильтрация: ASD-релевантность, анти-ключевые слова, минимальные подписчики.
 
     Args:
         domain: smeta, logistics, procurement (или None = все пустые домены)
@@ -193,8 +229,12 @@ async def search_channels(
     Returns:
         {domain: [{"username": ..., "title": ..., "subscribers": ...}]}
     """
+    from telethon.tl.functions.messages import SearchGlobalRequest
+    from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
+
     domains_to_search = [domain] if domain else ["smeta", "logistics", "procurement"]
     results = {}
+    global_seen = {}  # username -> best entry
 
     for dom in domains_to_search:
         queries = DOMAIN_SEARCH_QUERIES.get(dom, [])
@@ -203,46 +243,148 @@ async def search_channels(
 
         print(f"\n{'='*60}")
         print(f"Поиск каналов для домена: {dom}")
-        print(f"Запросы: {', '.join(queries)}")
+        print(f"Запросы ({len(queries)}): {', '.join(queries)}")
         print(f"{'='*60}\n")
 
-        found = []
-        seen = set()
+        domain_found = []
 
         for query in queries:
             try:
-                # Глобальный поиск публичных чатов
-                async for dialog in client.iter_dialogs():
-                    if dialog.is_channel and dialog.entity.username:
-                        username = dialog.entity.username.lower()
-                        title = dialog.entity.title.lower()
-                        if username in seen:
-                            continue
+                print(f"  🔍 Поиск: '{query}'...")
+                search_result = await client(SearchGlobalRequest(
+                    q=query,
+                    filter=InputMessagesFilterEmpty(),
+                    min_date=None,
+                    max_date=None,
+                    offset_rate=0,
+                    offset_peer=InputPeerEmpty(),
+                    offset_id=0,
+                    limit=30,
+                ))
 
-                        # Проверяем релевантность по названию/описанию
-                        query_words = set(query.lower().split())
-                        title_words = set(title.split())
-                        if query_words & title_words:
-                            seen.add(username)
-                            found.append({
-                                "username": dialog.entity.username,
-                                "title": dialog.entity.title,
-                                "subscribers": getattr(dialog.entity, "participants_count", "?"),
-                                "query": query,
-                            })
-                            print(f"  📌 @{dialog.entity.username:30s} → {dialog.entity.title[:50]}")
+                # Извлекаем каналы из результата (chats уже содержат entity)
+                # Строим lookup channel_id → channel entity
+                channel_lookup = {}
+                for chat in search_result.chats:
+                    cid = getattr(chat, 'id', None)
+                    if cid:
+                        channel_lookup[cid] = chat
 
-                await asyncio.sleep(2)
+                channels_from_query = 0
+                for msg in search_result.messages:
+                    peer_id = getattr(msg, 'peer_id', None)
+                    if not peer_id:
+                        continue
+                    cid = getattr(peer_id, 'channel_id', None)
+                    if not cid:
+                        continue
+
+                    entity = channel_lookup.get(cid)
+                    if not entity:
+                        continue
+
+                    uname = getattr(entity, 'username', None)
+                    if not uname:
+                        continue
+                    if not getattr(entity, 'broadcast', False):
+                        continue  # Не канал (чат/группа)
+
+                    username = uname.lower()
+                    if username in global_seen:
+                        continue
+
+                    title = (getattr(entity, 'title', '') or '').lower()
+                    about = (getattr(entity, 'about', '') or '').lower()
+
+                    # === ASD-релевантность ===
+                    # Анти-фильтр (дизайн интерьера, недвижимость и т.д.)
+                    if any(ak in title for ak in ASD_ANTI_KEYWORDS):
+                        continue
+
+                    # Позитивный фильтр: хотя бы одно ключевое слово ASD
+                    combined = title + " " + about
+                    if not any(kw in combined for kw in ASD_KEYWORDS):
+                        continue
+
+                    # Подписчики (может быть None из SearchGlobalRequest)
+                    subs = getattr(entity, 'participants_count', None) or 0
+
+                    global_seen[username] = {
+                        "username": uname,
+                        "title": getattr(entity, 'title', '') or '',
+                        "subscribers": subs,
+                        "domain": dom,
+                        "query": query,
+                    }
+                    channels_from_query += 1
+
+                print(f"     → найдено каналов: {channels_from_query}")
+                await asyncio.sleep(3)  # Throttle
 
             except FloodWaitError as e:
-                print(f"  ⏳ FLOOD WAIT {e.seconds}с")
-                await asyncio.sleep(min(e.seconds, 10))
+                print(f"     ⏳ FLOOD WAIT {e.seconds}с — ждём...")
+                await asyncio.sleep(min(e.seconds, 15))
             except Exception as e:
-                print(f"  ⚠️ Ошибка поиска '{query}': {e}")
+                print(f"     ⚠️ Ошибка: {type(e).__name__}: {e}")
 
-        results[dom] = found
-        print(f"\n  Найдено для {dom}: {len(found)} каналов")
+        # Собираем результаты для домена (сортировка по подписчикам)
+        domain_found = sorted(
+            [v for v in global_seen.values() if v["domain"] == dom],
+            key=lambda x: x["subscribers"],
+            reverse=True,
+        )
+        results[dom] = domain_found
+        print(f"\n  → Домен {dom}: {len(domain_found)} каналов (топ-5 по подписчикам):")
+        for ch in domain_found[:5]:
+            print(f"     @{ch['username']:30s} | {ch['subscribers']:>6} подп. | {ch['title'][:60]}")
 
+    return results
+
+
+# =============================================================================
+# Обогащение: получение числа подписчиков
+# =============================================================================
+
+async def enrich_subscriber_counts(
+    client: TelegramClient,
+    results: Dict[str, List],
+) -> Dict[str, List]:
+    """
+    Для каждого найденного канала получает реальное число подписчиков
+    через GetFullChannelRequest.
+    """
+    from telethon.tl.functions.channels import GetFullChannelRequest
+
+    print(f"\n{'='*60}")
+    print("Обогащение: получение числа подписчиков...")
+    print(f"{'='*60}")
+
+    all_channels = []
+    for dom, channels in results.items():
+        all_channels.extend(channels)
+
+    if not all_channels:
+        return results
+
+    enriched = 0
+    for ch in all_channels:
+        try:
+            entity = await client.get_entity(ch["username"])
+            full = await client(GetFullChannelRequest(channel=entity))
+            subs = getattr(full.full_chat, 'participants_count', None)
+            if subs and subs > 0:
+                old = ch["subscribers"]
+                ch["subscribers"] = subs
+                enriched += 1
+                print(f"  📊 @{ch['username']:30s} | {old} → {subs} подп.")
+            await asyncio.sleep(1.5)  # Throttle
+        except FloodWaitError as e:
+            print(f"  ⏳ FLOOD WAIT {e.seconds}с")
+            await asyncio.sleep(min(e.seconds, 10))
+        except Exception as e:
+            pass
+
+    print(f"\n  Обогащено: {enriched}/{len(all_channels)} каналов")
     return results
 
 
@@ -327,6 +469,11 @@ async def main():
         if args.search or args.all:
             domain = None if args.search in (None, "all") else args.search
             results = await search_channels(client, domain)
+            # Обогащаем числом подписчиков
+            results = await enrich_subscriber_counts(client, results)
+            # Сортируем заново после обогащения
+            for dom in results:
+                results[dom] = sorted(results[dom], key=lambda x: x["subscribers"], reverse=True)
             for dom, channels in results.items():
                 snippet = generate_yaml_snippet(dom, channels)
                 snippet_path = Path(__file__).parent.parent / "data" / f"telegram_search_{dom}.yaml"

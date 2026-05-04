@@ -459,6 +459,182 @@ channels:
   expected_trap_density: low
   chat_type: channel
   validated: '2026-05-03T16:03:36.006320'
+# === НОВЫЕ КАНАЛЫ — найдены Telethon search + content quality (2026-05-04) ===
+# === v2: lyzem.com search (2026-05-04) ===
+- username: smety
+  domain: smeta
+  display_name: Просто о сметах
+  url: https://t.me/smety
+  description: 'Крупнейший сметный канал (20k+ подп.). Минстрой, ГГЭ, ценообразование, РИМ, ТИМ. Новости, статьи, аналитика.'
+  category: smeta_practice
+  priority: critical
+  focus_areas:
+  - ценообразование
+  - сметное дело
+  - Минстрой
+  - ГГЭ
+  - РИМ
+  - ТИМ
+  subscriber_count: '20537'
+  engagement_rate: неизвестно
+  expected_trap_density: high
+  chat_type: channel
+  validated: '2026-05-04T12:30:00.000000'
+- username: zakupki44fz
+  domain: procurement
+  display_name: Закупки и тендеры по 44-ФЗ, 223-ФЗ
+  url: https://t.me/zakupki44fz
+  description: 'Крупнейший канал по госзакупкам (49k+ подп.). 44-ФЗ/223-ФЗ для заказчиков и поставщиков. Чат, хэштеги, практика.'
+  category: procurement_practice
+  priority: critical
+  focus_areas:
+  - 44-ФЗ
+  - 223-ФЗ
+  - госзакупки
+  - тендеры
+  - ФАС
+  subscriber_count: '49568'
+  engagement_rate: неизвестно
+  expected_trap_density: very_high
+  chat_type: channel
+  validated: '2026-05-04T12:30:00.000000'
+- username: constructionbusinessnewsagency
+  domain: pto
+  display_name: Агентство новостей «Строительный бизнес» и журнал «Строительство»
+  url: https://t.me/constructionbusinessnewsagency
+  description: 'Новости стройиндустрии, изменения НПА, судебная практика. 68% полезного контента. regulatory_changes:22, technical_knowledge:33, case_law:23, document_rules:19.'
+  category: pto_news
+  priority: high
+  focus_areas:
+  - нормативные изменения
+  - судебная практика
+  - техническая информация
+  - оформление документов
+  subscriber_count: '4608'
+  engagement_rate: неизвестно
+  expected_trap_density: high
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: actionsstroy
+  domain: pto
+  display_name: Актион Строительство
+  url: https://t.me/actionsstroy
+  description: 'Крупнейший строительный канал (17k подп.). Индексы сметной стоимости, изменения СП/ГОСТ, BIM/ТИМ, отмена антикризисных мер. 30% полезного.'
+  category: pto_news
+  priority: high
+  focus_areas:
+  - сметная стоимость
+  - BIM/ТИМ
+  - нормативные изменения
+  - отраслевая аналитика
+  subscriber_count: '17123'
+  engagement_rate: высокая
+  expected_trap_density: medium
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: PTOmanual
+  domain: pto
+  display_name: Пособие инженеру ПТО
+  url: https://t.me/PTOmanual
+  description: 'Основной канал для ПТО-специалистов. Мемы + практика оформления ИД, журналов, актов. 24% полезного (мемы занижают %), но содержание — лучшее в домене.'
+  category: pto_practice
+  priority: critical
+  focus_areas:
+  - исполнительная документация
+  - журналы работ
+  - акты освидетельствования
+  - практика ПТО
+  subscriber_count: '7782'
+  engagement_rate: высокая
+  expected_trap_density: very_high
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: posovik
+  domain: pto
+  display_name: ПОСовик | Евгения Фарукян
+  url: https://t.me/posovik
+  description: 'Проект организации строительства. Разборы котлованов, земляных работ, требований ГГЭ к ПОС. document_rules:15, technical_knowledge:28. 33% полезного.'
+  category: pto_practice
+  priority: high
+  focus_areas:
+  - проект организации строительства
+  - котлованы и земляные работы
+  - требования ГГЭ к ПОС
+  - стройгенплан
+  subscriber_count: '3649'
+  engagement_rate: неизвестно
+  expected_trap_density: high
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: pospprprofi
+  domain: pto
+  display_name: ПОС ППР Профи
+  url: https://t.me/pospprprofi
+  description: 'Разработка ППР и ПОС. Регламент работы ГИПа, расчёт земляных работ, котлованы. technical_knowledge:24, case_law:18. 29% полезного.'
+  category: pto_practice
+  priority: high
+  focus_areas:
+  - проект производства работ
+  - регламент ГИПа
+  - земляные работы
+  - технологические карты
+  subscriber_count: '4894'
+  engagement_rate: неизвестно
+  expected_trap_density: high
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: constructionconf
+  domain: legal
+  display_name: Константин Лушников | Строительное право
+  url: https://t.me/constructionconf
+  description: 'Строительное право: договоры подряда, арбитраж, экспертиза. case_law + document_rules. 18% полезного (много рекламы услуг).'
+  category: legal_practice
+  priority: medium
+  focus_areas:
+  - строительное право
+  - договоры подряда
+  - арбитражная практика
+  - экспертиза
+  subscriber_count: '2746'
+  engagement_rate: неизвестно
+  expected_trap_density: medium
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: uprav_smeta
+  domain: smeta
+  display_name: Управление стоимостью строительства
+  url: https://t.me/uprav_smeta
+  description: 'Ценообразование, сметы, НМЦК, ТЭО. Изменения цен на стройматериалы по Росстату, индексация, Москомэкспертиза. 18% полезного.'
+  category: smeta_practice
+  priority: medium
+  focus_areas:
+  - ценообразование
+  - сметная стоимость
+  - НМЦК
+  - ТЭО
+  - индексация
+  subscriber_count: '2992'
+  engagement_rate: неизвестно
+  expected_trap_density: medium
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
+- username: prorostherm
+  domain: logistics
+  display_name: РОСТерм
+  url: https://t.me/prorostherm
+  description: 'Теплотехническое оборудование, поставки, монтаж. technical_knowledge:28, document_rules:15. 38% полезного.'
+  category: logistics_practice
+  priority: medium
+  focus_areas:
+  - теплотехника
+  - инженерное оборудование
+  - поставки
+  - монтаж
+  subscriber_count: '3685'
+  engagement_rate: неизвестно
+  expected_trap_density: low
+  chat_type: channel
+  validated: '2026-05-04T12:00:00.000000'
 categories:
   legal_practice:
     description: Каналы практикующих юристов — основной источник ловушек

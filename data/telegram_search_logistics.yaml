@@ -1,0 +1,78 @@
+  # === LOGISTICS — найдено 6 каналов ===
+  - username: mphvostok
+    domain: logistics
+    display_name: "МПШ Восток | MPH Vostok | Вакансии промышленности и строительства"
+    url: "https://t.me/mphvostok"
+    description: >
+      МПШ Восток | MPH Vostok | Вакансии промышленности и строительства. Подписчиков: 4420. Найден через Telethon search.
+    category: logistics_practice
+    priority: medium
+    focus_areas: []
+    subscriber_count: "4420"
+    engagement_rate: "неизвестно"
+    expected_trap_density: unknown
+
+  - username: prorostherm
+    domain: logistics
+    display_name: "РОСТерм"
+    url: "https://t.me/prorostherm"
+    description: >
+      РОСТерм. Подписчиков: 3685. Найден через Telethon search.
+    category: logistics_practice
+    priority: medium
+    focus_areas: []
+    subscriber_count: "3685"
+    engagement_rate: "неизвестно"
+    expected_trap_density: unknown
+
+  - username: posovik
+    domain: logistics
+    display_name: "ПОСовик ᴴᴬ ¹⁰⁰% | Евгения Фарукян"
+    url: "https://t.me/posovik"
+    description: >
+      ПОСовик ᴴᴬ ¹⁰⁰% | Евгения Фарукян. Подписчиков: 3649. Найден через Telethon search.
+    category: logistics_practice
+    priority: medium
+    focus_areas: []
+    subscriber_count: "3649"
+    engagement_rate: "неизвестно"
+    expected_trap_density: unknown
+
+  - username: constructionconf
+    domain: logistics
+    display_name: "Константин Лушников |СТРОИТЕЛЬНОЕ ПРАВО"
+    url: "https://t.me/constructionconf"
+    description: >
+      Константин Лушников |СТРОИТЕЛЬНОЕ ПРАВО. Подписчиков: 2746. Найден через Telethon search.
+    category: logistics_practice
+    priority: medium
+    focus_areas: []
+    subscriber_count: "2746"
+    engagement_rate: "неизвестно"
+    expected_trap_density: unknown
+
+  - username: sbweek
+    domain: logistics
+    display_name: "Сибирская строительная неделя"
+    url: "https://t.me/sbweek"
+    description: >
+      Сибирская строительная неделя. Подписчиков: 2480. Найден через Telethon search.
+    category: logistics_practice
+    priority: medium
+    focus_areas: []
+    subscriber_count: "2480"
+    engagement_rate: "неизвестно"
+    expected_trap_density: unknown
+
+  - username: ingprojectt
+    domain: logistics
+    display_name: "Екатерина Никитина | заметки создателя ИнжПроект"
+    url: "https://t.me/ingprojectt"
+    description: >
+      Екатерина Никитина | заметки создателя ИнжПроект. Подписчиков: 1091. Найден через Telethon search.
+    category: logistics_practice
+    priority: medium
+    focus_areas: []
+    subscriber_count: "1091"
+    engagement_rate: "неизвестно"
+    expected_trap_density: unknown
