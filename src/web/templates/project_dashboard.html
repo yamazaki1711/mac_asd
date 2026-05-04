@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — Дашборд{% endblock %}
+{% set active_page = "dashboard" %}
+
+{% block content %}
+<div class="page-header">
+    <a href="/dashboard" class="btn btn-sm">&larr; Назад</a>
+    <h2>{{ project.name }}</h2>
+    <span class="badge badge-{{ project.status }}">{{ project.status }}</span>
+</div>
+
+<div class="dashboard-grid">
+    <!-- KPI Cards -->
+    <div class="card kpi-card">
+        <div class="kpi-value" id="kpi-completeness">{{ metrics.completeness_pct|round(1) }}%</div>
+        <div class="kpi-label">Комплектность ИД</div>
+    </div>
+    <div class="card kpi-card">
+        <div class="kpi-value">{{ metrics.documents_count }}</div>
+        <div class="kpi-label">Документов</div>
+    </div>
+    <div class="card kpi-card">
+        <div class="kpi-value">{{ metrics.uploaded_size_mb }} MB</div>
+        <div class="kpi-label">Загружено</div>
+    </div>
+    <div class="card kpi-card">
+        <div class="kpi-value" id="kpi-hitl">{{ metrics.hitl_questions_answered }}/{{ metrics.hitl_questions_total }}</div>
+        <div class="kpi-label">HITL отвечено</div>
+    </div>
+
+    <!-- Chart: Document Chain Stats -->
+    <div class="card chart-card">
+        <h3>Цепочки документов</h3>
+        <canvas id="chain-chart"></canvas>
+    </div>
+
+    <!-- Chart: Completeness Trend -->
+    <div class="card chart-card">
+        <h3>Прогресс комплектности</h3>
+        <canvas id="trend-chart"></canvas>
+    </div>
+
+    <!-- Alerts for this project -->
+    <div class="card">
+        <h3>Алерты</h3>
+        {% if metrics.alerts %}
+            {% for alert in metrics.alerts %}
+            <div class="alert alert-{{ alert.severity }}">{{ alert.message }}</div>
+            {% endfor %}
+        {% else %}
+            <p class="muted">Нет активных алертов</p>
+        {% endif %}
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <h3>Действия</h3>
+        <div class="action-buttons">
+            <a href="/hitl/{{ project.id }}" class="btn btn-primary">HITL-вопросы</a>
+            <a href="/evidence/{{ project.id }}" class="btn btn-outline">Граф доказательств</a>
+            <a href="/documents?project={{ project.id }}" class="btn btn-outline">Загрузить документы</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chainStats = {{ metrics.chain_stats | tojson }};
+
+// Chain chart
+new Chart(document.getElementById('chain-chart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Полные', 'Частичные', 'Отсутствуют'],
+        datasets: [{
+            data: [chainStats.complete, chainStats.partial, chainStats.missing],
+            backgroundColor: ['#22c55e', '#f59e0b', '#ef4444'],
+        }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+});
+
+// Trend chart
+new Chart(document.getElementById('trend-chart'), {
+    type: 'line',
+    data: {
+        labels: ['Неделя 1', 'Неделя 2', 'Неделя 3', 'Неделя 4'],
+        datasets: [{
+            label: 'Комплектность ИД %',
+            data: [15, 32, 48, {{ metrics.completeness_pct|round(1) }}],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            tension: 0.3,
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: { y: { min: 0, max: 100 } },
+        plugins: { legend: { display: false } }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}HITL — Вопросы оператору{% endblock %}
+{% set active_page = "hitl" %}
+
+{% block head %}
+<style>
+.hitl-filter { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.hitl-filter-btn {
+    padding: 6px 14px; border-radius: 20px; border: 1px solid #e2e8f0; background: white;
+    cursor: pointer; font-size: 13px; transition: all 0.2s;
+}
+.hitl-filter-btn:hover, .hitl-filter-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+.question-card { border-left: 4px solid #64748b; margin-bottom: 12px; transition: all 0.2s; }
+.question-card.priority-critical { border-left-color: #ef4444; }
+.question-card.priority-high { border-left-color: #f59e0b; }
+.question-card.priority-medium { border-left-color: #3b82f6; }
+.question-card.priority-low { border-left-color: #94a3b8; }
+.question-card.answered { opacity: 0.6; border-left-color: #22c55e; }
+.question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.priority-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
+}
+.priority-critical { background: #fef2f2; color: #991b1b; }
+.priority-high { background: #fffbeb; color: #92400e; }
+.priority-medium { background: #eff6ff; color: #1e40af; }
+.priority-low { background: #f8fafc; color: #475569; }
+.question-text { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+.question-context { font-size: 13px; color: #64748b; margin-bottom: 12px; font-style: italic; }
+.answer-form { margin-top: 12px; }
+.answer-form textarea { width: 100%; min-height: 60px; }
+.suggested-answers { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.suggest-btn {
+    padding: 4px 12px; border-radius: 16px; border: 1px solid #cbd5e1; background: #f8fafc;
+    cursor: pointer; font-size: 12px; transition: all 0.15s;
+}
+.suggest-btn:hover { background: #e2e8f0; }
+.hitl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.hitl-stat { text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px; }
+.hitl-stat-value { font-size: 28px; font-weight: 700; }
+.hitl-stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>HITL — Вопросы оператору</h2>
+    <p class="muted">Human-in-the-Loop: вопросы, требующие ответа человека</p>
+</div>
+
+<!-- Sessions -->
+{% for project_id, session in sessions.items() %}
+<div style="margin-bottom: 32px;">
+    <div class="section-header" style="display:flex; justify-content: space-between; align-items: center;">
+        <h3>Проект: {{ project_id }}</h3>
+        <a href="/hitl/{{ project_id }}" class="btn btn-sm btn-primary">Открыть</a>
+    </div>
+    <div class="hitl-stats">
+        <div class="hitl-stat">
+            <div class="hitl-stat-value" style="color:#ef4444;">{{ session.questions | selectattr('priority', 'equalto', 'critical') | list | length }}</div>
+            <div class="hitl-stat-label">Критических</div>
+        </div>
+        <div class="hitl-stat">
+            <div class="hitl-stat-value" style="color:#f59e0b;">{{ session.questions | selectattr('priority', 'equalto', 'high') | list | length }}</div>
+            <div class="hitl-stat-label">Высоких</div>
+        </div>
+        <div class="hitl-stat">
+            <div class="hitl-stat-value">{{ session.answered }}</div>
+            <div class="hitl-stat-label">Отвечено из {{ session.total }}</div>
+        </div>
+        <div class="hitl-stat">
+            <div class="hitl-stat-value">{{ (session.answered / session.total * 100) | round(1) if session.total > 0 else 0 }}%</div>
+            <div class="hitl-stat-label">Прогресс</div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% if not sessions %}
+<div class="empty-state">
+    <p>Нет активных HITL-сессий</p>
+    <p class="muted">HITL-вопросы генерируются при загрузке графа доказательств</p>
+</div>
+{% endif %}
+{% endblock %}

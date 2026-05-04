@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Документы{% endblock %}
+{% set active_page = "documents" %}
+
+{% block head %}
+<style>
+.dropzone {
+    border: 2px dashed #64748b;
+    border-radius: 8px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f8fafc;
+    margin-bottom: 24px;
+}
+.dropzone:hover, .dropzone.dragover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+.dropzone-icon { font-size: 48px; margin-bottom: 12px; }
+.dropzone-text { font-size: 18px; font-weight: 600; color: #1e293b; }
+.dropzone-hint { font-size: 14px; color: #64748b; margin-top: 8px; }
+.upload-progress { margin-top: 12px; display: none; }
+.upload-progress.active { display: block; }
+.upload-progress-bar {
+    width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;
+}
+.upload-progress-fill {
+    height: 100%; background: #3b82f6; transition: width 0.3s;
+}
+.doc-table { width: 100%; border-collapse: collapse; }
+.doc-table th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; font-size: 13px; color: #64748b; }
+.doc-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+.doc-name { font-weight: 500; }
+.doc-meta { color: #64748b; font-size: 13px; }
+.status-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500;
+}
+.status-uploaded { background: #dbeafe; color: #1e40af; }
+.status-parsed { background: #dcfce7; color: #166534; }
+.status-error { background: #fef2f2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Документы</h2>
+    <p class="muted">Drag-and-drop загрузка документов проекта</p>
+</div>
+
+<!-- Drop Zone -->
+<div class="dropzone" id="dropzone">
+    <div class="dropzone-icon">📤</div>
+    <div class="dropzone-text">Перетащите файлы сюда</div>
+    <div class="dropzone-hint">или кликните для выбора. PDF, DOCX, XLSX, PNG, JPG (до 50MB)</div>
+    <input type="file" id="file-input" style="display:none;" multiple
+           accept=".pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.txt">
+    <div class="upload-progress" id="upload-progress">
+        <div class="upload-progress-bar">
+            <div class="upload-progress-fill" id="upload-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="upload-status" id="upload-status" style="margin-top:8px;font-size:14px;"></div>
+    </div>
+</div>
+
+<!-- Project selector for upload -->
+<div style="margin-bottom: 16px;">
+    <label for="upload-project">Проект:</label>
+    <select id="upload-project" style="margin-left: 8px; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <option value="default">— Выберите проект —</option>
+    </select>
+</div>
+
+<!-- Document List -->
+<div class="card">
+    <h3>Загруженные документы</h3>
+    <table class="doc-table" id="doc-table">
+        <thead>
+            <tr><th>Файл</th><th>Размер</th><th>Проект</th><th>Дата</th><th>Статус</th></tr>
+        </thead>
+        <tbody>
+            {% for doc in documents %}
+            <tr>
+                <td class="doc-name">{{ doc.file_name }}</td>
+                <td class="doc-meta">{{ "%.1f"|format(doc.file_size / 1024) }} KB</td>
+                <td class="doc-meta">{{ doc.project_id }}</td>
+                <td class="doc-meta">{{ doc.uploaded_at[:10] }}</td>
+                <td><span class="status-badge status-{{ doc.status }}">{{ doc.status }}</span></td>
+            </tr>
+            {% endfor %}
+            {% if not documents %}
+            <tr><td colspan="5" style="text-align:center;color:#64748b;padding:40px;">Нет загруженных документов</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const progressDiv = document.getElementById('upload-progress');
+const progressFill = document.getElementById('upload-progress-fill');
+const uploadStatus = document.getElementById('upload-status');
+const projectSelect = document.getElementById('upload-project');
+
+// Load projects into selector
+fetch('/api/projects').then(r => r.json()).then(data => {
+    data.projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        projectSelect.appendChild(opt);
+    });
+});
+
+// Click to select
+dropzone.addEventListener('click', () => fileInput.click());
+
+// Drag events
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+async function handleFiles(files) {
+    if (files.length === 0) return;
+    const projectId = projectSelect.value || 'default';
+
+    progressDiv.classList.add('active');
+    uploadStatus.textContent = 'Загрузка...';
+
+    let uploaded = 0;
+    for (const file of files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('project_id', projectId);
+
+        const resp = await fetch('/api/upload', { method: 'POST', body: fd });
+        if (resp.ok) {
+            uploaded++;
+            const pct = Math.round((uploaded / files.length) * 100);
+            progressFill.style.width = pct + '%';
+            uploadStatus.textContent = uploaded + '/' + files.length + ' загружено';
+        }
+    }
+
+    uploadStatus.textContent = 'Загружено ' + uploaded + ' из ' + files.length;
+    setTimeout(() => { progressDiv.classList.remove('active'); location.reload(); }, 1500);
+}
+</script>
+{% endblock %}

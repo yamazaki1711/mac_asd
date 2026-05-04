@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Граф доказательств — {{ project_id }}{% endblock %}
+{% set active_page = "documents" %}
+
+{% block content %}
+<div class="page-header">
+    <a href="/dashboard/{{ project_id }}" class="btn btn-sm">&larr; К проекту</a>
+    <h2>Граф доказательств — {{ project_id }}</h2>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Graph Summary -->
+    <div class="card kpi-card" id="kpi-nodes">
+        <div class="kpi-value">—</div>
+        <div class="kpi-label">Узлов</div>
+    </div>
+    <div class="card kpi-card" id="kpi-edges">
+        <div class="kpi-value">—</div>
+        <div class="kpi-label">Связей</div>
+    </div>
+    <div class="card kpi-card" id="kpi-confidence">
+        <div class="kpi-value">—</div>
+        <div class="kpi-label">Средний confidence</div>
+    </div>
+    <div class="card kpi-card" id="kpi-components">
+        <div class="kpi-value">—</div>
+        <div class="kpi-label">Компонент</div>
+    </div>
+
+    <!-- Node Type Distribution -->
+    <div class="card chart-card">
+        <h3>Узлы по типам</h3>
+        <canvas id="nodes-chart"></canvas>
+    </div>
+
+    <!-- Recent Inferences -->
+    <div class="card">
+        <h3>Inference Engine — выводы</h3>
+        <div id="inferences-container">
+            <p class="muted">Загрузка...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const projectId = '{{ project_id }}';
+
+async function load() {
+    const resp = await fetch('/api/evidence/summary/' + projectId);
+    const data = await resp.json();
+    if (data.status !== 'ok') return;
+
+    const s = data.summary;
+    document.querySelector('#kpi-nodes .kpi-value').textContent = s.nodes_count || s.nodes || 0;
+    document.querySelector('#kpi-edges .kpi-value').textContent = s.edges_count || s.edges || 0;
+    document.querySelector('#kpi-confidence .kpi-value').textContent =
+        (s.avg_confidence ? (s.avg_confidence * 100).toFixed(0) + '%' : '—');
+    document.querySelector('#kpi-components .kpi-value').textContent =
+        s.connected_components || s.components || '—';
+}
+
+load();
+</script>
+{% endblock %}

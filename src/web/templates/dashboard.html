@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% set active_page = "dashboard" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Дашборд</h2>
+    <p class="muted">Состояние всех проектов на <span id="current-time">--</span></p>
+</div>
+
+<!-- Alerts -->
+<div id="alerts-container">
+    {% for alert in alerts %}
+    <div class="alert alert-{{ alert.severity or 'warning' }}">
+        <span class="alert-icon">{{ {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '⚪'}.get(alert.severity, '⚠️') }}</span>
+        <span class="alert-text">{{ alert.message }}</span>
+        <span class="alert-project">{{ alert.project_id }}</span>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Project Cards -->
+<div class="project-grid" id="project-grid">
+    {% for project in projects %}
+    <div class="card project-card" onclick="location.href='/dashboard/{{ project.id }}'">
+        <div class="card-header">
+            <h3>{{ project.name }}</h3>
+            <span class="badge badge-{{ project.status }}">{{ project.status }}</span>
+        </div>
+        <div class="card-body">
+            <div class="metric-row">
+                <span class="metric-label">Заказчик:</span>
+                <span class="metric-value">{{ project.customer or '—' }}</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Договор:</span>
+                <span class="metric-value">{{ project.contract_number or '—' }}</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Документов:</span>
+                <span class="metric-value" id="docs-{{ project.id }}">...</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar-label">Комплектность ИД:</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-{{ project.id }}" style="width: 0%"></div>
+                </div>
+                <span class="progress-pct" id="pct-{{ project.id }}">0%</span>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="/hitl/{{ project.id }}" class="btn btn-sm">HITL</a>
+            <a href="/evidence/{{ project.id }}" class="btn btn-sm btn-outline">Граф</a>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not projects %}
+    <div class="empty-state">
+        <p>Нет активных проектов</p>
+        <button class="btn btn-primary" onclick="showCreateProject()">Создать проект</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Project Modal -->
+<div id="create-project-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h3>Новый проект</h3>
+        <form id="create-project-form" onsubmit="createProject(event)">
+            <input type="text" name="name" placeholder="Название проекта" required>
+            <input type="text" name="slug" placeholder="Код (slug)" required>
+            <input type="text" name="customer" placeholder="Заказчик">
+            <input type="text" name="contract_number" placeholder="Номер договора">
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Создать</button>
+                <button type="button" class="btn" onclick="hideCreateProject()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh dashboard data
+async function refreshDashboard() {
+    const resp = await fetch('/api/dashboard');
+    const data = await resp.json();
+    for (const [pid, metrics] of Object.entries(data.metrics)) {
+        const pct = document.getElementById('pct-' + pid);
+        const bar = document.getElementById('progress-' + pid);
+        if (pct) pct.textContent = metrics.completeness_pct.toFixed(1) + '%';
+        if (bar) bar.style.width = metrics.completeness_pct + '%';
+        const docs = document.getElementById('docs-' + pid);
+        if (docs) docs.textContent = metrics.documents_count;
+    }
+    // Update alerts
+    const alertsContainer = document.getElementById('alerts-container');
+    if (data.alerts && data.alerts.length > 0) {
+        alertsContainer.innerHTML = data.alerts.map(a =>
+            '<div class="alert alert-' + (a.severity || 'warning') + '">' +
+            '<span class="alert-text">' + a.message + '</span></div>'
+        ).join('');
+    }
+}
+
+document.getElementById('current-time').textContent = new Date().toLocaleString('ru-RU');
+setInterval(refreshDashboard, 30000);
+refreshDashboard();
+
+function showCreateProject() {
+    document.getElementById('create-project-modal').style.display = 'flex';
+}
+function hideCreateProject() {
+    document.getElementById('create-project-modal').style.display = 'none';
+}
+async function createProject(e) {
+    e.preventDefault();
+    const form = document.getElementById('create-project-form');
+    const fd = new FormData(form);
+    const resp = await fetch('/api/projects', { method: 'POST', body: fd });
+    if (resp.ok) location.reload();
+}
+</script>
+{% endblock %}

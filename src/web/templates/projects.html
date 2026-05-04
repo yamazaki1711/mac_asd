@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Проекты{% endblock %}
+{% set active_page = "projects" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Проекты</h2>
+    <button class="btn btn-primary" onclick="showCreateProject()">+ Новый проект</button>
+</div>
+
+<div class="project-grid">
+    {% for project in projects %}
+    <div class="card project-card">
+        <div class="card-header">
+            <h3>{{ project.name }}</h3>
+            <span class="badge badge-{{ project.status }}">{{ project.status }}</span>
+        </div>
+        <div class="card-body">
+            <p><strong>Заказчик:</strong> {{ project.customer or '—' }}</p>
+            <p><strong>Договор:</strong> {{ project.contract_number or '—' }}</p>
+            <p><strong>Создан:</strong> {{ project.created_at[:10] if project.created_at else '—' }}</p>
+        </div>
+        <div class="card-footer">
+            <a href="/dashboard/{{ project.id }}" class="btn btn-primary btn-sm">Дашборд</a>
+            <a href="/documents?project={{ project.id }}" class="btn btn-sm btn-outline">Документы</a>
+            <a href="/hitl/{{ project.id }}" class="btn btn-sm btn-outline">HITL</a>
+            <a href="/evidence/{{ project.id }}" class="btn btn-sm btn-outline">Граф</a>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not projects %}
+    <div class="empty-state">
+        <p>Нет проектов. Создайте первый проект.</p>
+        <button class="btn btn-primary" onclick="showCreateProject()">Создать проект</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Project Modal -->
+<div id="create-project-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h3>Новый проект</h3>
+        <form id="create-project-form" onsubmit="createProject(event)">
+            <div class="form-group">
+                <label>Название</label>
+                <input type="text" name="name" required>
+            </div>
+            <div class="form-group">
+                <label>Код (slug)</label>
+                <input type="text" name="slug" required pattern="[a-zA-Z0-9_-]+">
+            </div>
+            <div class="form-group">
+                <label>Заказчик</label>
+                <input type="text" name="customer">
+            </div>
+            <div class="form-group">
+                <label>Номер договора</label>
+                <input type="text" name="contract_number">
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Создать</button>
+                <button type="button" class="btn" onclick="hideCreateProject()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showCreateProject() { document.getElementById('create-project-modal').style.display = 'flex'; }
+function hideCreateProject() { document.getElementById('create-project-modal').style.display = 'none'; }
+async function createProject(e) {
+    e.preventDefault();
+    const form = document.getElementById('create-project-form');
+    const fd = new FormData(form);
+    const resp = await fetch('/api/projects', { method: 'POST', body: fd });
+    if (resp.ok) location.reload();
+}
+</script>
+{% endblock %}

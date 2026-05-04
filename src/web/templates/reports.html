@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Отчёты{% endblock %}
+{% set active_page = "reports" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Отчёты</h2>
+    <p class="muted">Сводные отчёты и экспорт</p>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>Системный статус</h3>
+        <div id="system-info">
+            <p><strong>Версия:</strong> MAC_ASD v13.0</p>
+            <p><strong>Профиль:</strong> <span id="sys-profile">—</span></p>
+            <p><strong>Запущен:</strong> <span id="sys-started">—</span></p>
+            <p><strong>Проектов:</strong> <span id="sys-projects">—</span></p>
+            <p><strong>Документов:</strong> <span id="sys-docs">—</span></p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Экспорт</h3>
+        <div class="action-buttons">
+            <button class="btn btn-outline" disabled>Экспорт дашборда (PDF)</button>
+            <button class="btn btn-outline" disabled>Экспорт реестра ИД (XLSX)</button>
+            <button class="btn btn-outline" disabled>Сводный отчёт по БЛС</button>
+        </div>
+        <p class="muted" style="margin-top:12px;">Экспорт будет доступен после накопления данных</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+fetch('/api/status').then(r => r.json()).then(d => {
+    document.getElementById('sys-profile').textContent = d.profile;
+    document.getElementById('sys-started').textContent = new Date(d.started_at).toLocaleString('ru-RU');
+    document.getElementById('sys-projects').textContent = d.projects_count;
+    document.getElementById('sys-docs').textContent = d.documents_count;
+});
+</script>
+{% endblock %}

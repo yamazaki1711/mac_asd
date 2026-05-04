@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}HITL — {{ project_id }}{% endblock %}
+{% set active_page = "hitl" %}
+
+{% block head %}
+<style>
+.hitl-filter { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.hitl-filter-btn {
+    padding: 6px 14px; border-radius: 20px; border: 1px solid #e2e8f0; background: white;
+    cursor: pointer; font-size: 13px; transition: all 0.2s;
+}
+.hitl-filter-btn:hover, .hitl-filter-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+.question-card { border-left: 4px solid #64748b; margin-bottom: 12px; transition: all 0.2s; }
+.question-card.priority-critical { border-left-color: #ef4444; }
+.question-card.priority-high { border-left-color: #f59e0b; }
+.question-card.priority-medium { border-left-color: #3b82f6; }
+.question-card.priority-low { border-left-color: #94a3b8; }
+.question-card.answered { opacity: 0.6; border-left-color: #22c55e; }
+.question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.priority-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: uppercase;
+}
+.priority-badge-critical { background: #fef2f2; color: #991b1b; }
+.priority-badge-high { background: #fffbeb; color: #92400e; }
+.priority-badge-medium { background: #eff6ff; color: #1e40af; }
+.priority-badge-low { background: #f8fafc; color: #475569; }
+.question-text { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+.question-context { font-size: 13px; color: #64748b; margin-bottom: 12px; font-style: italic; }
+.answer-form { margin-top: 12px; display: flex; gap: 8px; align-items: flex-start; }
+.answer-form textarea {
+    flex: 1; min-height: 40px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+    font-family: inherit; font-size: 14px;
+}
+.answer-form textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); }
+.suggested-answers { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.suggest-btn {
+    padding: 4px 12px; border-radius: 16px; border: 1px solid #cbd5e1; background: #f8fafc;
+    cursor: pointer; font-size: 12px; transition: all 0.15s;
+}
+.suggest-btn:hover { background: #e2e8f0; }
+.answered-text { font-size: 13px; color: #16a34a; font-weight: 500; margin-top: 8px; }
+.progress-summary { display: flex; gap: 16px; align-items: center; margin-bottom: 24px; }
+.progress-bar-large { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+.progress-bar-large-fill { height: 100%; background: #22c55e; transition: width 0.4s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="/hitl" class="btn btn-sm">&larr; Назад</a>
+    <h2>HITL — Проект: {{ project_id }}</h2>
+</div>
+
+<div class="progress-summary">
+    <span style="font-weight:600;">Прогресс:</span>
+    <div class="progress-bar-large">
+        <div class="progress-bar-large-fill" id="hitl-progress-bar" style="width:0%"></div>
+    </div>
+    <span id="hitl-progress-text" style="font-size:14px;white-space:nowrap;">0/0</span>
+</div>
+
+<div class="hitl-filter">
+    <button class="hitl-filter-btn active" onclick="filterQuestions('all')">Все</button>
+    <button class="hitl-filter-btn" onclick="filterQuestions('critical')">🔴 Критические</button>
+    <button class="hitl-filter-btn" onclick="filterQuestions('high')">🟠 Высокие</button>
+    <button class="hitl-filter-btn" onclick="filterQuestions('medium')">🔵 Средние</button>
+    <button class="hitl-filter-btn" onclick="filterQuestions('low')">⚪ Низкие</button>
+    <button class="hitl-filter-btn" onclick="filterQuestions('unanswered')">Без ответа</button>
+</div>
+
+<div id="questions-container">
+    <p class="muted" style="text-align:center;padding:40px;">Загрузка вопросов...</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const projectId = '{{ project_id }}';
+let questions = [];
+
+async function loadQuestions() {
+    const resp = await fetch('/api/hitl/questions/' + projectId);
+    const data = await resp.json();
+    if (data.status !== 'ok') { return; }
+    questions = data.questions;
+
+    const container = document.getElementById('questions-container');
+    if (questions.length === 0) {
+        container.innerHTML = '<p class="muted" style="text-align:center;padding:40px;">Нет вопросов</p>';
+        return;
+    }
+
+    renderQuestions('all');
+    updateProgress();
+}
+
+function renderQuestions(filter) {
+    const container = document.getElementById('questions-container');
+    let filtered = questions;
+    if (filter === 'unanswered') {
+        filtered = questions.filter(q => !q.answered);
+    } else if (filter !== 'all') {
+        filtered = questions.filter(q => q.priority === filter);
+    }
+
+    container.innerHTML = filtered.map(q => `
+        <div class="card question-card priority-${q.priority} ${q.answered ? 'answered' : ''}"
+             data-priority="${q.priority}" data-id="${q.id}">
+            <div class="question-header">
+                <span class="priority-badge priority-badge-${q.priority}">${q.priority}</span>
+                <span style="font-size:12px;color:#64748b;">${q.qtype}</span>
+            </div>
+            <div class="question-text">${q.text}</div>
+            <div class="question-context">${q.context || ''}</div>
+            ${q.answered
+                ? '<div class="answered-text">✓ Отвечено: ' + q.answer + '</div>'
+                : '<div class="suggested-answers">'
+                    + (q.suggested_answers || []).map(a =>
+                        '<button class="suggest-btn" onclick="quickAnswer(\'' + q.id + '\', \'' + a.replace(/'/g, "\\'") + '\')">' + a + '</button>'
+                    ).join('')
+                + '</div>'
+                + '<div class="answer-form">'
+                + '<textarea id="answer-' + q.id + '" placeholder="Ваш ответ..."></textarea>'
+                + '<button class="btn btn-sm btn-primary" onclick="submitAnswer(\'' + q.id + '\')">✓</button>'
+                + '</div>'
+            }
+        </div>
+    `).join('');
+}
+
+function filterQuestions(filter) {
+    document.querySelectorAll('.hitl-filter-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    renderQuestions(filter);
+}
+
+function quickAnswer(qid, answer) {
+    document.getElementById('answer-' + qid).value = answer;
+    submitAnswer(qid);
+}
+
+async function submitAnswer(qid) {
+    const textarea = document.getElementById('answer-' + qid);
+    if (!textarea) return;
+    const answer = textarea.value.trim();
+    if (!answer) return;
+
+    const fd = new FormData();
+    fd.append('project_id', projectId);
+    fd.append('question_id', qid);
+    fd.append('answer', answer);
+
+    const resp = await fetch('/api/hitl/answer', { method: 'POST', body: fd });
+    if (resp.ok) {
+        const q = questions.find(q => q.id === qid);
+        if (q) { q.answered = true; q.answer = answer; }
+        renderQuestions(document.querySelector('.hitl-filter-btn.active').textContent.includes('Все') ? 'all' :
+            document.querySelector('.hitl-filter-btn.active').textContent.includes('Критические') ? 'critical' :
+            document.querySelector('.hitl-filter-btn.active').textContent.includes('Высокие') ? 'high' :
+            document.querySelector('.hitl-filter-btn.active').textContent.includes('Средние') ? 'medium' :
+            document.querySelector('.hitl-filter-btn.active').textContent.includes('Низкие') ? 'low' : 'unanswered');
+        updateProgress();
+    }
+}
+
+function updateProgress() {
+    const total = questions.length;
+    const answered = questions.filter(q => q.answered).length;
+    const pct = total > 0 ? Math.round(answered / total * 100) : 0;
+    document.getElementById('hitl-progress-bar').style.width = pct + '%';
+    document.getElementById('hitl-progress-text').textContent = answered + '/' + total + ' (' + pct + '%)';
+}
+
+loadQuestions();
+</script>
+{% endblock %}
