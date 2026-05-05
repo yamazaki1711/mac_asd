@@ -69,6 +69,11 @@ class DocType(str, Enum):
     CERTIFICATE = "certificate"
     PASSPORT = "passport"
     TTN = "ttn"
+    TORG12 = "torg12"              # Товарная накладная ТОРГ-12
+    M4 = "m4"                      # Приходный ордер М-4 (оприходование)
+    M11 = "m11"                    # Требование-накладная М-11 (в производство)
+    M15 = "m15"                    # Накладная М-15 (отпуск на сторону)
+    M29 = "m29"                    # Акт списания М-29
     KS2 = "ks2"
     KS3 = "ks3"
     KS6A = "ks6a"
@@ -141,6 +146,11 @@ class EdgeType(str, Enum):
     CONTAINS = "contains"               # Location → Location (иерархия)
     PART_OF = "part_of"                 # WorkUnit → WorkUnit (декомпозиция)
     ATTRIBUTED_TO = "attributed_to"     # DateEvent → Person
+    # ── Движение ТМЦ ─────────────────────────────────────────────────
+    SHIPPED_WITH = "shipped_with"       # MaterialBatch → Document (ТТН/ТОРГ-12)
+    RECEIVED_AT = "received_at"         # MaterialBatch → Location (склад/площадка)
+    ISSUED_BY = "issued_by"             # MaterialBatch → Document (М-11/М-15)
+    WRITTEN_OFF_BY = "written_off_by"   # MaterialBatch → Document (М-29)
 
 
 # =============================================================================
@@ -1046,6 +1056,217 @@ class EvidenceGraph:
         logger.info("Certificate added: %s → MaterialBatch %s (%s, партия %s)",
                      cert_id, mat_id, material_name, batch_number)
         return cert_id
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Движение ТМЦ (Material Flow)
+    # ═══════════════════════════════════════════════════════════════════
+
+    def add_shipment(
+        self,
+        material_batch_id: str,
+        doc_type: DocType,
+        doc_number: str = "",
+        doc_date: str = "",
+        quantity: float = 0.0,
+        unit: str = "",
+        supplier: str = "",
+    ) -> str:
+        """
+        Зафиксировать поставку материала по накладной (ТТН / ТОРГ-12).
+
+        Создаёт Document типа TTN/TORG12 и связывает с MaterialBatch
+        ребром SHIPPED_WITH.
+        """
+        if doc_type not in (DocType.TTN, DocType.TORG12):
+            raise ValueError(f"add_shipment expects TTN or TORG12, got {doc_type}")
+
+        doc_id = f"doc_{doc_type.value}_{doc_number or self._next_seq()}"
+        self.add_document(
+            node_id=doc_id,
+            doc_type=doc_type,
+            doc_number=doc_number,
+            doc_date=doc_date,
+            confidence=0.95,  # Первичный документ — высокая уверенность
+        )
+        self.graph.nodes[doc_id].update({
+            "quantity": quantity,
+            "unit": unit,
+            "supplier": supplier,
+        })
+
+        self.link(material_batch_id, doc_id, EdgeType.SHIPPED_WITH, confidence=0.95)
+
+        logger.info("Shipment recorded: %s → MaterialBatch %s (%s %s %s)",
+                     doc_number or doc_id, material_batch_id, quantity, unit, supplier)
+        return doc_id
+
+    def add_receipt(
+        self,
+        material_batch_id: str,
+        doc_number: str = "",
+        doc_date: str = "",
+        location_id: str = "",
+        quantity: float = 0.0,
+    ) -> str:
+        """
+        Зафиксировать оприходование материала на склад (М-4).
+
+        Создаёт Document типа M4, связывает с MaterialBatch ребром
+        REFERENCES, и с Location ребром RECEIVED_AT.
+        """
+        doc_id = f"doc_m4_{doc_number or self._next_seq()}"
+        self.add_document(
+            node_id=doc_id,
+            doc_type=DocType.M4,
+            doc_number=doc_number,
+            doc_date=doc_date,
+            confidence=0.95,
+        )
+        self.graph.nodes[doc_id]["quantity"] = quantity
+
+        self.link(material_batch_id, doc_id, EdgeType.REFERENCES)
+        if location_id:
+            self.link(material_batch_id, location_id, EdgeType.RECEIVED_AT, confidence=0.95)
+
+        logger.info("Receipt recorded: %s → MaterialBatch %s (%s ед.)",
+                     doc_number or doc_id, material_batch_id, quantity)
+        return doc_id
+
+    def add_issue(
+        self,
+        material_batch_id: str,
+        doc_type: DocType,
+        doc_number: str = "",
+        doc_date: str = "",
+        quantity: float = 0.0,
+        recipient: str = "",
+    ) -> str:
+        """
+        Зафиксировать выдачу материала: в производство (М-11) или на сторону (М-15).
+
+        Создаёт Document типа M11/M15 и связывает с MaterialBatch ребром ISSUED_BY.
+        """
+        if doc_type not in (DocType.M11, DocType.M15):
+            raise ValueError(f"add_issue expects M11 or M15, got {doc_type}")
+
+        doc_id = f"doc_{doc_type.value}_{doc_number or self._next_seq()}"
+        self.add_document(
+            node_id=doc_id,
+            doc_type=doc_type,
+            doc_number=doc_number,
+            doc_date=doc_date,
+            confidence=0.95,
+        )
+        self.graph.nodes[doc_id].update({
+            "quantity": quantity,
+            "recipient": recipient,
+        })
+
+        self.link(material_batch_id, doc_id, EdgeType.ISSUED_BY, confidence=0.95)
+
+        direction = "в производство" if doc_type == DocType.M11 else "на сторону"
+        logger.info("Issue recorded: %s → MaterialBatch %s (%s ед. %s → %s)",
+                     doc_number or doc_id, material_batch_id, quantity, direction, recipient)
+        return doc_id
+
+    def add_write_off(
+        self,
+        material_batch_id: str,
+        doc_number: str = "",
+        doc_date: str = "",
+        quantity: float = 0.0,
+        reason: str = "",
+    ) -> str:
+        """
+        Зафиксировать списание материала (М-29).
+
+        Создаёт Document типа M29 и связывает с MaterialBatch ребром WRITTEN_OFF_BY.
+        Списание закрывает цикл движения: материал больше не числится на балансе.
+        """
+        doc_id = f"doc_m29_{doc_number or self._next_seq()}"
+        self.add_document(
+            node_id=doc_id,
+            doc_type=DocType.M29,
+            doc_number=doc_number,
+            doc_date=doc_date,
+            confidence=0.90,
+        )
+        self.graph.nodes[doc_id].update({
+            "quantity": quantity,
+            "reason": reason,
+        })
+
+        self.link(material_batch_id, doc_id, EdgeType.WRITTEN_OFF_BY, confidence=0.90)
+
+        logger.info("Write-off recorded: %s → MaterialBatch %s (%s ед., %s)",
+                     doc_number or doc_id, material_batch_id, quantity, reason)
+        return doc_id
+
+    def get_material_chain(
+        self, material_batch_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Получить полную цепочку движения материала.
+
+        Returns:
+            {material_batch, shipment, receipt, issue, write_off, location, supplier}
+        """
+        chain: Dict[str, Any] = {"material_batch_id": material_batch_id}
+
+        if material_batch_id not in self.graph:
+            chain["status"] = "not_found"
+            return chain
+
+        node = self.graph.nodes[material_batch_id]
+        chain["material_name"] = node.get("material_name", "")
+        chain["batch_number"] = node.get("batch_number", "")
+        chain["status"] = "found"
+
+        for _, target, data in self.graph.edges(material_batch_id, data=True):
+            et = data.get("edge_type", "")
+            target_node = self.graph.nodes.get(target, {})
+
+            if et == EdgeType.SHIPPED_WITH:
+                chain["shipment"] = {
+                    "doc_id": target,
+                    "doc_type": target_node.get("doc_type", ""),
+                    "doc_number": target_node.get("doc_number", ""),
+                    "doc_date": target_node.get("doc_date", ""),
+                    "quantity": target_node.get("quantity"),
+                    "supplier": target_node.get("supplier", ""),
+                }
+            elif et == EdgeType.RECEIVED_AT:
+                chain["location"] = target_node.get("name", target)
+            elif et == EdgeType.ISSUED_BY:
+                chain["issue"] = {
+                    "doc_id": target,
+                    "doc_type": target_node.get("doc_type", ""),
+                    "doc_number": target_node.get("doc_number", ""),
+                    "doc_date": target_node.get("doc_date", ""),
+                    "quantity": target_node.get("quantity"),
+                    "recipient": target_node.get("recipient", ""),
+                }
+            elif et == EdgeType.WRITTEN_OFF_BY:
+                chain["write_off"] = {
+                    "doc_id": target,
+                    "doc_number": target_node.get("doc_number", ""),
+                    "doc_date": target_node.get("doc_date", ""),
+                    "quantity": target_node.get("quantity"),
+                    "reason": target_node.get("reason", ""),
+                }
+            elif et == EdgeType.SUPPLIED_BY:
+                chain["supplier"] = target_node.get("name", target)
+            elif et == EdgeType.REFERENCES:
+                doc_type = target_node.get("doc_type", "")
+                if doc_type == DocType.M4:
+                    chain["receipt"] = {
+                        "doc_id": target,
+                        "doc_number": target_node.get("doc_number", ""),
+                        "doc_date": target_node.get("doc_date", ""),
+                        "quantity": target_node.get("quantity"),
+                    }
+
+        return chain
 
     def summary(self) -> Dict[str, Any]:
         """Сводка по графу."""
