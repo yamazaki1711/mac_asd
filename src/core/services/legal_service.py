@@ -337,7 +337,7 @@ class LegalService:
         """
         try:
             from src.core.rag_service import rag_service
-            results = await rag_service.search_domain_traps(text, domain="legal", top_k=5, min_weight=40)
+            results = await rag_service.search_domain_traps(text, domain=None, top_k=5, min_weight=40)
             if not results:
                 return "Ловушки из БЛС не найдены для данного фрагмента."
 
