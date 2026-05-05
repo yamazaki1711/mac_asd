@@ -75,6 +75,7 @@ python -m mcp_servers.asd_core.server
 | Chain Builder | `src/core/chain_builder.py` | **Package 11**. Цепочки MaterialBatch→Cert→AOSR→KS-2, разрывы, confidence |
 | HITL System | `src/core/hitl_system.py` | **Package 11**. Вопросы оператору, приоритеты, обновление графа |
 | Journal Reconstructor v2 | `src/core/journal_reconstructor.py` | **Package 11**. 5 этапов, цветовая разметка, вывод JSON/таблица |
+| **Restoration Pipeline** | `scripts/run_restoration_pipeline.py` | **Package 12**. Сквозной конвейер: инвентаризация → граф → цепочки → HITL → ОЖР |
 | Completeness Matrix | `src/core/completeness_matrix.py` | Матрица комплектности ИД по 344/пр (13 позиций) + замечания |
 | **IDRequirementsRegistry** | `src/core/services/id_requirements.py` | SSOT состава ИД: 33 вида работ → обязательный шлейф документов по 344/пр |
 | **NormativeGuard** | `src/core/services/legal_service.py` | Валидация: все ГОСТ/СП/ФЗ из ответов LLM проверяются по library/normative/ |

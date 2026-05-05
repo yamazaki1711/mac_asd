@@ -93,7 +93,7 @@ class InferenceEngine:
             Список InferenceResult — что выведено
         """
         from src.core.evidence_graph import (
-            WorkUnitStatus, FactSource, DocType, DocStatus,
+            WorkUnitStatus, FactSource, DocType, EvidenceDocStatus as DocStatus,
             EventType, TimePrecision, EdgeType,
         )
 

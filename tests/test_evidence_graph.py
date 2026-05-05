@@ -33,6 +33,7 @@ from src.core.chain_builder import (
 def empty_graph():
     """Fresh empty graph for isolated tests."""
     g = EvidenceGraph()
+    g.clear()
     return g
 
 
@@ -40,6 +41,7 @@ def empty_graph():
 def populated_graph():
     """Graph with a realistic document chain: Material -> Certificate -> AOSR -> KS-2."""
     g = EvidenceGraph()
+    g.clear()
 
     # Certificate (must be created first so we can reference it)
     g.add_document(
@@ -250,6 +252,7 @@ class TestEvidenceGraphQueries:
     def test_get_orphan_documents(self):
         """Should find REFERENCED documents (mentioned but no file)."""
         g = EvidenceGraph()
+        g.clear()
         g.add_document(
             doc_type=DocType.CERTIFICATE, node_id="DOC_REF",
             status=EvidenceDocStatus.REFERENCED,
@@ -323,6 +326,7 @@ class TestChainBuilder:
     def test_empty_chain_no_materials(self, builder):
         """WorkUnit without any documents should be EMPTY."""
         g = EvidenceGraph()
+        g.clear()
         g.add_work_unit(
             work_type="бетонирование",
             status=WorkUnitStatus.IN_PROGRESS, confidence=0.5,
@@ -369,6 +373,7 @@ class TestChainReport:
     def test_report_with_empty_chain(self, builder):
         """Report should count empty chains."""
         g = EvidenceGraph()
+        g.clear()
         g.add_work_unit(
             work_type="бетонирование",
             status=WorkUnitStatus.IN_PROGRESS, confidence=0.5,
@@ -382,6 +387,7 @@ class TestChainReport:
     def test_gap_types(self, builder):
         """Broken chain should have CRITICAL gap."""
         g = EvidenceGraph()
+        g.clear()
         g.add_work_unit(
             work_type="бетонирование",
             status=WorkUnitStatus.PLANNED, confidence=0.8,

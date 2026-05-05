@@ -189,6 +189,7 @@ class TestJournalReconstructor:
     def test_reconstruct_empty_graph(self, reconstructor):
         """Empty graph should return an empty journal."""
         g = EvidenceGraph()
+        g.clear()
         journal = reconstructor.reconstruct(g, project_id="test")
         assert journal.total_entries == 0
         assert journal.project_id == "test"

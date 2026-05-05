@@ -270,37 +270,28 @@ class EvidenceGraph:
         """Путь к файлу графа."""
         gdir = settings.graphs_path
         gdir.mkdir(parents=True, exist_ok=True)
-        return gdir / "evidence_graph.pkl"
+        return gdir / "evidence_graph.gml"
 
     def _load_graph(self) -> None:
         """Загрузить граф с диска."""
         path = self._graph_path()
         if path.exists():
             try:
-                self.graph = nx.read_gpickle(str(path))
+                self.graph = nx.read_gml(str(path))
                 logger.info("Evidence graph loaded: %d nodes, %d edges",
                            self.graph.number_of_nodes(),
                            self.graph.number_of_edges())
             except Exception as e:
-                # Fallback: try GML
-                gml_path = path.with_suffix('.gml')
-                if gml_path.exists():
-                    try:
-                        self.graph = nx.read_gml(str(gml_path))
-                        logger.info("Evidence graph loaded from GML: %d nodes, %d edges",
-                                   self.graph.number_of_nodes(),
-                                   self.graph.number_of_edges())
-                    except Exception as e2:
-                        logger.warning("Failed to load graph: %s / %s — starting fresh", e, e2)
-                        self.graph = nx.DiGraph()
-                else:
-                    logger.warning("No saved graph found — starting fresh")
-                    self.graph = nx.DiGraph()
+                logger.warning("Failed to load graph: %s — starting fresh", e)
+                self.graph = nx.DiGraph()
+        else:
+            logger.info("No saved graph found — starting fresh")
+            self.graph = nx.DiGraph()
 
     def save(self) -> None:
         """Сохранить граф на диск (GML формат)."""
         import copy
-        path = self._graph_path().with_suffix('.gml')
+        path = self._graph_path()
         try:
             # GML не принимает None — заменяем на пустую строку
             clean = nx.DiGraph()

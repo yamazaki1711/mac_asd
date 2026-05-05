@@ -17,7 +17,9 @@ from src.core.evidence_graph import EvidenceGraph, WorkUnitStatus, DocType, Edge
 
 @pytest.fixture
 def g():
-    return EvidenceGraph()
+    eg = EvidenceGraph()
+    eg.clear()
+    return eg
 
 
 @pytest.fixture
@@ -146,14 +148,14 @@ class TestOrphanCertificates:
         )
         # add_material_batch creates edge MAT → CERT via REFERENCES
         orphans = g.check_orphan_certificates()
-        cert_orphan = [o for o in orphans if o["document_id"] == "CERT_LINKED"]
+        cert_orphan = [o for o in orphans if o.node_ids and o.node_ids[0] == "CERT_LINKED"]
         assert len(cert_orphan) == 0, "Linked certificate should NOT be orphan"
 
     def test_non_cert_documents_ignored(self, g):
         """AOSR documents should not be flagged as orphan certs."""
         g.add_document(doc_type=DocType.AOSR, node_id="AOSR_1")
         orphans = g.check_orphan_certificates()
-        aosr_orphans = [o for o in orphans if o["document_id"] == "AOSR_1"]
+        aosr_orphans = [o for o in orphans if o.node_ids and o.node_ids[0] == "AOSR_1"]
         assert len(aosr_orphans) == 0
 
 

@@ -186,7 +186,7 @@ class HITLSystem:
             Приоритизированный список вопросов
         """
         from src.core.evidence_graph import (
-            DocType, DocStatus, EdgeType, WorkUnitStatus
+            DocType, EvidenceDocStatus as DocStatus, EdgeType, WorkUnitStatus
         )
         from src.core.chain_builder import chain_builder, GapSeverity
         

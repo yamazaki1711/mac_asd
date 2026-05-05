@@ -109,6 +109,9 @@
 | **5** | **Evidence Graph v2 (7 узлов, Inference Engine, ProjectLoader)** | ✅ **Реализован** |
 | 6–10 | ПТО, Сметчик, Дело, Закупщик, Логист, Интеграция | 🔧 Частично |
 | **11** | **Journal Reconstructor v2, HITL System, Chain Builder** | ✅ **Реализован** |
+| **12** | **Restoration Pipeline (run_restoration_pipeline.py)** | ✅ **Реализован** |
+
+Сквозной конвейер восстановления ИД: Инвентаризация → Evidence Graph → ProjectLoader → Inference → Chain Builder → HITL → Journal Reconstructor. Запуск: `PYTHONPATH=. python scripts/run_restoration_pipeline.py --project-dir data/... --project-id PROJ --vlm`.
 
 ### Следующий этап — антикризисный режим
 
