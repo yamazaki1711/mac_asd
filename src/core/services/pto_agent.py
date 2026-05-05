@@ -882,11 +882,11 @@ class PTOAgent:
         """
         from src.core.knowledge.knowledge_base import knowledge_base
 
-        # Search both PTO and procurement domains (PTO часто пересекается)
+        # Search across PTO + legal + smeta (стройконтроль пересекается со всеми)
         results = knowledge_base.search(
-            query=query, domain="pto", top_k=top_k, min_weight=min_weight,
+            query=query, domain=None, top_k=top_k, min_weight=min_weight,
         )
-        logger.info("PTO ask_kb: '%s' → %d results", query[:60], len(results))
+        logger.info("PTO ask_kb: '%s' → %d results (cross-domain)", query[:60], len(results))
         return results
 
 

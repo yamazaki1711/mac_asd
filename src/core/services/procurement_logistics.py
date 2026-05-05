@@ -288,9 +288,9 @@ class ProcurementAgent:
         """Search knowledge base for procurement-relevant traps, suppliers, prices."""
         from src.core.knowledge.knowledge_base import knowledge_base
         results = knowledge_base.search(
-            query=query, domain="procurement", top_k=top_k, min_weight=min_weight,
+            query=query, domain=None, top_k=top_k, min_weight=min_weight,
         )
-        logger.info("Procurement ask_kb: '%s' → %d results", query[:60], len(results))
+        logger.info("Procurement ask_kb: '%s' → %d results (cross-domain)", query[:60], len(results))
         return results
 
 

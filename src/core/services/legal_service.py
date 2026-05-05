@@ -757,7 +757,11 @@ class LegalService:
         from src.core.knowledge.knowledge_base import knowledge_base
 
         results = knowledge_base.search(
-            query=query, domain="legal", top_k=top_k, min_weight=min_weight,
+            query=query, domain=None, top_k=top_k, min_weight=min_weight,
+        )
+        logger.info(
+            "Legal ask_kb: '%s' → %d results (cross-domain: legal+pto+procurement)",
+            query[:60], len(results),
         )
 
         logger.info("ask_kb: '%s' → %d results", query[:60], len(results))
