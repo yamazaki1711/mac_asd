@@ -1,0 +1,68 @@
+{
+  "total_processed": 12,
+  "doc_types_found": {
+    "aosr": 2,
+    "contract": 1,
+    "journal": 2,
+    "executive_scheme": 2,
+    "ks2": 2,
+    "claim": 1,
+    "upd": 2
+  },
+  "confidence_distribution": {
+    "high": 11,
+    "medium": 1,
+    "low": 0
+  },
+  "unknown_docs": [],
+  "stats": {
+    "total_files": 12,
+    "processed": 12,
+    "type_counts": {
+      "aosr": 2,
+      "contract": 1,
+      "journal": 2,
+      "executive_scheme": 2,
+      "ks2": 2,
+      "claim": 1,
+      "upd": 2
+    },
+    "total_errors": 0,
+    "completed_at": "2026-05-05T13:15:42.859440"
+  },
+  "vlm_stats": {
+    "vlm_classified": 11,
+    "scanned_detected": 0,
+    "embedded_references": [
+      {
+        "type": "executive_scheme",
+        "identifier": "Исполнительная схема демонтажа шпунтового ограждения № б.н. от 17.11.2025 (1 лист)",
+        "date": "17.11.2025",
+        "found_on_page": "2",
+        "found_in": "data/test_projects/LOS/АОСР_демонтаж_ЛОС.pdf"
+      },
+      {
+        "type": "executive_scheme",
+        "identifier": "Исполнительная схема демонтажа шуروطного ограждения №7н от 17.11.2025 г.",
+        "date": "17.11.2025",
+        "found_on_page": "2",
+        "found_in": "data/test_projects/LOS/АОСР_погружение_ЛОС.pdf"
+      },
+      {
+        "type": "certificate",
+        "identifier": "Сертификат качества №201514 от 21.11.2022 г.",
+        "date": "21.11.2022",
+        "found_on_page": "2",
+        "found_in": "data/test_projects/LOS/АОСР_погружение_ЛОС.pdf"
+      },
+      {
+        "type": "certificate",
+        "identifier": "Сертификат качества №21524 от 21.11.2022 г.",
+        "date": "21.11.2022",
+        "found_on_page": "2",
+        "found_in": "data/test_projects/LOS/АОСР_погружение_ЛОС.pdf"
+      }
+    ],
+    "embedded_reference_count": 4
+  }
+}

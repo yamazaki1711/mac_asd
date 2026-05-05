@@ -1,0 +1,14 @@
+{
+  "project_id": "",
+  "start_date": null,
+  "end_date": null,
+  "total_entries": 0,
+  "coverage": 0.0,
+  "stats": {
+    "confirmed": 0,
+    "high": 0,
+    "low": 0,
+    "inferred": 0
+  },
+  "entries": []
+}

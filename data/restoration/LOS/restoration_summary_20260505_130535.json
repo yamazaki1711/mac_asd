@@ -1,0 +1,32 @@
+{
+  "project_id": "LOS",
+  "timestamp": "2026-05-05T13:05:35.617489",
+  "elapsed_seconds": 0.016876,
+  "nodes": 0,
+  "edges": 0,
+  "chains": {
+    "total": 0,
+    "complete": 0,
+    "partial": 0,
+    "broken": 0,
+    "empty": 0
+  },
+  "journal": {
+    "entries": 0,
+    "coverage": 0.0,
+    "confirmed": 0,
+    "high": 0,
+    "low": 0,
+    "inferred": 0,
+    "period": "None – None"
+  },
+  "hitl_questions": 0,
+  "inferred_facts": 0,
+  "gaps": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "status": "NEEDS_ATTENTION"
+}
