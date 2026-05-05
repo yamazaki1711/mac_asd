@@ -77,11 +77,13 @@ def main():
     with open(index_path) as f:
         index = json.load(f)
 
-    # Filter: only document entries (skip aliases and other keys)
-    documents = []
-    for key, value in index.items():
-        if isinstance(value, dict) and "file" in value:
-            documents.append((key, value))
+    # Filter: documents are under 'documents' key
+    doc_dict = index.get("documents", {})
+    if not doc_dict:
+        # Fallback: try treating top-level entries as documents
+        doc_dict = {k: v for k, v in index.items() if isinstance(v, dict) and "file" in v}
+
+    documents = list(doc_dict.items())
 
     logger.info("Found %d normative documents", len(documents))
 
