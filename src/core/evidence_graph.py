@@ -74,6 +74,8 @@ class DocType(str, Enum):
     M11 = "m11"                    # Требование-накладная М-11 (в производство)
     M15 = "m15"                    # Накладная М-15 (отпуск на сторону)
     M29 = "m29"                    # Акт списания М-29
+    TOLLING_ACCEPT = "tolling_accept"  # Акт приёма-передачи давальческих материалов
+    TOLLING_REPORT = "tolling_report"  # Отчёт об использовании давальческих материалов
     KS2 = "ks2"
     KS3 = "ks3"
     KS6A = "ks6a"
@@ -151,6 +153,9 @@ class EdgeType(str, Enum):
     RECEIVED_AT = "received_at"         # MaterialBatch → Location (склад/площадка)
     ISSUED_BY = "issued_by"             # MaterialBatch → Document (М-11/М-15)
     WRITTEN_OFF_BY = "written_off_by"   # MaterialBatch → Document (М-29)
+    # ── Давальческая схема ────────────────────────────────────────────
+    OWNED_BY = "owned_by"               # MaterialBatch → Person (собственник)
+    TOLLING_ACCEPTED = "tolling_accepted"  # MaterialBatch → Document (акт приёма-передачи)
 
 
 # =============================================================================
@@ -422,10 +427,18 @@ class EvidenceGraph:
         delivery_date: Optional[date] = None,
         certificate_id: Optional[str] = None,
         ttn_id: Optional[str] = None,
+        is_tolling: bool = False,
+        customer_id: Optional[str] = None,
         confidence: float = 1.0,
         node_id: Optional[str] = None,
     ) -> str:
-        """Создать узел MaterialBatch."""
+        """
+        Создать узел MaterialBatch.
+
+        Args:
+            is_tolling: True если материал давальческий (собственность заказчика)
+            customer_id: ID узла Person — собственник давальческого материала
+        """
         nid = node_id or self._make_node_id("MB")
 
         self.graph.add_node(
@@ -440,6 +453,7 @@ class EvidenceGraph:
             delivery_date=self._norm_date(delivery_date),
             certificate_id=certificate_id,
             ttn_id=ttn_id,
+            is_tolling=is_tolling,
             confidence=confidence,
         )
 
@@ -447,6 +461,8 @@ class EvidenceGraph:
             self.link(nid, certificate_id, EdgeType.REFERENCES)
         if ttn_id and self.graph.has_node(ttn_id):
             self.link(nid, ttn_id, EdgeType.REFERENCES)
+        if is_tolling and customer_id:
+            self.link(nid, customer_id, EdgeType.OWNED_BY, confidence=1.0)
 
         self.save()
         return nid
@@ -1267,6 +1283,97 @@ class EvidenceGraph:
                     }
 
         return chain
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Давальческая схема (Tolling)
+    # ═══════════════════════════════════════════════════════════════════
+
+    def add_tolling_accept(
+        self,
+        material_batch_id: str,
+        customer_id: str,
+        doc_number: str = "",
+        doc_date: str = "",
+        quantity: float = 0.0,
+        unit: str = "",
+    ) -> str:
+        """
+        Зафиксировать приём давальческого материала от заказчика.
+
+        Создаёт Document TOLLING_ACCEPT, связывает OWNED_BY → customer,
+        TOLLING_ACCEPTED → Document.
+        Материал НЕ покупался — он передан заказчиком на ответхранение и переработку.
+        """
+        if material_batch_id not in self.graph:
+            raise ValueError(f"MaterialBatch {material_batch_id} not found")
+
+        # Пометить как давальческий
+        self.graph.nodes[material_batch_id]["is_tolling"] = True
+
+        doc_id = f"doc_tolling_accept_{doc_number or self._next_seq()}"
+        self.add_document(
+            node_id=doc_id,
+            doc_type=DocType.TOLLING_ACCEPT,
+            doc_number=doc_number,
+            doc_date=doc_date,
+            confidence=1.0,
+        )
+        self.graph.nodes[doc_id].update({
+            "quantity": quantity,
+            "unit": unit,
+            "customer_id": customer_id,
+        })
+
+        # Связи: владелец + акт приёма-передачи
+        if not any(t == customer_id for _, t, d in
+                   self.graph.edges(material_batch_id, data=True)
+                   if d.get("edge_type") == EdgeType.OWNED_BY):
+            self.link(material_batch_id, customer_id, EdgeType.OWNED_BY, confidence=1.0)
+        self.link(material_batch_id, doc_id, EdgeType.TOLLING_ACCEPTED, confidence=1.0)
+
+        logger.info("Tolling material accepted: %s from %s (%s %s)",
+                     material_batch_id, customer_id, quantity, unit)
+        return doc_id
+
+    def add_tolling_report(
+        self,
+        material_batch_id: str,
+        doc_number: str = "",
+        doc_date: str = "",
+        quantity_used: float = 0.0,
+        quantity_returned: float = 0.0,
+        quantity_waste: float = 0.0,
+    ) -> str:
+        """
+        Сформировать отчёт об использовании давальческих материалов.
+
+        Создаёт Document TOLLING_REPORT. Заказчик утверждает отчёт —
+        только после этого материал считается использованным.
+        quantity_used + quantity_returned + quantity_waste = исходное quantity.
+        """
+        if material_batch_id not in self.graph:
+            raise ValueError(f"MaterialBatch {material_batch_id} not found")
+
+        doc_id = f"doc_tolling_report_{doc_number or self._next_seq()}"
+        self.add_document(
+            node_id=doc_id,
+            doc_type=DocType.TOLLING_REPORT,
+            doc_number=doc_number,
+            doc_date=doc_date,
+            confidence=0.85,  # До утверждения заказчиком
+        )
+        self.graph.nodes[doc_id].update({
+            "quantity_used": quantity_used,
+            "quantity_returned": quantity_returned,
+            "quantity_waste": quantity_waste,
+            "approved_by_customer": False,
+        })
+
+        self.link(material_batch_id, doc_id, EdgeType.REFERENCES)
+
+        logger.info("Tolling report: %s → %s (used=%s, returned=%s, waste=%s)",
+                     material_batch_id, doc_id, quantity_used, quantity_returned, quantity_waste)
+        return doc_id
 
     def summary(self) -> Dict[str, Any]:
         """Сводка по графу."""
