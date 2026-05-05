@@ -27,6 +27,93 @@ logging.basicConfig(
 logger = logging.getLogger("ingest_blc")
 
 
+# ── ASD Relevance Filter (shared with telegram_kb_ingest.py) ─────────
+# Контент без этих сигналов не попадает в domain_traps
+ASD_STRONG_SIGNALS = [
+    # Нормативка
+    "свод правил", "сп 4", "сп 5", "сп 6", "сп 7", "сп 1",
+    "гост р", "гост 2", "гост 3", "гост 5", "гост р 5", "гост р 7",
+    "снип", "технический регламент", "приказ минстроя", "приказ ростехнадзора",
+    "344/пр", "468/пр", "1026/пр",
+    "постановление правительства", "пп рф", "распоряжение правительства",
+    "изменения в методику", "изменения в положение",
+    "утверждён", "утверждена", "вступает в силу",
+    # Исполнительная документация
+    "аоср", "аоок", "акт освидетельствования", "скрытые работы",
+    "исполнительная документация", "исполнительная схема", "игс",
+    "журнал работ", "ожр", "спецжурнал",
+    "кс-2", "кс-3", "кс-6а", "акт выполненных работ",
+    "справка о стоимости",
+    # Проектная документация / экспертиза
+    "проектная документация", "проектной документации",
+    "государственная экспертиза", "госэкспертиза",
+    "главгосэкспертиза", "заключение экспертизы",
+    # Стройконтроль / испытания
+    "стройконтроль", "технадзор", "лабораторный контроль",
+    "неразрушающий контроль", "узк", "ультразвуковой",
+    "протокол испытаний", "входной контроль",
+    "сертификат качества", "паспорт изделия",
+    # Технология строительства (stem-формы)
+    "армирование", "бетонирование", "опалубка", "сваи", "шпунт",
+    "котлован", "земляные работы",
+    "сварка", "сварной шов", "сварного шва", "сварные",
+    "монтаж", "монтажа", "демонтаж",
+    "кондуктор", "колонн", "сборных ж",
+    "бетон", "арматура", "щебень", "металлопрокат",
+    "фундамент", "кровля", "фасад",
+    # Контракты / тендеры / УФАС
+    "44-фз", "223-фз", "нмцк", "банковская гарантия",
+    "договор подряда", "субподряд", "генподряд",
+    "протокол разногласий", "досудебная претензия",
+    "уфас", "рнп", "реестр недобросовестных",
+    "госконтракт", "госзакуп",
+    "односторонний отказ", "расторжение контракта",
+    # Сметы
+    "фер", "тер", "гэсн", "сметный расчёт", "единичная расценка",
+    "ведомость объёмов", "сметная стоимость", "сметной стоимости",
+    "индексы минстроя", "мониторинг цен",
+    "приказ минстроя",  # дубль для разных контекстов
+    # BIM / ТИМ / цифровизация стройки
+    "bim", "тим", "цифровая модель", "среда общих данных",
+    "информационное моделирование",
+    "кпср", "xml", "гис егрз",
+    # Судебная практика (строительная)
+    "арбитражный суд", "кассация", "апелляция",
+    "неустойка", "проценты по 395", "убытки",
+    "определение вс", "постановление суда",
+]
+
+ASD_IRRELEVANT = [
+    "мишустин", "путин", "собянин", "губернатор",
+    "правительство рф", "госдума",
+    "рынок недвижимости", "цены на квартиры", "ипотека", "ипотечный",
+    "ключевая ставка", "курс валют", "инфляция",
+    "бпла", "беспилотник", "дрон", "сво", "мобилизация", "минобороны",
+    "банкротство застройщика", "элитный жк", "премиум жк",
+    "рейтинг застройщиков", "открытие жк",
+    "стартап", "венчурный", "нейросеть", "машинное обучение",
+    "мем", "прикол", "юмор",
+]
+
+
+def _is_asd_relevant(text: str) -> bool:
+    """Фильтр ASD-релевантности (трёхступенчатый)."""
+    text_lower = text.lower()
+
+    # Сильные сигналы — мгновенный пропуск
+    for sig in ASD_STRONG_SIGNALS:
+        if sig in text_lower:
+            return True
+
+    # IRRELEVANT — жёсткий отсев
+    for pat in ASD_IRRELEVANT:
+        if pat in text_lower:
+            return False
+
+    # Нет сигналов → не ASD-контент
+    return False
+
+
 # ── Mapping: YAML categories → ASD domains ──────────────────────────
 CATEGORY_DOMAIN_MAP = {
     "case_law": "legal",
@@ -102,6 +189,12 @@ def ingest_entries(
             stats["skipped_filter"] += 1
             continue
 
+        # ASD-релевантность: пропускаем только стройконтент
+        if not _is_asd_relevant(text):
+            stats["skipped_filter"] += 1
+            logger.debug("SKIP irrelevant: %s", text[:80])
+            continue
+
         title = text[:150].replace("\n", " ").strip()
         description = text
         source = "telegram"
@@ -171,11 +264,49 @@ def main():
     parser.add_argument("--stats", action="store_true", help="Show statistics only")
     parser.add_argument("--limit", type=int, default=0, help="Max entries to process")
     parser.add_argument("--domain", type=str, default=None, help="Filter by domain (legal|pto|smeta|procurement)")
+    parser.add_argument("--rebuild", action="store_true", help="TRUNCATE domain_traps and re-ingest with ASD filter")
+    parser.add_argument("--prune", action="store_true", help="Delete non-ASD entries from domain_traps (dry-run safe — use with --dry-run first)")
     args = parser.parse_args()
 
     if args.stats:
         show_stats()
         return
+
+    # ── Prune mode: удалить не-ASD записи из PostgreSQL ──────────────
+    if args.prune:
+        from src.core.knowledge.knowledge_base import knowledge_base, _lazy_db
+        _, _, DomainTrap = _lazy_db()
+        with knowledge_base._get_session() as db:
+            all_traps = db.query(DomainTrap).all()
+            deleted = 0
+            kept = 0
+            for trap in all_traps:
+                text = trap.description or ""
+                if not _is_asd_relevant(text):
+                    if not args.dry_run:
+                        db.delete(trap)
+                    logger.info("PRUNE: #%d [%s] %s", trap.id, trap.domain, trap.title[:100])
+                    deleted += 1
+                else:
+                    kept += 1
+            if not args.dry_run:
+                db.commit()
+        print(f"\n=== Prune Summary ===")
+        print(f"Kept:    {kept}")
+        print(f"Deleted: {deleted}")
+        return
+
+    # ── Rebuild: truncate + re-ingest ─────────────────────────────────
+    if args.rebuild:
+        from src.core.knowledge.knowledge_base import knowledge_base, _lazy_db
+        _, _, DomainTrap = _lazy_db()
+        with knowledge_base._get_session() as db:
+            count = db.query(DomainTrap).count()
+            logger.info("Truncating %d existing traps...", count)
+            if not args.dry_run:
+                db.query(DomainTrap).delete()
+                db.commit()
+            logger.info("Truncate complete")
 
     entries = load_yaml_kb()
     if not entries:
