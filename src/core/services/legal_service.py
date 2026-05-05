@@ -768,10 +768,14 @@ class LegalService:
         return results
 
     def enrich_prompt_with_kb(
-        self, prompt: str, query: str, max_chars: int = 2000
+        self, prompt: str, query: str, max_chars: int = 3000
     ) -> str:
         """
-        Enrich an LLM prompt with relevant knowledge base entries.
+        Enrich an LLM prompt with knowledge from all three ASD pillars:
+        ПРАВО (curated traps) + ПРАКТИКА (telegram cases) + НОРМАТИВКА (GOST/SP).
+
+        Presents results as a structured evidence chain so the agent can make
+        legally-grounded decisions, not opinions.
 
         Args:
             prompt: Original LLM prompt
@@ -779,29 +783,62 @@ class LegalService:
             max_chars: Max characters of KB context to inject
 
         Returns:
-            Prompt with injected KB context
+            Prompt with injected knowledge base context
         """
-        results = self.ask_kb(query, top_k=3, min_weight=30)
+        # Search all sources (domain=None = cross-domain)
+        results = self.ask_kb(query, top_k=9, min_weight=20)
         if not results:
             return prompt
 
-        kb_block = "\n\n[ЗНАНИЯ ИЗ БАЗЫ ДОМЕННЫХ ЛОВУШЕК]\n"
-        chars_used = 0
-        for i, r in enumerate(results[:3], 1):
-            entry = (
-                f"{i}. {r['title']}\n"
-                f"   {r['description'][:300]}\n"
-            )
-            if r.get("mitigation"):
-                entry += f"   Защита: {r['mitigation'][:200]}\n"
-            if r.get("court_cases"):
-                entry += f"   Дела: {', '.join(r['court_cases'][:3])}\n"
-            if chars_used + len(entry) > max_chars:
-                break
-            kb_block += entry
-            chars_used += len(entry)
+        # Group by source pillar
+        curated = [r for r in results if r.get("source") == "curated"]
+        telegram = [r for r in results if r.get("source") == "telegram"]
+        normative = [r for r in results if r.get("source") == "normative"]
 
-        # Inject after first sentence of prompt (before main content)
+        kb_block = "\n\n[БАЗА ЗНАНИЙ — ТРИ СТОЛПА ЭКСПЕРТИЗЫ]\n"
+        chars_used = 0
+
+        # ── ПРАВО: curated traps (highest priority) ────────────────────
+        if curated:
+            kb_block += "\n▸ ПРАВО (ловушки договоров подряда):\n"
+            for i, r in enumerate(curated[:3], 1):
+                entry = f"  {i}. {r['title']}\n"
+                entry += f"     Суть: {r['description'][:250]}\n"
+                if r.get("mitigation"):
+                    entry += f"     Защита: {r['mitigation'][:200]}\n"
+                if chars_used + len(entry) > max_chars // 3:
+                    break
+                kb_block += entry
+                chars_used += len(entry)
+
+        # ── ПРАКТИКА: telegram cases ──────────────────────────────────
+        if telegram:
+            kb_block += "\n▸ ПРАКТИКА (реальные кейсы из ТГ-каналов):\n"
+            for i, r in enumerate(telegram[:3], 1):
+                channel = r.get("channel", "")
+                source_tag = f" (@{channel})" if channel else ""
+                entry = f"  {i}. {r['title'][:120]}{source_tag}\n"
+                entry += f"     Контекст: {r['description'][:200]}\n"
+                if chars_used + len(entry) > 2 * max_chars // 3:
+                    break
+                kb_block += entry
+                chars_used += len(entry)
+
+        # ── НОРМАТИВКА: GOST/SP/regulations ──────────────────────────
+        if normative:
+            kb_block += "\n▸ НОРМАТИВКА (ГОСТ, СП, приказы):\n"
+            for i, r in enumerate(normative[:3], 1):
+                entry = f"  {i}. {r['title'][:120]}\n"
+                entry += f"     Область: {r['description'][:200]}\n"
+                if chars_used + len(entry) > max_chars:
+                    break
+                kb_block += entry
+                chars_used += len(entry)
+
+        kb_block += "\nПринимай решение, опираясь на эти три источника. "
+        kb_block += "Указывай основания: статьи закона + кейсы + нормативные ссылки.\n"
+
+        # Inject before main content
         parts = prompt.split("\n", 2)
         if len(parts) >= 2:
             return f"{parts[0]}\n{kb_block}\n{parts[1]}\n" + ("\n".join(parts[2:]) if len(parts) > 2 else "")
